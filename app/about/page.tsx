@@ -40,8 +40,10 @@ export default function AboutPage() {
     <div className="w-full max-w-4xl mx-auto py-6 px-4 animate-fade-in space-y-12">
       {/* Intro */}
       <div className="text-center space-y-3">
-        <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
-          How the career coach logic works
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
+          <span className="bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+            How the career coach logic works
+          </span>
         </h1>
         <p className="text-slate-500 max-w-2xl mx-auto text-base leading-relaxed">
           Behind the scenes of our AI mentor: parsing documents, mapping professional tensions, extracting chat signals, and proposing traceable career trajectories.
@@ -50,8 +52,10 @@ export default function AboutPage() {
 
       {/* Assumptions Section */}
       <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6">
-          <Shield className="w-5 h-5 text-indigo-600" />
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-indigo-600 to-blue-600 shadow-sm flex-shrink-0">
+            <Shield className="w-4 h-4 text-white" />
+          </span>
           <span>Core assumptions taken</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-600">
@@ -88,8 +92,10 @@ export default function AboutPage() {
 
       {/* Steps Section */}
       <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6">
-          <BookOpen className="w-5 h-5 text-indigo-600" />
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-violet-600 to-purple-600 shadow-sm flex-shrink-0">
+            <BookOpen className="w-4 h-4 text-white" />
+          </span>
           <span>Steps finalizing the approach</span>
         </h2>
         <div className="space-y-4">
@@ -106,8 +112,10 @@ export default function AboutPage() {
 
       {/* Workflow Section */}
       <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6">
-          <Compass className="w-5 h-5 text-indigo-600" />
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-fuchsia-600 to-pink-600 shadow-sm flex-shrink-0">
+            <Compass className="w-4 h-4 text-white" />
+          </span>
           <span>System state machine &amp; data flow</span>
         </h2>
         <p className="text-sm text-slate-600 mb-8 leading-relaxed">
@@ -115,9 +123,9 @@ export default function AboutPage() {
         </p>
 
         {/* Visual State flow chart */}
-        <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between max-w-2xl mx-auto bg-slate-50 p-6 rounded-2xl border border-slate-200">
-          <div className="flex flex-col items-center p-3.5 bg-white rounded-xl shadow-sm border border-slate-200 w-full md:w-36 text-center">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">Stage 1</span>
+        <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between max-w-2xl mx-auto bg-linear-to-r from-indigo-50/60 via-violet-50/40 to-emerald-50/40 p-6 rounded-2xl border border-slate-200">
+          <div className="flex flex-col items-center p-3.5 bg-linear-to-br from-indigo-50 to-white rounded-xl shadow-sm border border-indigo-200 w-full md:w-36 text-center">
+            <span className="text-[10px] font-semibold text-indigo-500 tracking-wide uppercase">Stage 1</span>
             <span className="text-xs font-bold text-slate-800 mt-1">UPLOAD</span>
             <span className="text-[10px] text-slate-500 mt-0.5">Resume PDF</span>
           </div>
@@ -126,8 +134,8 @@ export default function AboutPage() {
             <ArrowRight className="w-4 h-4 text-slate-300 rotate-90 md:rotate-0" />
           </div>
 
-          <div className="flex flex-col items-center p-3.5 bg-white rounded-xl shadow-sm border border-slate-200 w-full md:w-36 text-center">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">Stage 2</span>
+          <div className="flex flex-col items-center p-3.5 bg-linear-to-br from-violet-50 to-white rounded-xl shadow-sm border border-violet-200 w-full md:w-36 text-center">
+            <span className="text-[10px] font-semibold text-violet-500 tracking-wide uppercase">Stage 2</span>
             <span className="text-xs font-bold text-slate-800 mt-1">UNDERSTAND</span>
             <span className="text-[10px] text-slate-500 mt-0.5">Extract signals</span>
           </div>
@@ -136,8 +144,8 @@ export default function AboutPage() {
             <ArrowRight className="w-4 h-4 text-slate-300 rotate-90 md:rotate-0" />
           </div>
 
-          <div className="flex flex-col items-center p-3.5 bg-white rounded-xl shadow-sm border border-slate-200 w-full md:w-36 text-center">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">Stage 3</span>
+          <div className="flex flex-col items-center p-3.5 bg-linear-to-br from-fuchsia-50 to-white rounded-xl shadow-sm border border-fuchsia-200 w-full md:w-36 text-center">
+            <span className="text-[10px] font-semibold text-fuchsia-500 tracking-wide uppercase">Stage 3</span>
             <span className="text-xs font-bold text-slate-800 mt-1">RECOMMEND</span>
             <span className="text-[10px] text-slate-500 mt-0.5">Exactly 3 paths</span>
           </div>
@@ -146,8 +154,8 @@ export default function AboutPage() {
             <ArrowRight className="w-4 h-4 text-slate-300 rotate-90 md:rotate-0" />
           </div>
 
-          <div className="flex flex-col items-center p-3.5 bg-white rounded-xl shadow-sm border border-slate-200 w-full md:w-36 text-center">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">Stage 4</span>
+          <div className="flex flex-col items-center p-3.5 bg-linear-to-br from-emerald-50 to-white rounded-xl shadow-sm border border-emerald-200 w-full md:w-36 text-center">
+            <span className="text-[10px] font-semibold text-emerald-500 tracking-wide uppercase">Stage 4</span>
             <span className="text-xs font-bold text-slate-800 mt-1">CLOSED</span>
             <span className="text-[10px] text-slate-500 mt-0.5">Tailored wrap-up</span>
           </div>
@@ -158,7 +166,7 @@ export default function AboutPage() {
       <div className="text-center pt-4">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
         >
           <span>Return to career coach chat</span>
         </Link>

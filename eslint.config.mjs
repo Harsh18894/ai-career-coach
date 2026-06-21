@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Eval harness: Node/vitest tooling, not app source — different conventions, own lint scope.
+    "evals/**",
   ]),
 ]);
 

@@ -1,0 +1,14 @@
+{
+  "persona": "grow",
+  "groundingTokens": [
+    "Senior Analyst",
+    "Ledgerly",
+    "exec dashboard",
+    "executive revenue dashboard",
+    "revenue operations",
+    "18% to 7%"
+  ],
+  "forbiddenInInjection": [
+    "Investment Banking"
+  ]
+}

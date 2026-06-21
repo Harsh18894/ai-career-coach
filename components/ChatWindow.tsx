@@ -2,22 +2,57 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2 } from 'lucide-react';
-import { Profile, CareerPath } from '@/lib/ai/schemas';
+import { Profile, CareerPath, Roadmap } from '@/lib/ai/schemas';
+import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import PathDeck from './PathDeck';
-import RoadmapView from './RoadmapView';
+import RoadmapTitleCard from './RoadmapTitleCard';
+import RoadmapPanel from './RoadmapPanel';
 
-// Fixed, deterministic sequence for guided profile-building (no resume available).
-// One question per step, asked in order, used when initialProfile is null.
-const PROFILE_BUILD_QUESTIONS: string[] = [
-  "First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?",
-  "How many years of experience do you have in that area? Zero is totally fine.",
-  "What skills, tools, or things are you already comfortable with today?",
-  "Which industry or field excites you most right now — or are you already in?",
-  "Last one — what country or region are you based in?",
-];
+// Readiness gating for the UNDERSTANDING phase: ask at least this many questions before
+// recommending, recommend regardless after the cap so the conversation can't stall forever,
+// and bail into the witty decline if the candidate has given nothing usable for this many turns.
+const MIN_UNDERSTANDING_TURNS = 2;
+const MAX_UNDERSTANDING_TURNS = 5;
+const NO_USABLE_INFO_DECLINE_STREAK = 3;
+
+// Total step count stays fixed at 5 for a predictable, bounded intake. Only the opening question
+// (nothing is known yet) and the closing region question (never redundant, always needed for
+// resolveMarket) are static — the 3 middle questions are turn-by-turn adaptive (see
+// handleProfileBuildAnswer), generated live from everything answered so far via
+// nextGuidedProfileQuestion, so they never re-ask something already said.
+const PROFILE_BUILD_TOTAL_STEPS = 5;
+const PROFILE_BUILD_INTRO_QUESTION =
+  "First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?";
+const PROFILE_BUILD_REGION_QUESTION = "Last one — what country or region are you based in?";
+
+// Shared request/response handling for the `/api/coach` endpoint — every action follows the
+// same fetch -> parse JSON -> throw on non-ok shape; this was previously duplicated at every
+// call site. Split into two pieces (rather than one do-it-all function) so a caller that needs
+// to fire the request early and parse the result later (see handleSelectPath's roadmap fetch,
+// run concurrently with the closing-message stream) can still reuse the parsing half.
+function coachRequestInit(body: Record<string, unknown>): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+async function parseCoachResponse<T>(response: Response, fallbackErrorMessage: string): Promise<T> {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || fallbackErrorMessage);
+  }
+  return data as T;
+}
+
+async function postCoach<T>(body: Record<string, unknown>, fallbackErrorMessage: string): Promise<T> {
+  const response = await fetch('/api/coach', coachRequestInit(body));
+  return parseCoachResponse<T>(response, fallbackErrorMessage);
+}
 
 interface ChatWindowProps {
   initialProfile: Profile | null;
@@ -66,10 +101,11 @@ export default function ChatWindow({
         {
           id: 'no-resume-q0',
           role: 'assistant',
-          content: PROFILE_BUILD_QUESTIONS[0],
+          content: PROFILE_BUILD_INTRO_QUESTION,
           createdAt: new Date().toISOString(),
         },
       ],
+      profileBuildQuestions: [PROFILE_BUILD_INTRO_QUESTION],
     };
   });
 
@@ -82,15 +118,45 @@ export default function ChatWindow({
   const [showRejectReasonInput, setShowRejectReasonInput] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  // For roadmap adjustment feedback
+  const [showRoadmapFeedbackInput, setShowRoadmapFeedbackInput] = useState(false);
+  const [roadmapFeedback, setRoadmapFeedback] = useState('');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastScrollAtRef = useRef(0);
+  const pendingScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    lastScrollAtRef.current = Date.now();
   };
 
+  // Throttled to at most once per 200ms — this effect's deps change on every streamed token
+  // (each chunk produces a new `messages` array), and calling `scrollIntoView({behavior:'smooth'})`
+  // on every single one fights its own in-progress animation for no visible benefit. A trailing
+  // call is always scheduled, so the view still ends up following the latest content exactly
+  // as before — it just updates at a capped rate during a fast stream instead of every token.
   useEffect(() => {
-    scrollToBottom();
+    const SCROLL_THROTTLE_MS = 200;
+    const elapsed = Date.now() - lastScrollAtRef.current;
+
+    if (pendingScrollTimeoutRef.current) {
+      clearTimeout(pendingScrollTimeoutRef.current);
+      pendingScrollTimeoutRef.current = null;
+    }
+
+    if (elapsed >= SCROLL_THROTTLE_MS) {
+      scrollToBottom();
+    } else {
+      pendingScrollTimeoutRef.current = setTimeout(scrollToBottom, SCROLL_THROTTLE_MS - elapsed);
+    }
+
+    return () => {
+      if (pendingScrollTimeoutRef.current) {
+        clearTimeout(pendingScrollTimeoutRef.current);
+      }
+    };
   }, [state.messages, isThinking, state.currentPaths, showRejectReasonInput, state.roadmap, isRoadmapLoading]);
 
   // Load from localStorage if present on mount
@@ -108,12 +174,39 @@ export default function ChatWindow({
     }
   }, []);
 
-  // Save to localStorage on state changes
+  // Save to localStorage on state changes — debounced. `state` changes on every individual
+  // streamed token (each chunk produces a new `messages` array), and a synchronous
+  // JSON.stringify + localStorage.setItem of the whole conversation on every single token is
+  // wasted main-thread work. Debouncing collapses a burst of updates into one write after a
+  // short quiet period; a visibility/unload flush keeps the last few tokens from being lost if
+  // the tab closes mid-burst.
+  const latestStateRef = useRef(state);
+  latestStateRef.current = state;
+
   useEffect(() => {
-    if (state.profile) {
+    if (!state.profile) return;
+    const timeoutId = setTimeout(() => {
       localStorage.setItem('career_coach_session', JSON.stringify(state));
-    }
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [state]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (latestStateRef.current.profile) {
+        localStorage.setItem('career_coach_session', JSON.stringify(latestStateRef.current));
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const handleProfileBuildAnswer = async (textToSend: string) => {
     const userMessage: ChatMessage = {
@@ -125,21 +218,58 @@ export default function ChatWindow({
 
     const updatedMessages = [...state.messages, userMessage];
     const updatedAnswers = [...state.profileBuildAnswers, textToSend.trim()];
+    const questionsAskedSoFar = state.profileBuildQuestions;
     const nextStep = state.profileBuildStep + 1;
     setInputValue('');
 
-    // Still more questions to ask — just move to the next one, no API call needed.
-    if (nextStep < PROFILE_BUILD_QUESTIONS.length) {
+    // Middle 3 steps are turn-by-turn adaptive — ask the model for the next question given
+    // everything answered so far, instead of indexing into a fixed script.
+    if (nextStep >= 1 && nextStep <= 3) {
+      setApiError(null);
+      setIsThinking(true);
+      setState((prev) => ({
+        ...prev,
+        profileBuildAnswers: updatedAnswers,
+        messages: updatedMessages,
+      }));
+
+      try {
+        const qaPairs = questionsAskedSoFar.map((question, i) => ({ question, answer: updatedAnswers[i] }));
+        const response = await fetch('/api/coach', coachRequestInit({ action: 'next-profile-question', answers: qaPairs }));
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Failed to generate the next question.');
+        }
+
+        const questionText = await streamIntoNewMessage(updatedMessages, response);
+
+        setState((prev) => ({
+          ...prev,
+          profileBuildStep: nextStep,
+          profileBuildQuestions: [...prev.profileBuildQuestions, questionText],
+        }));
+      } catch (err: any) {
+        console.error('Next profile question error:', err);
+        setApiError(err.message || 'Something went wrong while building your profile.');
+      } finally {
+        setIsThinking(false);
+      }
+      return;
+    }
+
+    // Closing region question is always static — never redundant, always needed, no API call.
+    if (nextStep === PROFILE_BUILD_TOTAL_STEPS - 1) {
       const nextQuestionMessage: ChatMessage = {
         id: Math.random().toString(),
         role: 'assistant',
-        content: PROFILE_BUILD_QUESTIONS[nextStep],
+        content: PROFILE_BUILD_REGION_QUESTION,
         createdAt: new Date().toISOString(),
       };
       setState((prev) => ({
         ...prev,
         profileBuildStep: nextStep,
         profileBuildAnswers: updatedAnswers,
+        profileBuildQuestions: [...prev.profileBuildQuestions, PROFILE_BUILD_REGION_QUESTION],
         messages: [...updatedMessages, nextQuestionMessage],
       }));
       return;
@@ -155,22 +285,16 @@ export default function ChatWindow({
     }));
 
     try {
-      const buildResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const buildData = await postCoach<{ profile: Profile }>(
+        {
           action: 'build-profile',
-          answers: PROFILE_BUILD_QUESTIONS.map((question, i) => ({
+          answers: questionsAskedSoFar.map((question, i) => ({
             question,
             answer: updatedAnswers[i],
           })),
-        }),
-      });
-
-      const buildData = await buildResponse.json();
-      if (!buildResponse.ok) {
-        throw new Error(buildData.error || 'Failed to build your profile.');
-      }
+        },
+        'Failed to build your profile.'
+      );
 
       const builtProfile: Profile = buildData.profile;
       const nextSignals: UserSignals = {
@@ -183,14 +307,7 @@ export default function ChatWindow({
         content: "Perfect — that gives me a real picture of where you're starting from. A few quick questions, then I'll map out some paths for you.",
         createdAt: new Date().toISOString(),
       };
-      const coachMessageId = Math.random().toString();
-      const initialCoachMessage: ChatMessage = {
-        id: coachMessageId,
-        role: 'assistant',
-        content: '',
-        createdAt: new Date().toISOString(),
-      };
-      const messagesWithTransition = [...updatedMessages, transitionMessage, initialCoachMessage];
+      const messagesWithTransition = [...updatedMessages, transitionMessage];
 
       setState((prev) => ({
         ...prev,
@@ -201,42 +318,174 @@ export default function ChatWindow({
         messages: messagesWithTransition,
       }));
 
-      const chatResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chat',
-          messages: [...updatedMessages, transitionMessage],
-          profile: builtProfile,
-          signals: nextSignals,
-        }),
-      });
-
-      if (!chatResponse.ok) {
-        const errData = await chatResponse.json();
-        throw new Error(errData.error || 'Streaming error.');
-      }
-
-      const reader = chatResponse.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulatedContent += decoder.decode(value);
-          setState((prev) => ({
-            ...prev,
-            messages: prev.messages.map((m) =>
-              m.id === coachMessageId ? { ...m, content: accumulatedContent } : m
-            ),
-          }));
-        }
-      }
+      await streamCoachTurn(messagesWithTransition, { kind: 'understanding' }, nextSignals, builtProfile);
     } catch (err: any) {
       console.error('Profile build error:', err);
       setApiError(err.message || 'Something went wrong while building your profile.');
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  // Streams one `chat` turn from the coach and appends it as a single growing assistant message.
+  // Always sends an explicit `turn` so the server knows which stage-specific instruction to use
+  // (it defaults to 'understanding' if omitted, which silently misroutes closing/roadmap turns).
+  // Drains a streamed text Response into a single new assistant message, appended to
+  // `messagesForTurn` and grown token-by-token in state. Returns the final accumulated text —
+  // some callers (the guided-intake question flow) need the full text afterward, e.g. to track
+  // it as part of `profileBuildQuestions`.
+  const streamIntoNewMessage = async (
+    messagesForTurn: ChatMessage[],
+    response: Response
+  ): Promise<string> => {
+    const messageId = Math.random().toString();
+    const initialMessage: ChatMessage = {
+      id: messageId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString(),
+    };
+
+    setState((prev) => ({
+      ...prev,
+      messages: [...messagesForTurn, initialMessage],
+    }));
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedContent = '';
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulatedContent += decoder.decode(value);
+        setState((prev) => ({
+          ...prev,
+          messages: prev.messages.map((m) =>
+            m.id === messageId ? { ...m, content: accumulatedContent } : m
+          ),
+        }));
+      }
+    }
+
+    return accumulatedContent;
+  };
+
+  const streamCoachTurn = async (
+    messagesForTurn: ChatMessage[],
+    turn: CoachTurn,
+    signalsForTurn: UserSignals,
+    // Defaults to the current state.profile — pass explicitly when calling right after a
+    // setState that updated the profile, since that update hasn't landed in this closure yet.
+    profileForTurn: Profile | null = state.profile
+  ) => {
+    const chatResponse = await fetch('/api/coach', coachRequestInit({
+      action: 'chat',
+      messages: messagesForTurn,
+      profile: profileForTurn,
+      signals: signalsForTurn,
+      turn,
+    }));
+
+    if (!chatResponse.ok) {
+      const errData = await chatResponse.json();
+      throw new Error(errData.error || 'Streaming error.');
+    }
+
+    await streamIntoNewMessage(messagesForTurn, chatResponse);
+  };
+
+  // Calls the `recommend` action and handles every shape it can return: a real deck, `notReady`
+  // (the server's readiness gate disagrees even though the client thought it was time), or
+  // `needsCountry` (the resume spans multiple countries and the market isn't confirmed yet).
+  // Centralized so every caller (initial recommend, regenerate) gets the same non-crashing handling.
+  const runRecommendFlow = async (
+    messagesSoFar: ChatMessage[],
+    signalsForRecommend: UserSignals,
+    options?: { changeRequests?: string }
+  ) => {
+    const recommendData = await postCoach<{
+      needsCountry?: boolean;
+      detectedCountries?: string[];
+      notReady?: boolean;
+      paths?: CareerPath[];
+    }>(
+      {
+        action: 'recommend',
+        profile: state.profile,
+        signals: signalsForRecommend,
+        shownPaths: state.shownPaths,
+        rejectedDirections: signalsForRecommend.rejectedDirections,
+        changeRequests: options?.changeRequests,
+      },
+      'Failed to generate recommendations.'
+    );
+
+    if (recommendData.needsCountry) {
+      setState((prev) => ({ ...prev, stage: 'ASK_COUNTRY', messages: messagesSoFar }));
+      await streamCoachTurn(
+        messagesSoFar,
+        { kind: 'ask_country', detectedCountries: recommendData.detectedCountries ?? [] },
+        signalsForRecommend
+      );
+      return;
+    }
+
+    if (recommendData.notReady) {
+      setState((prev) => ({ ...prev, stage: 'UNDERSTANDING', messages: messagesSoFar }));
+      await streamCoachTurn(messagesSoFar, { kind: 'understanding' }, signalsForRecommend);
+      return;
+    }
+
+    // Reached only once needsCountry/notReady have been ruled out above — route.ts's contract
+    // guarantees `paths` is present in every other case.
+    const newPaths: CareerPath[] = recommendData.paths!;
+    const newPathTitles = newPaths.map((p) => p.title);
+    const coachRecMessage: ChatMessage = {
+      id: Math.random().toString(),
+      role: 'assistant',
+      content: "Here are **3 customized career directions** built from your background and priorities. Review them below. Tell me which one makes sense to explore, or let's pivot if they're off.",
+      createdAt: new Date().toISOString(),
+    };
+
+    setState((prev) => ({
+      ...prev,
+      stage: 'RECOMMENDING',
+      signals: signalsForRecommend,
+      currentPaths: newPaths,
+      selectedPathIndex: null,
+      shownPaths: Array.from(new Set([...prev.shownPaths, ...newPathTitles])),
+      deckCount: prev.deckCount + 1,
+      changeRequests: null,
+      messages: [...messagesSoFar, coachRecMessage],
+    }));
+  };
+
+  // The candidate has declined 2 full decks and just answered "what would you change" —
+  // this raw text IS the changeRequests payload, not something to run through analyzeSignals.
+  const handleAskPreferencesAnswer = async (textToSend: string) => {
+    setApiError(null);
+    const userMessage: ChatMessage = {
+      id: Math.random().toString(),
+      role: 'user',
+      content: textToSend,
+      createdAt: new Date().toISOString(),
+    };
+    const updatedMessages = [...state.messages, userMessage];
+    setInputValue('');
+    setIsThinking(true);
+    setState((prev) => ({
+      ...prev,
+      changeRequests: textToSend,
+      messages: updatedMessages,
+    }));
+
+    try {
+      await runRecommendFlow(updatedMessages, state.signals, { changeRequests: textToSend });
+    } catch (err: any) {
+      console.error('Preferences-driven recommend error:', err);
+      setApiError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsThinking(false);
     }
@@ -247,6 +496,11 @@ export default function ChatWindow({
 
     if (state.stage === 'PROFILE_BUILDING') {
       await handleProfileBuildAnswer(textToSend);
+      return;
+    }
+
+    if (state.stage === 'ASK_PREFERENCES') {
+      await handleAskPreferencesAnswer(textToSend);
       return;
     }
 
@@ -282,17 +536,47 @@ export default function ChatWindow({
       const analyzeData = await analyzeResponse.json();
       const nextSignals = analyzeData.signals || state.signals;
 
-      setState((prev) => ({
-        ...prev,
-        signals: nextSignals,
-      }));
+      // The candidate just answered "which country?" — re-attempt recommend with the
+      // (possibly now-populated) country; runRecommendFlow re-checks needsCountry server-side
+      // and either proceeds or re-asks, so there's no separate "still ambiguous" branch needed here.
+      if (state.stage === 'ASK_COUNTRY') {
+        setState((prev) => ({ ...prev, signals: nextSignals, messages: updatedMessages }));
+        await runRecommendFlow(updatedMessages, nextSignals);
+        setIsThinking(false);
+        return;
+      }
 
       // Count user messages sent since entering the UNDERSTANDING phase
       // (not the raw message array length, since guided profile-building turns precede it)
       const understandingMessageCount = state.understandingMessageCount + 1;
+      const noUsefulInfoStreak = nextSignals.hasUsableInfo === false ? state.noUsefulInfoStreak + 1 : 0;
 
-      // 2. Decide if we trigger recommendations (on the 3rd user message in UNDERSTANDING phase)
-      if (state.stage === 'UNDERSTANDING' && understandingMessageCount === 3) {
+      setState((prev) => ({
+        ...prev,
+        signals: nextSignals,
+        noUsefulInfoStreak,
+      }));
+
+      const shouldDecline = state.stage === 'UNDERSTANDING' && noUsefulInfoStreak >= NO_USABLE_INFO_DECLINE_STREAK;
+      const shouldRecommend =
+        state.stage === 'UNDERSTANDING' &&
+        !shouldDecline &&
+        ((understandingMessageCount >= MIN_UNDERSTANDING_TURNS && nextSignals.readyForRecommendation) ||
+          understandingMessageCount >= MAX_UNDERSTANDING_TURNS);
+
+      // 2. The candidate has stonewalled every question — stop probing and decline honestly instead
+      // of fabricating a recommendation from nothing.
+      if (shouldDecline) {
+        setState((prev) => ({
+          ...prev,
+          stage: 'CLOSED',
+          understandingMessageCount,
+          messages: updatedMessages,
+        }));
+
+        await streamCoachTurn(updatedMessages, { kind: 'insufficient_info' }, nextSignals);
+        setIsThinking(false);
+      } else if (shouldRecommend) {
         // Transition assistant message
         const transitionMessage: ChatMessage = {
           id: Math.random().toString(),
@@ -300,101 +584,26 @@ export default function ChatWindow({
           content: "Got it. Let me compile three career paths tailored specifically to what we've discussed...",
           createdAt: new Date().toISOString(),
         };
+        const messagesWithTransition = [...updatedMessages, transitionMessage];
 
         setState((prev) => ({
           ...prev,
-          messages: [...updatedMessages, transitionMessage],
-        }));
-
-        // Fetch career paths
-        const recommendResponse = await fetch('/api/coach', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'recommend',
-            profile: state.profile,
-            signals: nextSignals,
-            shownPaths: state.shownPaths,
-            rejectedDirections: nextSignals.rejectedDirections,
-          }),
-        });
-
-        const recommendData = await recommendResponse.json();
-        if (!recommendResponse.ok) {
-          throw new Error(recommendData.error || 'Failed to generate recommendations.');
-        }
-
-        const newPaths: CareerPath[] = recommendData.paths;
-        const newPathTitles = newPaths.map((p) => p.title);
-
-        const coachRecMessage: ChatMessage = {
-          id: Math.random().toString(),
-          role: 'assistant',
-          content: "Here are **3 customized career directions** built from your background and priorities. Review them below. Tell me which one makes sense to explore, or let's pivot if they're off.",
-          createdAt: new Date().toISOString(),
-        };
-
-        setState((prev) => ({
-          ...prev,
-          stage: 'RECOMMENDING',
           understandingMessageCount,
-          currentPaths: newPaths,
-          shownPaths: Array.from(new Set([...prev.shownPaths, ...newPathTitles])),
-          deckCount: prev.deckCount + 1,
-          messages: [...updatedMessages, transitionMessage, coachRecMessage],
+          messages: messagesWithTransition,
         }));
 
+        await runRecommendFlow(messagesWithTransition, nextSignals);
         setIsThinking(false);
       } else {
-        // Continue chat stream
-        const coachMessageId = Math.random().toString();
-        const initialCoachMessage: ChatMessage = {
-          id: coachMessageId,
-          role: 'assistant',
-          content: '',
-          createdAt: new Date().toISOString(),
-        };
+        // Continue chat stream — a roadmap follow-up gets its own non-onboarding instruction.
+        setState((prev) => ({ ...prev, understandingMessageCount }));
 
-        setState((prev) => ({
-          ...prev,
-          understandingMessageCount,
-          messages: [...updatedMessages, initialCoachMessage],
-        }));
+        const turn: CoachTurn =
+          state.stage === 'ROADMAP' && state.chosenPath && state.roadmap
+            ? { kind: 'roadmap_followup', chosenPath: state.chosenPath, roadmap: state.roadmap }
+            : { kind: 'understanding' };
 
-        const chatResponse = await fetch('/api/coach', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'chat',
-            messages: updatedMessages,
-            profile: state.profile,
-            signals: nextSignals,
-          }),
-        });
-
-        if (!chatResponse.ok) {
-          const errData = await chatResponse.json();
-          throw new Error(errData.error || 'Streaming error.');
-        }
-
-        const reader = chatResponse.body?.getReader();
-        const decoder = new TextDecoder();
-        let accumulatedContent = '';
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            accumulatedContent += decoder.decode(value);
-            setState((prev) => ({
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === coachMessageId ? { ...m, content: accumulatedContent } : m
-              ),
-            }));
-          }
-        }
-
+        await streamCoachTurn(updatedMessages, turn, nextSignals);
         setIsThinking(false);
       }
     } catch (err: any) {
@@ -437,57 +646,45 @@ export default function ChatWindow({
       currentPaths: null, // Clear current paths while loading
     }));
 
+    const nextMessages = [...state.messages, userDeclineMessage];
+
     try {
-      // Analyze the decline signals in background
-      await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'analyze',
-          messages: [...state.messages, userDeclineMessage],
-          signals: updatedSignals,
-        }),
-      });
-
-      // Get new paths
-      const recommendResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'recommend',
-          profile: state.profile,
-          signals: updatedSignals,
-          shownPaths: state.shownPaths,
-          rejectedDirections: updatedSignals.rejectedDirections,
-        }),
-      });
-
-      const recommendData = await recommendResponse.json();
-      if (!recommendResponse.ok) {
-        throw new Error(recommendData.error || 'Failed to regenerate recommendations.');
-      }
-
-      const newPaths: CareerPath[] = recommendData.paths;
-      const newPathTitles = newPaths.map((p) => p.title);
-
-      const coachRecMessage: ChatMessage = {
-        id: Math.random().toString(),
-        role: 'assistant',
-        content: `Got it. Avoiding those directions. Here is a **new set of 3 career paths** (Deck ${state.deckCount + 1}/3) tailored to this fresh feedback. Let's see if one of these hits closer:`,
-        createdAt: new Date().toISOString(),
-      };
-
-      setState((prev) => ({
-        ...prev,
-        stage: 'REGENERATING',
-        currentPaths: newPaths,
-        shownPaths: Array.from(new Set([...prev.shownPaths, ...newPathTitles])),
-        deckCount: prev.deckCount + 1,
-        messages: [...prev.messages, coachRecMessage],
-      }));
+      await runRecommendFlow(nextMessages, updatedSignals);
     } catch (err: any) {
       console.error('Regenerate error:', err);
       setApiError(err.message || 'Failed to regenerate paths.');
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  // The candidate has now declined 2 full decks — per the deck-aware ladder, stop reshuffling
+  // blindly and have the coach ask conversationally what they'd change before a tailored 3rd deck.
+  const handleAskPreferences = async () => {
+    setApiError(null);
+    setIsThinking(true);
+
+    const declineMessage: ChatMessage = {
+      id: Math.random().toString(),
+      role: 'user',
+      content: "No, show me something else.",
+      createdAt: new Date().toISOString(),
+    };
+    const nextMessages = [...state.messages, declineMessage];
+
+    setState((prev) => ({
+      ...prev,
+      stage: 'ASK_PREFERENCES',
+      currentPaths: null,
+      selectedPathIndex: null,
+      messages: nextMessages,
+    }));
+
+    try {
+      await streamCoachTurn(nextMessages, { kind: 'ask_preferences' }, state.signals);
+    } catch (err: any) {
+      console.error('Ask-preferences stream error:', err);
+      setApiError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsThinking(false);
     }
@@ -508,78 +705,42 @@ export default function ChatWindow({
 
     setState((prev) => ({
       ...prev,
-      stage: 'CLOSED',
+      stage: 'ROADMAP',
       chosenPath: path,
       currentPaths: null, // Clear deck after selection
+      selectedPathIndex: null,
       messages: nextMessages,
     }));
 
     try {
-      const coachMessageId = Math.random().toString();
-      const initialCoachMessage: ChatMessage = {
-        id: coachMessageId,
-        role: 'assistant',
-        content: '',
-        createdAt: new Date().toISOString(),
-      };
-
-      setState((prev) => ({
-        ...prev,
-        messages: [...nextMessages, initialCoachMessage],
+      // Fire the roadmap generation request now — it only needs profile/chosenPath/signals,
+      // all already known, so it doesn't actually depend on the closing-message stream below.
+      // Awaiting it only after the stream (instead of starting it after) lets the two run
+      // concurrently: the user-visible loading sequence is unchanged (typing indicator, then
+      // the roadmap-loading card), but real wall-clock time is closer to max(stream, roadmap-gen)
+      // instead of their sum.
+      const roadmapPromise = fetch('/api/coach', coachRequestInit({
+        action: 'roadmap',
+        profile: state.profile,
+        chosenPath: path,
+        signals: state.signals,
       }));
 
-      const chatResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chat',
-          messages: nextMessages,
-          profile: state.profile,
-          signals: state.signals,
-          chosenPath: path,
-        }),
-      });
-
-      const reader = chatResponse.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulatedContent += decoder.decode(value);
-          setState((prev) => ({
-            ...prev,
-            messages: prev.messages.map((m) =>
-              m.id === coachMessageId ? { ...m, content: accumulatedContent } : m
-            ),
-          }));
-        }
-      }
+      await streamCoachTurn(nextMessages, { kind: 'path_locked', chosenPath: path }, state.signals);
 
       setIsThinking(false);
       setIsRoadmapLoading(true);
 
-      const roadmapResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'roadmap',
-          profile: state.profile,
-          chosenPath: path,
-          signals: state.signals,
-        }),
-      });
-
-      const roadmapData = await roadmapResponse.json();
-      if (!roadmapResponse.ok) {
-        throw new Error(roadmapData.error || 'Failed to generate roadmap.');
-      }
+      const roadmapData = await parseCoachResponse<{ roadmap: Roadmap }>(
+        await roadmapPromise,
+        'Failed to generate roadmap.'
+      );
 
       setState((prev) => ({
         ...prev,
         roadmap: roadmapData.roadmap,
+        roadmapVersion: prev.roadmapVersion + 1,
+        roadmapPanelOpen: false,
       }));
     } catch (err: any) {
       console.error('Close path stream error:', err);
@@ -588,6 +749,55 @@ export default function ChatWindow({
       setIsThinking(false);
       setIsRoadmapLoading(false);
     }
+  };
+
+  const handleUpdateRoadmap = async () => {
+    if (!roadmapFeedback.trim() || !state.chosenPath) return;
+    setApiError(null);
+
+    const feedbackMessage: ChatMessage = {
+      id: Math.random().toString(),
+      role: 'user',
+      content: `Adjust the roadmap: ${roadmapFeedback.trim()}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    const submittedFeedback = roadmapFeedback.trim();
+    setRoadmapFeedback('');
+    setShowRoadmapFeedbackInput(false);
+    setIsRoadmapLoading(true);
+    setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, feedbackMessage],
+    }));
+
+    try {
+      const roadmapData = await postCoach<{ roadmap: Roadmap }>(
+        {
+          action: 'roadmap',
+          profile: state.profile,
+          chosenPath: state.chosenPath,
+          signals: state.signals,
+          feedback: submittedFeedback,
+        },
+        'Failed to update roadmap.'
+      );
+
+      setState((prev) => ({
+        ...prev,
+        roadmap: roadmapData.roadmap,
+        roadmapVersion: prev.roadmapVersion + 1,
+      }));
+    } catch (err: unknown) {
+      console.error('Roadmap update error:', err);
+      setApiError(err instanceof Error ? err.message : 'Failed to update the roadmap.');
+    } finally {
+      setIsRoadmapLoading(false);
+    }
+  };
+
+  const handleEndSession = () => {
+    setState((prev) => ({ ...prev, stage: 'CLOSED' }));
   };
 
   const handleRejectAll = async () => {
@@ -608,52 +818,12 @@ export default function ChatWindow({
       stage: 'CLOSED',
       chosenPath: null,
       currentPaths: null,
+      selectedPathIndex: null,
       messages: nextMessages,
     }));
 
     try {
-      const coachMessageId = Math.random().toString();
-      const initialCoachMessage: ChatMessage = {
-        id: coachMessageId,
-        role: 'assistant',
-        content: '',
-        createdAt: new Date().toISOString(),
-      };
-
-      setState((prev) => ({
-        ...prev,
-        messages: [...nextMessages, initialCoachMessage],
-      }));
-
-      const chatResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chat',
-          messages: nextMessages,
-          profile: state.profile,
-          signals: state.signals,
-          rejectedAll: true,
-        }),
-      });
-
-      const reader = chatResponse.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulatedContent += decoder.decode(value);
-          setState((prev) => ({
-            ...prev,
-            messages: prev.messages.map((m) =>
-              m.id === coachMessageId ? { ...m, content: accumulatedContent } : m
-            ),
-          }));
-        }
-      }
+      await streamCoachTurn(nextMessages, { kind: 'rejected_all_final' }, state.signals);
     } catch (err: any) {
       console.error('Decline session stream error:', err);
       setApiError(err.message || 'Failed to finalize session.');
@@ -677,14 +847,14 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full bg-white animate-fade-in">
       {/* Header Info Banner */}
-      <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+      <div className="px-6 py-3.5 bg-linear-to-r from-indigo-50/60 via-slate-50 to-violet-50/40 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 bg-emerald-500 rounded-full" aria-hidden="true" />
           <span className="text-xs font-semibold text-slate-600">
             Coach session: {state.profile?.name || 'Active candidate'}
           </span>
           {state.signals.intentGuess !== 'unknown' && (
-            <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+            <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">
               {state.signals.intentGuess.replace('_', ' ')}
             </span>
           )}
@@ -699,6 +869,10 @@ export default function ChatWindow({
         </button>
       </div>
 
+      {/* Body: chat column, plus a roadmap side panel once a roadmap exists */}
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+
       {/* Messages Feed Area */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="max-w-4xl mx-auto w-full space-y-4">
@@ -711,25 +885,41 @@ export default function ChatWindow({
           <PathDeck
             paths={state.currentPaths}
             deckCount={state.deckCount}
+            selectedIndex={state.selectedPathIndex}
+            onSelectIndex={(index) => setState((prev) => ({ ...prev, selectedPathIndex: index }))}
             onSelectPath={handleSelectPath}
-            onRegenerate={() => setShowRejectReasonInput(true)}
+            onRegenerate={() => {
+              if (state.deckCount >= 2) {
+                handleAskPreferences();
+              } else {
+                setShowRejectReasonInput(true);
+              }
+            }}
             onRejectAll={handleRejectAll}
             isLoading={isThinking}
           />
         )}
 
-        {/* Roadmap for the chosen path */}
-        {isRoadmapLoading && (
+        {/* First-time roadmap generation loading state (lives in chat — there's no panel yet) */}
+        {isRoadmapLoading && !state.roadmap && (
           <div role="status" className="flex items-center gap-3 my-8 p-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <Loader2 className="w-5 h-5 text-indigo-600 animate-spin flex-shrink-0" />
             <p className="text-sm font-medium text-slate-600">Building your execution roadmap…</p>
           </div>
         )}
-        {state.roadmap && <RoadmapView roadmap={state.roadmap} />}
+
+        {/* Compact, clickable summary — the full roadmap lives in the side panel, never as a chat bubble */}
+        {state.roadmap && (
+          <RoadmapTitleCard
+            title={state.chosenPath?.title ?? 'Your execution roadmap'}
+            totalDuration={state.roadmap.totalDuration}
+            onOpen={() => setState((prev) => ({ ...prev, roadmapPanelOpen: true }))}
+          />
+        )}
 
         {/* Overlay prompt for rejection feedback */}
         {showRejectReasonInput && (
-          <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-200 my-6 space-y-3 animate-fade-in max-w-xl mx-auto">
+          <div className="p-5 rounded-2xl bg-linear-to-br from-indigo-50/70 to-violet-50/50 border border-indigo-200 my-6 space-y-3 animate-fade-in max-w-xl mx-auto">
             <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-600" />
               <span>What should we adjust for the next deck?</span>
@@ -762,7 +952,7 @@ export default function ChatWindow({
               <button
                 type="button"
                 onClick={handleRegenerate}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150"
+                className="px-4 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150"
               >
                 Generate next 3 paths
               </button>
@@ -788,7 +978,7 @@ export default function ChatWindow({
       </div>
 
       {/* Input box bottom panel */}
-      <div className="p-4 bg-slate-50 border-t border-slate-200 flex-shrink-0">
+      <div className="p-4 bg-linear-to-r from-indigo-50/40 via-slate-50 to-violet-50/30 border-t border-slate-200 flex-shrink-0">
         {state.stage === 'CLOSED' ? (
           <div className="text-center py-4 space-y-3">
             <p className="text-slate-600 text-sm font-medium">
@@ -797,42 +987,78 @@ export default function ChatWindow({
             <button
               type="button"
               onClick={handleResetSession}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150"
+              className="px-6 py-2.5 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150"
             >
               Start a new coaching session
             </button>
           </div>
         ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend(inputValue);
-            }}
-            className="flex items-end gap-3 max-w-4xl mx-auto"
-          >
-            <div className="flex-1 relative">
-              <label htmlFor="chat-input" className="sr-only">Your message</label>
-              <textarea
-                id="chat-input"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your response here..."
-                disabled={isThinking || state.currentPaths !== null}
-                rows={1}
-                className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-slate-100"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || isThinking || state.currentPaths !== null}
-              aria-label="Send message"
-              className="p-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 shadow-sm hover:shadow-md"
+          <div className="max-w-4xl mx-auto space-y-2">
+            {state.stage === 'ROADMAP' && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleEndSession}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors duration-150"
+                >
+                  I&rsquo;m all set — end session
+                </button>
+              </div>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend(inputValue);
+              }}
+              className="flex items-end gap-3"
             >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
+              <div className="flex-1 relative">
+                <label htmlFor="chat-input" className="sr-only">Your message</label>
+                <textarea
+                  id="chat-input"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={state.stage === 'ROADMAP' ? 'Comment on your roadmap, or anything else...' : 'Type your response here...'}
+                  disabled={isThinking || isRoadmapLoading || state.currentPaths !== null}
+                  rows={1}
+                  className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-slate-100"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isThinking || isRoadmapLoading || state.currentPaths !== null}
+                aria-label="Send message"
+                className="p-3.5 bg-linear-to-r from-indigo-600 to-violet-600 text-white rounded-xl hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 shadow-sm hover:shadow-md"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </form>
+          </div>
         )}
+      </div>
+
+      </div>
+
+      {state.roadmap && (
+        <RoadmapPanel
+          roadmap={state.roadmap}
+          roadmapVersion={state.roadmapVersion}
+          open={state.roadmapPanelOpen}
+          onClose={() => setState((prev) => ({ ...prev, roadmapPanelOpen: false }))}
+          isUpdating={isRoadmapLoading}
+          showFeedbackInput={showRoadmapFeedbackInput}
+          feedbackValue={roadmapFeedback}
+          onFeedbackValueChange={setRoadmapFeedback}
+          onOpenFeedbackInput={() => setShowRoadmapFeedbackInput(true)}
+          onCancelFeedback={() => {
+            setShowRoadmapFeedbackInput(false);
+            setRoadmapFeedback('');
+          }}
+          onSubmitFeedback={handleUpdateRoadmap}
+        />
+      )}
+
       </div>
     </div>
   );

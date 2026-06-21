@@ -1,0 +1,49 @@
+{
+  "name": "Daniel Osei",
+  "yearsExperience": 5,
+  "currentRole": "Senior Analyst, Revenue Operations",
+  "currentLevel": "senior_IC",
+  "roleHistory": [
+    {
+      "title": "Senior Analyst, Revenue Operations",
+      "company": "Ledgerly",
+      "durationMonths": 60
+    },
+    {
+      "title": "Revenue Operations Analyst",
+      "company": "Ledgerly",
+      "durationMonths": 22
+    }
+  ],
+  "skills": [
+    "SQL",
+    "Salesforce",
+    "NetSuite",
+    "Tableau",
+    "forecasting",
+    "commission design",
+    "stakeholder management",
+    "financial modeling",
+    "data hygiene"
+  ],
+  "domains": [
+    "fintech",
+    "B2B payments",
+    "SaaS"
+  ],
+  "region": "Toronto, Canada",
+  "notableTransitions": [
+    "Promoted/transitioned to Senior Analyst, Revenue Operations with team-lead scope",
+    "Expanded responsibilities to lead a three-person workstream and own executive revenue dashboard",
+    "Redesigned quarterly forecasting model reducing forecast variance from 18% to 7%",
+    "Built first version of the SQL-based commission calculation engine, replacing manual spreadsheets",
+    "Mentored two junior analysts on SQL and dashboarding standards (informal leadership)"
+  ],
+  "tensions": [
+    "Title-vs-impact gap: lead responsibilities without formal management title",
+    "Ambiguity in progression timeline due to overlapping role dates",
+    "Management recognition vs IC career path; potential plateau in current title",
+    "Limited formal credentials or external certifications cited"
+  ],
+  "inferredPersona": "grow"
+}

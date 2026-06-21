@@ -1,0 +1,38 @@
+Priya Nair
+Austin, TX | priya.nair@email.com | github.com/priyanair
+
+SUMMARY
+Recent Computer Science graduate with two internships spanning data engineering and frontend
+development. Currently job hunting for a first full-time software role.
+
+EDUCATION
+B.S. in Computer Science, University of Texas at Austin — May 2024
+Relevant coursework: Data Structures & Algorithms, Databases, Web Development, Machine
+Learning Fundamentals
+GPA: 3.7 / 4.0
+
+EXPERIENCE
+
+Data Engineering Intern
+Quill Analytics (B2B data tooling startup) — Remote
+May 2023 – August 2023
+- Built and maintained three Airflow DAGs that ingest partner CSV feeds into a Snowflake
+  warehouse, processing roughly 2 million rows per day.
+- Wrote dbt models to clean and deduplicate customer event data for the analytics team.
+- Fixed a pipeline bug that had been silently dropping ~4% of records for two weeks.
+
+Frontend Engineering Intern
+Marblewood Health (digital health startup) — Austin, TX
+May 2022 – August 2022
+- Implemented two patient-facing features in React/TypeScript for the appointment booking
+  flow, shipped to production and used by roughly 8,000 monthly active patients.
+- Wrote unit tests with Jest, raising test coverage for the booking module from 40% to 68%.
+- Paired with a senior engineer to refactor a legacy class-component page into hooks.
+
+PROJECTS
+Campus Tutor Marketplace (capstone project, team of 4)
+- Built the backend in Node.js/Express with PostgreSQL; I owned the booking and payments API.
+- Deployed on Render; project is still live with about 50 active student users on campus.
+
+SKILLS
+Python, TypeScript, JavaScript, React, Node.js, SQL, PostgreSQL, Airflow, dbt, Git, Jest

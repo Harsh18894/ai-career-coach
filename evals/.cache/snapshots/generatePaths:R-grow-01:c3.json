@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Revenue Operations Manager (internal promotion at Ledgerly)",
+    "fitRationale": "You already carry lead responsibilities at Ledgerly: you were promoted to Senior Analyst with team-lead scope, ran a three-person workstream, mentored two junior analysts, and cut forecast variance from 18% to 7%. Because you said you want more ownership and to manage people, formalizing that into a manager role inside Ledgerly is the most direct next step.",
+    "salaryRange": "CAD 110,000 - 140,000",
+    "upskills": [
+      "Run regular 1:1s and performance reviews (take a short people-management course or internal mentorship to learn calibration and feedback cadence).",
+      "Ownership of hiring and headcount planning (build a 6–12 month hiring plan for your workstream).",
+      "Operationalize commission governance and escalation (translate your SQL commission engine into a documented, auditable process)."
+    ],
+    "firstMove": "This month: create a one-page 'manager proposal' summarizing outcomes (forecast variance drop, commission engine, exec dashboard) and ask your manager for a 30-minute meeting to request a formal manager title/headcount and outline the role you'd take.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already lead a three-person workstream and have informal mentoring experience—formal management is a credible next step if you convert that informal scope into documented team outcomes."
+    }
+  },
+  {
+    "title": "Principal Revenue Operations — Systems & Analytics Lead (senior IC at Ledgerly)",
+    "fitRationale": "You built Ledgerly’s first SQL-based commission calculation engine, own the executive revenue dashboard, and redesigned the forecasting model (variance 18% → 7%). If you prefer to keep shipping technical systems and own platform-level reliability rather than people management, this role matches your demonstrated technical impact and desire for more ownership.",
+    "salaryRange": "CAD 120,000 - 160,000",
+    "upskills": [
+      "Productionize the SQL commission engine: add tests, CI, rollback plans and documentation for handoffs.",
+      "Advance dashboard governance: create dashboard SLAs, data lineage docs (NetSuite → Salesforce → Tableau).",
+      "Deepen data-platform collaboration: own API integrations and coordinate with engineering/BI on scale and latency."
+    ],
+    "firstMove": "This month: perform a two-week audit of the commission engine and executive dashboard, produce a short roadmap with risks and SLOs, and present it to the RevOps director as a proposal to formalize a systems-lead IC role.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already shipped the commission engine and executive dashboard; pushing those artifacts to production-grade is a natural, supported step rather than a stretch."
+    }
+  },
+  {
+    "title": "Sales Finance / Revenue Finance Manager (internal rotation to GTM FP&A at Ledgerly)",
+    "fitRationale": "You have strong adjacent finance skills used day-to-day at Ledgerly—forecasting, NetSuite, commission design and financial modeling—plus stakeholder management in a fintech/SaaS GTM context. An internal move to sales finance leverages your domain and gives the manager-level ownership you want while keeping you at the company.",
+    "salaryRange": "CAD 100,000 - 140,000",
+    "upskills": [
+      "Close the loop on month-end finance processes (shadow FP&A and own a month-close deliverable).",
+      "Tighten financial-storytelling for execs (build clear P&L narratives tied to forecast variances).",
+      "Formalize accounting/ERP knowledge (deeper NetSuite admin skills or a short finance certificate)."
+    ],
+    "firstMove": "This month: schedule a shadow day with the FP&A lead, bring a cleaned version of your forecast and ask to own one forecasting cadence item for the next close to demonstrate fit.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already run forecasting and use NetSuite and commission design—those are the core skills FP&A needs, so an internal rotation to sales finance is realistic with a few tactical proofs of capability."
+    }
+  }
+]

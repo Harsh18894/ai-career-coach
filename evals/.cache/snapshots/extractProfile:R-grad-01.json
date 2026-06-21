@@ -1,0 +1,49 @@
+{
+  "name": "Priya Nair",
+  "yearsExperience": 0.7,
+  "currentRole": "Data Engineering Intern",
+  "currentLevel": "IC",
+  "roleHistory": [
+    {
+      "title": "Frontend Engineering Intern",
+      "company": "Marblewood Health",
+      "durationMonths": 4
+    },
+    {
+      "title": "Data Engineering Intern",
+      "company": "Quill Analytics",
+      "durationMonths": 4
+    }
+  ],
+  "skills": [
+    "Python",
+    "TypeScript",
+    "JavaScript",
+    "React",
+    "Node.js",
+    "SQL",
+    "PostgreSQL",
+    "Airflow",
+    "dbt",
+    "Git",
+    "Jest"
+  ],
+  "domains": [
+    "data analytics",
+    "healthtech",
+    "startups"
+  ],
+  "region": "Austin, TX",
+  "notableTransitions": [
+    "Transitioned from a focused frontend internship to a data engineering internship, expanding to ETL, data warehousing, and analytics tooling.",
+    "Graduated with a CS degree and pursued internships in both frontend and data engineering to explore software career paths.",
+    "Moved toward securing a first full-time software role after academia, signaling intent to build a long-term IC career."
+  ],
+  "tensions": [
+    "Limited professional experience (internships only) versus expectations for impact at scale in a full-time role.",
+    "Title-vs-impact gap: internship-level responsibilities with measurable outcomes, but limited scope for broader ownership.",
+    "Breadth across frontend and data engineering may create ambiguity about a defined specialization.",
+    "Credential gap (no full-time role yet) and no advanced certifications beyond a BS in CS."
+  ],
+  "inferredPersona": "early_career"
+}

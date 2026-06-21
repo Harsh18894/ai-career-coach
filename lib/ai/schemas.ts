@@ -15,19 +15,32 @@ export const ProfileSchema = z.object({
   skills: z.array(z.string()),
   domains: z.array(z.string()),
   region: z.string().nullish(),
+  // NEW (demography / market — see change #4):
+  // Single best-guess country for the candidate (from locations, addresses, phone code, education).
+  // Null if it cannot be determined or the resume is ambiguous across countries.
+  country: z.string().nullish(),
+  // Distinct countries that appear ANYWHERE in the resume (role locations, education, address).
+  // Used to detect ambiguity: if more than one, the coach must ask which market to target.
+  countriesDetected: z.array(z.string()),
   notableTransitions: z.array(z.string()),
   tensions: z.array(z.string()),
-  inferredPersona: z.enum(['pivot', 'grow_in_place', 'early_career', 'unknown']),
+  inferredPersona: z.enum(['pivot', 'grow', 'early_career', 'unknown']),
 });
 
 export type Profile = z.infer<typeof ProfileSchema>;
 
+export const AmbitionCheckSchema = z.object({
+  verdict: z.enum(['aligned', 'too_high', 'too_low']), // honest calibration of the candidate's stated ambition against their actual profile
+  note: z.string(), // specific, evidence-cited explanation. If 'too_high': must name the extra-than-average effort required (extended timeline and/or additional job-switch steps). If 'too_low': must name the evidence that justifies aiming higher.
+});
+
 export const CareerPathSchema = z.object({
   title: z.string(),
   fitRationale: z.string(), // MUST cite a profile fact or a user statement
-  salaryRange: z.string(),  // indicative, region-aware, labeled
+  salaryRange: z.string(),  // indicative, region-aware, labeled (local currency for the resolved market)
   upskills: z.array(z.string()), // 2-4 concrete skills to acquire
   firstMove: z.string().nullish(),
+  ambitionCheck: AmbitionCheckSchema, // realism calibration vs. the candidate's stated/implied ambition
 });
 
 export const PathDeckSchema = z.object({
@@ -35,22 +48,30 @@ export const PathDeckSchema = z.object({
 });
 
 
+export type AmbitionCheck = z.infer<typeof AmbitionCheckSchema>;
 export type CareerPath = z.infer<typeof CareerPathSchema>;
 
+export const RoadmapWeekSchema = z.object({
+  week: z.number(), // sequential week number across the WHOLE roadmap (continues incrementing across phases, starts at 1)
+  focus: z.string(), // one-line theme for this specific week, specific to the candidate/path
+  items: z.array(z.string()).min(2).max(5), // concrete action items to complete that week
+});
+
 export const RoadmapPhaseSchema = z.object({
-  type: z.enum(['course', 'project', 'application']),
-  title: z.string(), // e.g. "Foundational + advanced courses", "Portfolio project", "Apply to target roles"
-  timeline: z.string(), // realistic relative timeframe, e.g. "Weeks 1-6" or "Month 2-3"
-  items: z.array(z.string()), // concrete, profile/domain-relevant action items for this phase
+  type: z.enum(['course', 'project', 'practice', 'application']), // practice always sits after course/project prep and before application
+  title: z.string(), // e.g. "Foundational + advanced courses", "Portfolio project", "Mock interviews & case practice", "Apply to target roles"
   description: z.string().nullish(), // why this phase matters for this candidate specifically
+  weeks: z.array(RoadmapWeekSchema).min(1), // contiguous week-by-week breakdown for this phase
 });
 
 export const RoadmapSchema = z.object({
   skillLevel: z.enum(['beginner', 'basic', 'good', 'experienced']), // candidate's readiness for the CHOSEN PATH specifically, not their overall seniority
   summary: z.string(), // 1-2 sentences explaining the classification, citing a profile fact
-  totalDuration: z.string(), // overall realistic timeframe, e.g. "3-5 months"
+  totalWeeks: z.number(), // total number of weeks across all phases (sum, not max week number)
+  totalDuration: z.string(), // human label derived from totalWeeks, e.g. "16 weeks (~4 months)"
   phases: z.array(RoadmapPhaseSchema).min(1),
 });
 
+export type RoadmapWeek = z.infer<typeof RoadmapWeekSchema>;
 export type RoadmapPhase = z.infer<typeof RoadmapPhaseSchema>;
 export type Roadmap = z.infer<typeof RoadmapSchema>;

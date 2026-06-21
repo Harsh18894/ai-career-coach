@@ -1,0 +1,12 @@
+{
+  "persona": "early_career",
+  "groundingTokens": [
+    "Quill Analytics",
+    "Marblewood Health",
+    "Data Engineering Intern",
+    "Frontend Engineering Intern",
+    "Campus Tutor Marketplace",
+    "2 million rows"
+  ],
+  "forbiddenInInjection": []
+}

@@ -119,8 +119,11 @@ export default function ResumeUpload({
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div className="text-center mb-10">
-        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight leading-[1.1]">
-          Find your next career move
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1]">
+          <span className="text-slate-900">Find your </span>
+          <span className="bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+            next career move
+          </span>
         </h1>
         <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
           Upload your resume, have a brief conversation with a sharp career mentor, and unlock 3 personalized paths forward.
@@ -130,7 +133,7 @@ export default function ResumeUpload({
       <div
         className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200 ${
           dragActive
-            ? 'border-indigo-400 bg-indigo-50/60'
+            ? 'border-violet-400 bg-linear-to-br from-indigo-50/60 to-violet-50/60'
             : 'border-slate-200 bg-slate-50'
         } ${isLoading ? 'pointer-events-none opacity-80' : ''}`}
         onDragEnter={handleDrag}
@@ -161,7 +164,7 @@ export default function ResumeUpload({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-6">
-            <div className="p-3.5 rounded-full bg-indigo-50 text-indigo-600 mb-4 transition-transform duration-150 hover:scale-105">
+            <div className="p-3.5 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 text-white shadow-sm mb-4 transition-transform duration-150 hover:scale-105">
               <Upload className="w-7 h-7" />
             </div>
 
@@ -175,7 +178,7 @@ export default function ResumeUpload({
             <button
               type="button"
               onClick={onButtonClick}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-all duration-150"
+              className="px-6 py-2.5 bg-linear-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-semibold shadow-sm hover:from-indigo-700 hover:to-violet-700 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-all duration-150"
             >
               Select file
             </button>
@@ -226,7 +229,7 @@ export default function ResumeUpload({
             <button
               type="submit"
               disabled={manualText.length < 150}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:pointer-events-none rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 whitespace-nowrap"
+              className="px-5 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white disabled:opacity-50 disabled:pointer-events-none rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 whitespace-nowrap"
             >
               Analyze text profile
             </button>
