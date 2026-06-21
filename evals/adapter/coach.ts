@@ -64,6 +64,7 @@ export type RoadmapPhase = {
 export type Roadmap = {
   skillLevel: 'beginner' | 'basic' | 'good' | 'experienced';
   summary: string;
+  weeklyHoursCommitment: string;
   totalWeeks: number;
   totalDuration: string;
   phases: RoadmapPhase[];
@@ -140,6 +141,7 @@ const mockCoach: CoachAdapter = {
     return {
       skillLevel: 'beginner',
       summary: `Mock roadmap for ${chosenPath.title}.`,
+      weeklyHoursCommitment: '8-10 hours/week',
       totalWeeks: 4,
       totalDuration: '4 weeks',
       phases: [

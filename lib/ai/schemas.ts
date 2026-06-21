@@ -65,6 +65,7 @@ export const RoadmapPhaseSchema = z.object({
 export const RoadmapSchema = z.object({
   skillLevel: z.enum(['beginner', 'basic', 'good', 'experienced']), // candidate's readiness for the CHOSEN PATH specifically, not their overall seniority
   summary: z.string(), // 1-2 sentences explaining the classification, citing a profile fact
+  weeklyHoursCommitment: z.string(), // e.g. "8-10 hours/week" — persona default (student vs. working professional) or the candidate's explicit override
   totalWeeks: z.number(), // the highest "week" number used across all phases (not a sum)
   totalDuration: z.string(), // human label derived from totalWeeks, e.g. "16 weeks (~4 months)"
   phases: z.array(RoadmapPhaseSchema).min(1),

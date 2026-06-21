@@ -1,17 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Map, Clock, ArrowUpRight } from 'lucide-react';
+import { Map, Clock, Timer, ArrowUpRight } from 'lucide-react';
 
 interface RoadmapTitleCardProps {
   title: string;
   totalDuration: string;
+  weeklyHoursCommitment: string;
   onOpen: () => void;
 }
 
 /** Compact, clickable summary rendered in the chat stream once a roadmap exists — the full
  * structured roadmap lives in the side panel (or mobile drawer), never as a chat bubble. */
-export default function RoadmapTitleCard({ title, totalDuration, onOpen }: RoadmapTitleCardProps) {
+export default function RoadmapTitleCard({ title, totalDuration, weeklyHoursCommitment, onOpen }: RoadmapTitleCardProps) {
   return (
     <button
       type="button"
@@ -23,9 +24,15 @@ export default function RoadmapTitleCard({ title, totalDuration, onOpen }: Roadm
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-900 ">{title}</p>
-        <p className="mt-0.5 text-xs text-slate-500 flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          {totalDuration}
+        <p className="mt-0.5 text-xs text-slate-500 flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" />
+            {totalDuration}
+          </span>
+          <span className="flex items-center gap-1">
+            <Timer className="w-3.5 h-3.5" />
+            {weeklyHoursCommitment}
+          </span>
         </p>
       </div>
       <span className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-indigo-600 whitespace-nowrap">
