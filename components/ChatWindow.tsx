@@ -909,6 +909,7 @@ export default function ChatWindow({
           <RoadmapTitleCard
             title={state.chosenPath?.title ?? 'Your execution roadmap'}
             totalDuration={state.roadmap.totalDuration}
+            weeklyHoursCommitment={state.roadmap.weeklyHoursCommitment}
             onOpen={() => setState((prev) => ({ ...prev, roadmapPanelOpen: true }))}
           />
         )}

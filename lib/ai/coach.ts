@@ -71,9 +71,17 @@ export function journeyGuidance(band: ExperienceBand): string {
       The relevant tensions are title-vs-impact gaps, plateaus, scope, and the IC-vs-management fork. 
       Treat them as a peer; skip basic onboarding questions.`;
     case 'senior':
-      return `This person is 7 or more years in — senior. Focus on scope, leadership, strategic ownership, and whether their next move is up, across, or out. 
+      return `This person is 7 or more years in — senior. Focus on scope, leadership, strategic ownership, and whether their next move is up, across, or out.
       Do not ask entry-level questions.`;
   }
+}
+
+// Default realistic weekly time budget for roadmap pacing, by experience band. Students/new
+// grads with no full-time job competing for their time can credibly commit more hours/week
+// than working professionals — this drives how many weeks a given amount of content takes
+// (see generateRoadmap), rather than letting every roadmap converge on the same "2-3 months".
+export function deriveWeeklyHoursCommitment(band: ExperienceBand): string {
+  return band === 'fresh' ? '8-10 hours/week' : '4-6 hours/week';
 }
 
 // Resolves which job market to calibrate salaries/roles to.
@@ -683,6 +691,8 @@ export async function generateRoadmap(
 ): Promise<Roadmap> {
   const openai = getOpenAIClient();
   const country = resolveMarket(profile, signals).country;
+  const band = deriveExperienceBand(profile.yearsExperience, profile.inferredPersona);
+  const defaultWeeklyHours = deriveWeeklyHoursCommitment(band);
 
   const prompt = `You are a sharp career mentor building a concrete, week-by-week execution roadmap for a candidate who just locked in a target career path.
 
@@ -710,14 +720,17 @@ Step 2: Build the "phases" array using ONLY the phase combination that matches t
 - "good" → one "project" phase (portfolio-grade, industry-realistic; no course phase) → "practice" → "application".
 - "experienced" → one "course" phase that is explicitly a refresher/advanced-edge phase (no project phase) → "practice" → "application".
 
-Step 3: Break EVERY phase into a week-by-week plan:
+Step 3: Determine a realistic weekly time commitment, then break EVERY phase into a week-by-week plan sized to it:
+- Default weekly commitment for this candidate: ${defaultWeeklyHours}. Use this UNLESS the candidate's signals (constraints/motivations) or the feedback below explicitly state a different weekly time commitment — if they do, use their stated number instead and name it in "summary".
+- Estimate the realistic total hours needed to close THIS SPECIFIC gap (informed by skillLevel and how much the chosen path's upskills actually demand) — do not default to a generic "2-3 months" for every plan. A wide gap (e.g. "beginner" pivoting into an unfamiliar domain) needs meaningfully more total hours than a narrow one (e.g. "experienced" refresher), and identical content takes roughly twice as many weeks at 4-6 hrs/week as it would at 8-10 hrs/week.
+- Let "totalWeeks" emerge from totalHours ÷ weeklyHours for THIS candidate and path — never anchor it to a fixed range just because of skillLevel; a "good" candidate with a wide path-specific content gap can legitimately take longer than a "basic" candidate with a narrow one.
 - Sequential "week" number incrementing across the whole roadmap (never restart at 1 for a later phase).
-- Each week: a short "focus" theme and 2-5 concrete, specific "items" — real course topics, real project milestones, real mock-interview formats, real application channels relevant to ${chosenPath.title} and ${country}. Never filler like "take some courses".
-- Total realistic for skillLevel: ~10-16 weeks "beginner", 8-12 "basic", 6-10 "good", 4-8 "experienced" — adjust to the actual gap.
+- Each week: a short "focus" theme and 2-5 concrete, specific "items" sized to fit inside the weekly hour budget — real course topics, real project milestones, real mock-interview formats, real application channels relevant to ${chosenPath.title} and ${country}. Never filler like "take some courses".
 
 Output a single JSON object with EXACTLY these fields:
 - "skillLevel": one of "beginner" | "basic" | "good" | "experienced".
 - "summary": 1-2 sentences explaining the classification, citing a specific profile fact.
+- "weeklyHoursCommitment": string, the weekly hours used for this plan (e.g. "8-10 hours/week" or "4-6 hours/week"), or the candidate's explicit stated commitment if it overrides the default.
 - "totalWeeks": number, the highest "week" number used.
 - "totalDuration": string derived from totalWeeks (e.g. "14 weeks (~3.5 months)").
 - "phases": array of objects, each with "type", "title", "description", and "weeks" (array of { "week", "focus", "items" }).`;

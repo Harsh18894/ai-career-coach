@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Map, Clock, GraduationCap, Hammer, Dumbbell, Briefcase, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Map, Clock, Timer, GraduationCap, Hammer, Dumbbell, Briefcase, ChevronDown, type LucideIcon } from 'lucide-react';
 import { Roadmap, RoadmapPhase } from '@/lib/ai/schemas';
 
 interface RoadmapViewProps {
@@ -43,6 +43,10 @@ export default function RoadmapView({ roadmap }: RoadmapViewProps) {
               <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
                 <Clock className="w-3.5 h-3.5" />
                 {roadmap.totalDuration}
+              </span>
+              <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                <Timer className="w-3.5 h-3.5" />
+                {roadmap.weeklyHoursCommitment}
               </span>
             </div>
           </div>
