@@ -32,13 +32,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing profile or signals.' }, { status: 400 });
       }
 
-      // Gate #2/#3: never recommend without a concrete skill/domain + readiness.
+      // Hard gate: never recommend without a concrete skill/domain + readiness.
       // The client should keep the conversation in UNDERSTANDING when this returns.
       if (!canRecommend(profile, signals)) {
         return NextResponse.json({ notReady: true });
       }
 
-      // Gate #4: if the resume spans multiple countries and the user hasn't confirmed one,
+      // If the resume spans multiple countries and the user hasn't confirmed one,
       // ask before recommending so salaries/roles calibrate to the right market.
       const market = resolveMarket(profile, signals);
       if (market.needsCountryConfirmation && !signals.country) {
@@ -83,14 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'chat' || !action) {
-      // `turn` is the discriminated CoachTurn object built by the client (see coach.ts):
-      //   { kind: 'understanding' }
-      //   { kind: 'ask_country', detectedCountries }
-      //   { kind: 'ask_preferences' }
-      //   { kind: 'insufficient_info' }
-      //   { kind: 'path_locked', chosenPath }
-      //   { kind: 'roadmap_followup', chosenPath, roadmap }
-      //   { kind: 'rejected_all_final' }
+      // `turn` is the discriminated CoachTurn the client built (see CoachTurn in lib/ai/coach.ts).
       const { messages, profile, signals, turn } = body;
       if (!messages || !signals) {
         return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
@@ -103,7 +96,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error in coach route:', error);
     return NextResponse.json({
-      error: error.message || 'An error occurred in the career coach helper.',
+      error: error.message || 'Aria ran into an error. Please try again.',
     }, { status: 500 });
   }
 }

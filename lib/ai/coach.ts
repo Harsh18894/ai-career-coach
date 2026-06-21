@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema } from './schemas';
 import { ChatMessage, UserSignals } from '../state/conversation';
 
-// Initialize OpenAI client
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -12,8 +11,7 @@ const getOpenAIClient = () => {
   return new OpenAI({ apiKey });
 };
 
-// System prompt persona for the mentor
-export const MENTOR_SYSTEM_PROMPT = `You are a sharp, experienced career mentor and career advisor — direct, warm, and economical with words. 
+export const MENTOR_SYSTEM_PROMPT = `Your name is Aria. You are a sharp, experienced career mentor and career advisor — direct, warm, and economical with words.
 You speak like a senior operator who has seen thousands of careers, not like a chatbot or a recruiter. 
 You ask one good question at a time and react to what the person actually said. You never sound like a form. 
 You never give a recommendation without tying it to a specific fact about this person. 
@@ -37,10 +35,10 @@ If they are a student or new grad, do not treat them like they're already in a f
 Ask one natural, open question instead — if you genuinely need to offer options, fold them into a real sentence, not a form-style either/or.`;
 
 /* =====================================================================================
- * Derived helpers (no model call) — used to make the coach behave correctly per change.
+ * Derived helpers (no model call) — pure functions that compute coach behavior parameters
+ * (journey stage, target market, readiness gates) from the candidate's profile/signals.
  * ===================================================================================== */
 
-// Change #7: experience-band-specific conversation journeys.
 export type ExperienceBand = 'fresh' | 'early' | 'building' | 'experienced' | 'senior';
 
 export function deriveExperienceBand(
@@ -78,7 +76,7 @@ export function journeyGuidance(band: ExperienceBand): string {
   }
 }
 
-// Change #4: resolve which job market to calibrate to.
+// Resolves which job market to calibrate salaries/roles to.
 export type MarketResolution = { country: string; needsCountryConfirmation: boolean };
 
 export function resolveMarket(profile: Profile | null, signals: UserSignals): MarketResolution {
@@ -102,7 +100,7 @@ export function resolveMarket(profile: Profile | null, signals: UserSignals): Ma
   return { country: 'India', needsCountryConfirmation: false };
 }
 
-// Change #2: we must never recommend without at least one concrete skill OR domain.
+// Never recommend without at least one concrete skill OR domain to anchor on.
 export function hasSkillOrDomain(profile: Profile | null, signals: UserSignals): boolean {
   const fromProfile = ((profile?.skills?.length ?? 0) + (profile?.domains?.length ?? 0)) > 0;
   const fromSignals = ((signals.knownSkills?.length ?? 0) + (signals.knownDomains?.length ?? 0)) > 0;
@@ -303,10 +301,9 @@ Output ONLY the question text itself — 1-2 short sentences, no preamble, no qu
  * ===================================================================================== */
 
 /**
- * Generates exactly 3 Career Paths.
- * Change #4: salary calibrated to the resolved market (default India / INR).
- * Change #8: optional `changeRequests` — when the candidate, after declining earlier
- *            rounds, has told us what they actually want, that drives the new set.
+ * Generates exactly 3 Career Paths, with salary calibrated to the resolved market.
+ * `changeRequests` is optional — when set, it's because the candidate declined earlier
+ * rounds and told us what they actually want, so it drives this new set as the primary input.
  */
 export async function generatePaths(
   profile: Profile,
@@ -371,18 +368,17 @@ ${options?.changeRequests ? `5. The candidate declined the earlier rounds and as
  * ===================================================================================== */
 
 /**
- * Discriminated set of turn types. This replaces the old positional boolean flags
- * (rejectedAll / insufficientInfo / chosenPath / roadmap) with explicit, named intents
- * so the orchestration can express the new flows (ask_country, ask_preferences,
- * rejected_all_final) unambiguously.
+ * Discriminated turn intent — every `streamChatTurn` call passes exactly one of these so the
+ * coach knows unambiguously which stage-specific instruction to use, instead of inferring it
+ * from a combination of boolean flags.
  */
 export type CoachTurn =
   | { kind: 'understanding' }
-  | { kind: 'ask_country'; detectedCountries: string[] }          // change #4
-  | { kind: 'ask_preferences' }                                    // change #8 (after 2 declined decks)
-  | { kind: 'insufficient_info' }                                  // change #2 / #3 (give-up decline)
-  | { kind: 'rejected_all_final' }                                 // change #8.1 (final decline)
-  | { kind: 'path_locked'; chosenPath: CareerPath }                // closing after selection
+  | { kind: 'ask_country'; detectedCountries: string[] }
+  | { kind: 'ask_preferences' }                       // after 2 declined decks, before a tailored 3rd
+  | { kind: 'insufficient_info' }                      // candidate never gave anything usable — give-up decline
+  | { kind: 'rejected_all_final' }                     // declined every deck, including the tailored one
+  | { kind: 'path_locked'; chosenPath: CareerPath }    // closing after selection
   | { kind: 'roadmap_followup'; chosenPath: CareerPath; roadmap: Roadmap };
 
 /** Wraps an OpenAI streaming completion into a chunked text Response. Shared by every
@@ -563,8 +559,8 @@ Write the final closing: honestly name the pattern across their rejections in yo
 
 /**
  * Generates a highly personalized opening message (the hook) based on the profile.
- * Change #1: always address the user by name (or ask for it if unknown).
- * Change #5 / #7: journey-aware — no experienced-person framing for fresh entrants.
+ * Always addresses the candidate by name (or asks for it if unknown), and is journey-aware —
+ * never frames a student/new-grad with experienced-person language.
  */
 export async function generateOpeningMessage(profile: Profile): Promise<string> {
   const openai = getOpenAIClient();
@@ -607,10 +603,9 @@ Do NOT use experienced-person framing ("title-vs-impact gap", "you're already in
  * ===================================================================================== */
 
 /**
- * Analyzes the chat history to extract and update career signals.
- * Change #2 / #5 / #6: captures concrete skills/domains, gates readiness on having at
- * least one, and records what's known so the coach never re-asks an answered question.
- * Change #4: captures an explicitly stated target country.
+ * Analyzes the chat history to extract and update career signals: concrete skills/domains,
+ * motivations/constraints, an explicitly stated target country, and the readiness gates
+ * (`readyForRecommendation`, `hasUsableInfo`) the orchestration uses to decide what's next.
  */
 export async function analyzeSignals(
   chatHistory: ChatMessage[],
@@ -660,9 +655,9 @@ Preserve existing signals unless the user has directly changed their mind or con
     motivations: z.array(z.string()),
     constraints: z.array(z.string()),
     rejectedDirections: z.array(z.string()),
-    knownSkills: z.array(z.string()),     // NEW (change #2/#5)
-    knownDomains: z.array(z.string()),    // NEW (change #5/#6)
-    country: z.string().nullish(),        // NEW (change #4)
+    knownSkills: z.array(z.string()),
+    knownDomains: z.array(z.string()),
+    country: z.string().nullish(),
     notes: z.array(z.string()),
     readyForRecommendation: z.boolean(),
     hasUsableInfo: z.boolean(),
@@ -677,8 +672,8 @@ Preserve existing signals unless the user has directly changed their mind or con
  * ===================================================================================== */
 
 /**
- * Generates a phased execution roadmap for the chosen path.
- * Change #4: application channels are localized to the resolved market.
+ * Generates a phased, week-by-week execution roadmap for the chosen path, with application
+ * channels and salary context localized to the resolved market.
  */
 export async function generateRoadmap(
   profile: Profile,

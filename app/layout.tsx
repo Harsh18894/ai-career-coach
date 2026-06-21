@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Career Coach | Find Your Next Strategic Move',
-  description: 'Upload your resume PDF for a natural, guided chat with a senior career mentor and discover exactly 3 tailored career growth paths.',
+  title: 'Aria | Find Your Next Strategic Move',
+  description: 'Upload your resume PDF for a natural, guided chat with Aria, a senior career mentor, and discover exactly 3 tailored career growth paths.',
 };
 
 export default function RootLayout({
@@ -43,9 +43,8 @@ export default function RootLayout({
                 <Compass className="w-4 h-4 text-white" />
               </span>
               <span className="font-bold text-slate-900 tracking-tight text-lg">
-                Career
                 <span className="bg-linear-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
-                  Coach
+                  Aria
                 </span>
               </span>
             </Link>
@@ -63,7 +62,7 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="w-full flex-shrink-0 py-6 border-t border-slate-200 bg-linear-to-r from-indigo-50/30 via-white to-violet-50/30 text-center text-xs text-slate-400">
-          © {new Date().getFullYear()} CareerCoach AI. Demo-ready prototype.
+          © {new Date().getFullYear()} Aria AI. Demo-ready prototype.
         </footer>
       </body>
     </html>

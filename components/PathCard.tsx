@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DollarSign, BookOpen, Navigation, Target, ChevronDown, TrendingUp, TrendingDown, CheckCircle2, Lock } from 'lucide-react';
+import { DollarSign, BookOpen, Navigation, Target, ChevronDown, TrendingUp, TrendingDown, CheckCircle2, Map } from 'lucide-react';
 import { CareerPath } from '@/lib/ai/schemas';
 
 interface PathCardProps {
@@ -48,11 +48,10 @@ export default function PathCard({
 
   return (
     <div
-      className={`relative w-full flex flex-col rounded-2xl border transition-all duration-200 ${
-        isSelected
-          ? 'border-indigo-600 bg-linear-to-br from-indigo-50 via-white to-violet-50/60 shadow-md ring-1 ring-indigo-600'
-          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md shadow-sm'
-      } ${disabled && !isSelected ? 'opacity-60' : ''}`}
+      className={`relative w-full flex flex-col rounded-2xl border transition-all duration-200 ${isSelected
+        ? 'border-indigo-600 bg-linear-to-br from-indigo-50 via-white to-violet-50/60 shadow-md ring-1 ring-indigo-600'
+        : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md shadow-sm'
+        } ${disabled && !isSelected ? 'opacity-60' : ''}`}
     >
       {/* Header row: title toggles expand/collapse; the lock CTA is a sibling button (not nested)
           that only renders once this accordion is selected/expanded. */}
@@ -85,8 +84,8 @@ export default function PathCard({
               disabled={disabled}
               className="flex items-center gap-1.5 px-4 py-2 bg-linear-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
             >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Lock recommendation</span>
+              <Map className="w-3.5 h-3.5" />
+              <span>Build your roadmap</span>
             </button>
           )}
           <button

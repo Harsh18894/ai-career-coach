@@ -28,7 +28,6 @@ export default function RoadmapView({ roadmap }: RoadmapViewProps) {
   return (
     <div className="w-full animate-fade-in">
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        {/* Header */}
         <div className="px-6 py-5 bg-linear-to-r from-indigo-50 via-violet-50/60 to-white border-b border-slate-200">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2.5">

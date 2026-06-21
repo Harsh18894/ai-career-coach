@@ -12,13 +12,10 @@ interface MessageBubbleProps {
 function formatMessageContent(text: string) {
   if (!text) return null;
 
-  // Split by paragraphs
   const paragraphs = text.split('\n\n');
 
   return paragraphs.map((paragraph, pIdx) => {
     const lines = paragraph.split('\n');
-
-    // Detect if this paragraph is a list
     const isList = lines.every(line => line.trim().startsWith('- ') || line.trim().startsWith('* '));
 
     if (isList) {
@@ -32,7 +29,6 @@ function formatMessageContent(text: string) {
       );
     }
 
-    // Default: render line breaks inside paragraph if any
     return (
       <p key={pIdx} className="leading-relaxed mb-3 last:mb-0 text-sm md:text-base">
         {lines.map((line, lIdx) => (
@@ -46,7 +42,7 @@ function formatMessageContent(text: string) {
   });
 }
 
-// Renders bold (**text**) elements inline
+// Only bold (**text**) is supported — anything else passes through as plain text.
 function renderInlineElements(text: string) {
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, index) => {
@@ -88,7 +84,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
       {/* Avatar */}
       {isAssistant ? (
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-          C
+          A
         </div>
       ) : (
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs shadow-sm">
