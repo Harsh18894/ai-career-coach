@@ -51,11 +51,11 @@ export default function AboutPage() {
     },
     {
       title: '8. Lock in a path → roadmap',
-      desc: 'Choosing a path triggers two things at once: a tailored closing reflection from the coach, and a full week-by-week execution roadmap — phased (courses/projects/practice/application) and classified to your actual skill level for that specific path, not your general seniority.',
+      desc: "Choosing a path triggers two things at once: a tailored closing reflection from the coach, and a full week-by-week execution roadmap — phased (courses/projects/practice/application) and classified to your actual skill level for that specific path, not your general seniority. The timeline is paced to a realistic weekly time budget (8-10 hrs/week if you're a student or new grad, 4-6 hrs/week if you're working) rather than a generic \"2-3 months\" for every plan — the same content takes roughly twice as long at the lower end, and a wide skill gap genuinely takes longer than a narrow one.",
     },
     {
       title: '9. Stay and iterate',
-      desc: "The session doesn't end at the roadmap. You can keep chatting (the coach treats this as open conversation, not re-onboarding) or request roadmap adjustments — pace, focus, or swapping a topic — which regenerate the plan honestly incorporating your feedback.",
+      desc: "The session doesn't end at the roadmap. You can keep chatting (the coach treats this as open conversation, not re-onboarding) or request roadmap adjustments — pace, focus, swapping a topic, or stating your own weekly hour availability (e.g. \"I can only commit 5 hours a week\") — which regenerate the plan honestly incorporating your feedback, overriding the default pacing.",
     },
   ];
 
