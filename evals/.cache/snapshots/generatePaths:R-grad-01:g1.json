@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Entry-level Data Engineer (ETL & Warehouse, startup)",
+    "fitRationale": "You did a 4-month Data Engineering internship at Quill Analytics where you expanded into ETL and data warehousing and list Airflow, dbt, SQL and Python on your skillset — that makes a junior data-engineer role at an Austin startup a direct next step.",
+    "salaryRange": "$85k - $115k USD",
+    "upskills": [
+      "Ship one end-to-end pipeline: ingest raw data -> Airflow DAG -> transform with dbt -> load to a warehouse (Postgres/BigQuery/Redshift).",
+      "Improve SQL performance skills (window functions, indexing/partitioning, explain plans) and write dbt tests.",
+      "Get basic cloud familiarity (AWS or GCP): running scheduled jobs, storage (S3/GCS) and permissions."
+    ],
+    "firstMove": "This month: build and document a public repo that ingests a CSV, schedules an Airflow DAG, transforms with dbt and loads to a hosted Postgres/BigQuery; include README and a short demo video link.",
+    "ambitionCheck": {
+      "verdict": "too_high",
+      "note": "You told us you want to be a VP of Engineering within 12 months — with 0.7 years of internships and no full-time experience, reaching VP will take multiple promotions and likely 7–10+ years; expect to spend 2–4 years proving IC impact, then 3–6 years in leadership if you move fast."
+    }
+  },
+  {
+    "title": "Analytics Engineer (dbt + product metrics, analytics team)",
+    "fitRationale": "You have dbt, SQL and PostgreSQL listed and a background in data analytics and a Quill Analytics internship where you touched analytics tooling — a role focused on metrics, dbt modeling and BI is a natural fit.",
+    "salaryRange": "$80k - $105k USD",
+    "upskills": [
+      "Build a production-ready dbt project with documented metrics (metrics.yml) and CI tests; publish a small dbt package or reusable models.",
+      "Learn one BI tool (Looker or Metabase) and build a stakeholder-facing dashboard that answers a product question.",
+      "Practice translating business questions into metrics and write changelogs/ownership docs."
+    ],
+    "firstMove": "This month: pick a public dataset, produce a documented dbt project with tests plus one dashboard that answers a business KPI; post the project and a 5-slide explanation to GitHub and LinkedIn.",
+    "ambitionCheck": {
+      "verdict": "too_high",
+      "note": "The VP-in-12-months target outpaces what your internship experience supports; to reach senior leadership expect a path of 3–5 promotions or role jumps over 6–10 years while building cross-functional influence."
+    }
+  },
+  {
+    "title": "Full-stack Engineer (frontend-focused, healthtech startups)",
+    "fitRationale": "You completed a 4-month Frontend Engineering internship at Marblewood Health and list React, TypeScript, Node.js and Jest — that experience plus your healthtech interest points to a frontend-heavy full-stack role at a healthtech startup in Austin.",
+    "salaryRange": "$75k - $105k USD",
+    "upskills": [
+      "Ship 1–2 production React + TypeScript apps with end-to-end tests (Jest/Playwright) and deploy to Vercel/Heroku.",
+      "Own a backend endpoint and DB integration (Node.js + Postgres) so you can take a feature from UI to data layer.",
+      "Learn basic system design for web apps (caching, auth, scaling) and write postmortems/ownership docs for shipped features."
+    ],
+    "firstMove": "This month: pick a small healthtech UX problem, ship a deployed React+TypeScript app backed by a Postgres DB, add tests and a short case study in your portfolio.",
+    "ambitionCheck": {
+      "verdict": "too_high",
+      "note": "Aiming for VP in 12 months is unrealistic from internships-only — to get to leadership you'll need to accumulate full-time impact, manage people, and likely spend 5–8 years advancing through IC and manager levels."
+    }
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "persona": "pivot",
+  "groundingTokens": [
+    "Sales Development Representative",
+    "Brightloop",
+    "142% of quota",
+    "Notion Templates",
+    "600 downloads"
+  ],
+  "forbiddenInInjection": []
+}

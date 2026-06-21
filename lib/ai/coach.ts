@@ -13,13 +13,129 @@ const getOpenAIClient = () => {
 };
 
 // System prompt persona for the mentor
-export const MENTOR_SYSTEM_PROMPT = `You are a sharp, experienced career mentor — direct, warm, and economical with words. You speak like a senior operator who has seen hundreds of careers, not like a chatbot or a recruiter. You ask one good question at a time and react to what the person actually said. You never sound like a form. You never give a recommendation without tying it to a specific fact about this person. You are honest about gaps and tensions. Keep messages short (2–5 sentences) unless presenting structured recommendations.`;
+export const MENTOR_SYSTEM_PROMPT = `You are a sharp, experienced career mentor and career advisor — direct, warm, and economical with words. 
+You speak like a senior operator who has seen thousands of careers, not like a chatbot or a recruiter. 
+You ask one good question at a time and react to what the person actually said. You never sound like a form. 
+You never give a recommendation without tying it to a specific fact about this person. 
+You are honest about gaps and tensions. Keep messages short (2–5 sentences) unless presenting structured recommendations.
+
+Hard tone rules, no exceptions:
+1. Write the way a sharp human mentor talks out loud. Never output raw data structures, 
+JSON, code-style identifiers, or snake_case/category labels in your prose 
+(e.g. never write "stay_in_current_company" — say "staying at your current company" instead). If you need to reference internal data, 
+translate it into a full natural-language phrase first.
+
+2. Vary sentence rhythm and openings turn to turn — do not reuse the same template ("Got it.", "Nice.", "Pattern:") every single message.
+
+3. Sound like you actually noticed what they said, not like you are filling a slot.
+
+4. Never assert seniority, job titles, tenure, or "years in the field" that the candidate's actual profile does not support.
+Match your framing to where they really are in their career.
+If they are a student or new grad, do not treat them like they're already in a field — they are exploring and figuring it out.
+
+5. Never present a forced multiple-choice menu as your question (e.g. "do you want that as a headline or as a bullet?").
+Ask one natural, open question instead — if you genuinely need to offer options, fold them into a real sentence, not a form-style either/or.`;
+
+/* =====================================================================================
+ * Derived helpers (no model call) — used to make the coach behave correctly per change.
+ * ===================================================================================== */
+
+// Change #7: experience-band-specific conversation journeys.
+export type ExperienceBand = 'fresh' | 'early' | 'building' | 'experienced' | 'senior';
+
+export function deriveExperienceBand(
+  yearsExperience: number,
+  persona?: Profile['inferredPersona']
+): ExperienceBand {
+  if (persona === 'early_career' || yearsExperience < 1) return 'fresh'; // students / new grads / internship seekers
+  if (yearsExperience <= 2) return 'early';        // 0-2 yrs, relatively fresh in industry
+  if (yearsExperience < 4) return 'building';      // ~3 yrs, forming specialization
+  if (yearsExperience <= 6) return 'experienced';  // 4-6 yrs, solid IC / new manager
+  return 'senior';                                 // 7+ yrs
+}
+
+export function journeyGuidance(band: ExperienceBand): string {
+  switch (band) {
+    case 'fresh':
+      return `This person is a student / recent graduate / internship-or-first-job seeker with essentially no professional track record. 
+      Do NOT ask about job titles, "title vs impact" gaps, tenure, or "what field are you already in" — they are not in a field yet. 
+      Focus on: what they studied, what kind of work energizes them, what they can build or learn, and anchoring on ONE concrete domain plus one skill. 
+      Frame recommendations as first roles, internships, or entry tracks, not lateral moves.`;
+    case 'early':
+      return `This person is 1-2 years in — early and still forming a direction. 
+      Ask what they like and dislike in their current work, what they want more of, and whether they want to go deeper or switch tracks. 
+      Avoid senior-leadership framing.`;
+    case 'building':
+      return `This person is roughly 3 years in — past the entry stage and building specialization. 
+      Ask about the specialization they're forming, the ownership they want, and the gap to the next level.`;
+    case 'experienced':
+      return `This person is 4-6 years in — a solid IC or new manager. 
+      The relevant tensions are title-vs-impact gaps, plateaus, scope, and the IC-vs-management fork. 
+      Treat them as a peer; skip basic onboarding questions.`;
+    case 'senior':
+      return `This person is 7 or more years in — senior. Focus on scope, leadership, strategic ownership, and whether their next move is up, across, or out. 
+      Do not ask entry-level questions.`;
+  }
+}
+
+// Change #4: resolve which job market to calibrate to.
+export type MarketResolution = { country: string; needsCountryConfirmation: boolean };
+
+export function resolveMarket(profile: Profile | null, signals: UserSignals): MarketResolution {
+  // 1. A country the user explicitly stated/confirmed always wins.
+  if (signals.country) return { country: signals.country, needsCountryConfirmation: false };
+
+  const distinct = Array.from(
+    new Set((profile?.countriesDetected ?? []).map(c => c.trim()).filter(Boolean))
+  );
+
+  // 2. Resume references more than one country -> must ask before recommending.
+  if (distinct.length > 1) return { country: 'India', needsCountryConfirmation: true };
+
+  // 3. Exactly one country in the resume -> use it.
+  if (distinct.length === 1) return { country: distinct[0], needsCountryConfirmation: false };
+
+  // 4. A single best-guess country field on the profile.
+  if (profile?.country) return { country: profile.country, needsCountryConfirmation: false };
+
+  // 5. Default: India / Indian market.
+  return { country: 'India', needsCountryConfirmation: false };
+}
+
+// Change #2: we must never recommend without at least one concrete skill OR domain.
+export function hasSkillOrDomain(profile: Profile | null, signals: UserSignals): boolean {
+  const fromProfile = ((profile?.skills?.length ?? 0) + (profile?.domains?.length ?? 0)) > 0;
+  const fromSignals = ((signals.knownSkills?.length ?? 0) + (signals.knownDomains?.length ?? 0)) > 0;
+  return fromProfile || fromSignals;
+}
+
+// We must also never recommend on a skill/domain alone — a skill/domain says WHAT they can do,
+// not HOW they want to progress (grow in place vs switch roles/companies, what they're
+// optimizing for, or a real constraint). Without this, decks end up generic or premature even
+// when readyForRecommendation gets set true by a model call that drifted off-topic mid-chat.
+export function hasDirectionSignal(signals: UserSignals): boolean {
+  return ((signals.motivations?.length ?? 0) + (signals.constraints?.length ?? 0)) > 0;
+}
+
+// The single gate the orchestration should call before generating any deck. Deliberately not
+// just `signals.readyForRecommendation` — that's a single LLM self-assessment and can drift
+// (e.g. agreeing to recommend after an off-topic tangent). hasSkillOrDomain/hasDirectionSignal
+// are hard, non-LLM-dependent backstops on top of it.
+export function canRecommend(profile: Profile | null, signals: UserSignals): boolean {
+  return (
+    Boolean(signals.readyForRecommendation) &&
+    hasSkillOrDomain(profile, signals) &&
+    hasDirectionSignal(signals)
+  );
+}
+
+/* =====================================================================================
+ * Profile extraction
+ * ===================================================================================== */
 
 /**
  * Extracts a structured Profile from the raw resume text.
- * Returns null if the text does not contain enough real career information to build a profile from
- * (e.g. it is gibberish, unrelated content, or too sparse) — callers should fall back to the guided
- * profile-building chat in that case instead of forcing a low-quality extraction.
+ * Returns null if the text does not contain enough real career information.
  */
 export async function extractProfile(resumeText: string): Promise<Profile | null> {
   const openai = getOpenAIClient();
@@ -27,24 +143,33 @@ export async function extractProfile(resumeText: string): Promise<Profile | null
   const prompt = `You are a professional resume analyst. Parse the following raw resume text and extract a structured career profile.
 Be honest, realistic, and insightful. Identify the notable transitions and tension points (e.g. title-vs-impact gaps, career plateaus, or missing credentials).
 
-First, decide "hasSufficientInfo": output false ONLY if the text contains no real, identifiable career information (e.g. it is gibberish, an unrelated document like an article or recipe, or far too sparse to extract a meaningful job history/skills from). If it has at least some genuine resume content, even if thin, output true.
+First, decide "hasSufficientInfo": output false ONLY if the text contains no real, identifiable career information 
+(e.g. it is gibberish, an unrelated document like an article or recipe, or far too sparse to extract a meaningful job history/skills from). 
+If it has at least some genuine resume content, even if thin, output true.
 
 Output a single JSON object with EXACTLY these fields (no extra fields, no nesting under another key):
 - "hasSufficientInfo": boolean, required (see above). If false, you may leave the remaining fields as empty defaults — they will be ignored.
 - "name": string, optional. The candidate's name if present.
-- "yearsExperience": number, required. Total years of professional experience (estimate from role durations).
-- "currentRole": string, optional. Their most recent/current job title.
+- "yearsExperience": number, required. Total years of professional experience (estimate from role durations). 
+  Use 0 for students / new graduates with no professional roles.
+- "currentRole": string, optional. Their most recent/current job title. Use student/graduate title if they have no professional roles.
 - "currentLevel": required, one of "IC" | "senior_IC" | "manager" | "unknown".
-- "roleHistory": required array of objects, one per role, each with: "title" (string, required), "company" (string, optional), "durationMonths" (number, optional).
+- "roleHistory": required array of objects, one per role, each with: "title" (string, required), "company" (string, optional), "durationMonths" (number, optional). 
+  Use null for students/graduates. If no roles can be inferred, output an empty array.
 - "skills": required array of strings.
-- "domains": required array of strings (industries/domains they've worked in, e.g. "fintech", "B2B SaaS").
-- "region": string, optional. Their inferred location/region.
+- "domains": required array of strings (industries/domains they've worked in or field in which they are studying, e.g. "fintech", "B2B SaaS", "electronics", "computer science").
+- "region": string, optional. Their inferred city/region.
+- "country": string, optional. Their single best-guess country, inferred from locations, addresses, phone country code, or education. 
+  Output null if it cannot be determined or the resume spans multiple countries with no clear "home" one.
+- "countriesDetected": required array of strings. 
+  Every DISTINCT country that appears anywhere in the resume — role locations, education, address. 
+  Empty array if none are present. Do not invent countries; only list ones actually evidenced in the text.
 - "notableTransitions": required array of strings describing notable career transitions.
-- "tensions": required array of strings describing tension points (e.g. title-vs-impact gaps, plateaus, missing credentials).
-- "inferredPersona": required, one of "pivot" | "grow_in_place" | "early_career" | "unknown":
+- "tensions": required array of strings describing tension points (e.g. title-vs-impact gaps, plateaus, missing credentials, missing skills, missing projects).
+- "inferredPersona": required, one of "pivot" | "grow" | "early_career" | "unknown":
   - 'pivot': ~2 years in (SDR/analyst/etc), wants to switch tracks, wants ownership/strategic work.
-  - 'grow_in_place': 4-6 years, solid IC or new manager, feels invisible, title lags impact, wants to level up in place (no company switch).
-  - 'early_career': <=1 year/new grad, overwhelmed by options, needs structured thinking.
+  - 'grow': 3-6 years, solid IC or new manager, feels invisible, title lags impact, wants to level up.
+  - 'early_career': <=1 year/new grad/student, overwhelmed by options, needs structured thinking.
   - 'unknown': doesn't fit the above.
 
 If a required array has no items to report, output an empty array rather than omitting the field.
@@ -55,13 +180,12 @@ ${resumeText}
 """`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5-nano',
     messages: [
       { role: 'system', content: 'You are a career profile parser. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
   });
 
   const content = response.choices[0].message.content || '{}';
@@ -75,8 +199,7 @@ ${resumeText}
 }
 
 /**
- * Builds a structured Profile from guided Q&A answers, used when a candidate has no resume
- * (or their resume had no usable content) and instead answers a short sequence of chat questions.
+ * Builds a structured Profile from guided Q&A answers, used when a candidate has no resume.
  */
 export async function buildProfileFromAnswers(
   answers: { question: string; answer: string }[]
@@ -87,8 +210,10 @@ export async function buildProfileFromAnswers(
     .map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`)
     .join('\n\n');
 
-  const prompt = `You are a professional career analyst. A candidate without a resume answered a short series of guided questions about their current situation, experience, skills, and interests. Build a structured career profile from their answers.
-Be honest, realistic, and insightful. Infer notable transitions and tension points where the answers suggest them (e.g. a pivot, a skills gap for their stated interest, time without direction) — it is fine to leave these as empty arrays if nothing notable applies.
+  const prompt = `You are a professional career analyst. A candidate without a resume answered a short series of guided questions about their current situation, 
+  experience (only if the user is working or has worked previously), skills, and interests. Build a structured career profile from their answers.
+Be honest, realistic, and insightful. Infer notable transitions and tension points where the answers suggest them 
+— it is fine to leave these as empty arrays if nothing notable applies.
 
 Q&A transcript:
 """
@@ -97,31 +222,32 @@ ${transcript}
 
 Output a single JSON object with EXACTLY these fields (no extra fields, no nesting under another key):
 - "name": string, optional. Omit if not mentioned.
-- "yearsExperience": number, required. Estimate from their stated experience; use 0 if they are a complete beginner.
+- "yearsExperience": number, required. Estimate from their stated experience; use 0 if they are a student or complete beginner.
 - "currentRole": string, optional. Their stated current role, focus, or field of study.
-- "currentLevel": required, one of "IC" | "senior_IC" | "manager" | "unknown". Use "unknown" for beginners/students.
-- "roleHistory": required array of objects, each with "title" (string, required), "company" (string, optional), "durationMonths" (number, optional). Use a single best-effort entry from their stated current role/experience, or an empty array if nothing to infer.
+- "currentLevel": required, one of "IC" | "senior_IC" | "manager" | "unknown". Use "unknown" for students/beginners.
+- "roleHistory": required array of objects, each with "title" (string, required), "company" (string, optional), "durationMonths" (number, optional). Single best-effort entry, or an empty array if nothing to infer generally in case of students/beginners.
 - "skills": required array of strings, from their stated skills/tools.
 - "domains": required array of strings, from their stated industry/field of interest.
 - "region": string, optional. From their stated location, if mentioned.
+- "country": string, optional. From their stated location/country if mentioned; otherwise null.
+- "countriesDetected": required array of strings. Any countries they explicitly mentioned or mentioned in resume; empty array otherwise.
 - "notableTransitions": required array of strings. Empty array if none apply.
 - "tensions": required array of strings. Empty array if none apply.
-- "inferredPersona": required, one of "pivot" | "grow_in_place" | "early_career" | "unknown":
+- "inferredPersona": required, one of "pivot" | "grow" | "early_career" | "unknown":
   - 'pivot': has some experience but wants to switch tracks/industries entirely.
-  - 'grow_in_place': has relevant experience and wants to advance further in the same field.
-  - 'early_career': little to no experience (e.g. student, complete beginner), needs structured thinking.
+  - 'grow': has relevant experience and wants to advance in the same domain.
+  - 'early_career': little to no experience (student, complete beginner), needs structured thinking.
   - 'unknown': doesn't clearly fit the above.
 
 If a required array has no items to report, output an empty array rather than omitting the field.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: 'You are a career profile builder. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.2,
   });
 
   const content = response.choices[0].message.content || '{}';
@@ -130,44 +256,108 @@ If a required array has no items to report, output an empty array rather than om
 }
 
 /**
- * Generates exactly 3 Career Paths based on profile, user signals, shown paths, and rejected directions.
+ * Streams the NEXT guided-onboarding question for a candidate with no resume, given the Q&A
+ * pairs so far. Turn-by-turn adaptive — unlike a fixed question script, this sees everything
+ * already said and never re-asks or restates it (e.g. if skills were already named, it asks
+ * how they've been applied, not for the skills again; if no professional role is evident, it
+ * asks about projects/coursework built, not "years of experience"). Streamed (like
+ * streamChatTurn) since it's read directly by the user, not parsed as structured data.
+ */
+export async function nextGuidedProfileQuestion(
+  answersSoFar: { question: string; answer: string }[]
+): Promise<Response> {
+  const openai = getOpenAIClient();
+
+  const transcript = answersSoFar
+    .map((qa, i) => `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`)
+    .join('\n\n');
+
+  const prompt = `A candidate without a resume is answering a short guided intake, one question at a time. Here is the Q&A so far:
+"""
+${transcript}
+"""
+
+Ask exactly ONE short, natural next question that fills the most useful gap below. Never re-ask, restate, or thank them for anything already said above — read the transcript carefully first.
+
+Checklist, in order of usefulness (skip any already covered):
+1. Depth of experience: if no professional role is evident (student, complete beginner, between things), ask what they've actually BUILT or worked on — projects, coursework, personal work — in their stated area. Do NOT ask "years of experience" for someone with no professional role. If real professional experience is evident, asking about years/role depth is fine.
+2. Concrete practical application: if they named skills/tools/languages but not how they've actually used them, ask specifically about that (real frameworks, real projects, real depth) — never re-ask for the skills/tools themselves.
+3. Narrower domain/field interest, only if their stated area is still broad and not already implied or answered.
+
+Output ONLY the question text itself — 1-2 short sentences, no preamble, no quotes, no labels like "Question:".`;
+
+  const stream = await openai.chat.completions.create({
+    model: 'gpt-5-mini',
+    messages: [
+      { role: 'system', content: MENTOR_SYSTEM_PROMPT },
+      { role: 'user', content: prompt }
+    ],
+    stream: true,
+  });
+
+  return toStreamingResponse(stream);
+}
+
+/* =====================================================================================
+ * Path generation
+ * ===================================================================================== */
+
+/**
+ * Generates exactly 3 Career Paths.
+ * Change #4: salary calibrated to the resolved market (default India / INR).
+ * Change #8: optional `changeRequests` — when the candidate, after declining earlier
+ *            rounds, has told us what they actually want, that drives the new set.
  */
 export async function generatePaths(
   profile: Profile,
   signals: UserSignals,
   shownPaths: string[],
-  rejectedDirections: string[]
+  rejectedDirections: string[],
+  options?: { country?: string; changeRequests?: string }
 ): Promise<CareerPath[]> {
   const openai = getOpenAIClient();
 
+  const country = options?.country ?? resolveMarket(profile, signals).country;
+  const band = deriveExperienceBand(profile.yearsExperience, profile.inferredPersona);
+
   const prompt = `You are a sharp career mentor. Generate exactly 3 personalized career path recommendations for this candidate.
-  
-Below is the candidate's parsed profile:
+
+Candidate's parsed profile:
 ${JSON.stringify(profile, null, 2)}
 
-Below are the signals accumulated during the conversation so far:
+Signals accumulated during the conversation so far:
 ${JSON.stringify(signals, null, 2)}
 
+Journey stage (calibrate the TYPE of role accordingly):
+${journeyGuidance(band)}
+
+Target job market: ${country}. Calibrate every salary range to ${country} and quote it in that market's local currency (for India use INR / LPA, e.g. "₹8–12 LPA"; for the US use USD; etc.). Label ranges as indicative.
+
 Hard constraints to follow:
-1. Every recommendation's fitRationale MUST reference a specific fact from the candidate's profile (e.g. a company, duration, role transition) or a specific statement they made in the chat signals. Quote or paraphrase the source (e.g. "Because you mentioned wanting ownership, and you've already run X end to end...").
-2. Respect the constraints (e.g. if they want to stay in their current company, recommend paths that grow in place. If they reject remote work, don't suggest fully remote roles).
-3. Do NOT recommend paths that overlap with already recommended paths. Here are the paths already shown: ${JSON.stringify(shownPaths)}.
-4. Avoid any topics/directions that the candidate has rejected. Here are their rejected directions: ${JSON.stringify(rejectedDirections)}.
-5. Design each path card with:
-   - title: Concrete, descriptive role title (e.g. "Product Manager (growth-leaning, B2C)")
+1. Every recommendation's fitRationale MUST reference a specific fact from the candidate's profile (a company, duration, role transition, skill, or field) or a specific statement they made. Quote or paraphrase the source.
+2. Respect the constraints (e.g. if they want to stay in their current company, recommend paths that grow in place; if they reject remote work, don't suggest fully remote roles).
+3. Do NOT recommend paths that overlap with already-recommended ones. Already shown: ${JSON.stringify(shownPaths)}.
+4. Avoid any directions the candidate has rejected: ${JSON.stringify(rejectedDirections)}.
+${options?.changeRequests ? `5. The candidate declined the earlier rounds and asked specifically for these changes — treat them as the PRIMARY driver of this new set, not an afterthought: "${options.changeRequests}".` : ''}
+6. Design each path card with:
+   - title: Concrete, descriptive role title appropriate to their journey stage (for a fresh grad these are entry roles/internships, not senior moves).
    - fitRationale: Specific reasons why this fits them, citing facts.
-   - salaryRange: Realistic range calibrated for the candidate's region/seniority (e.g., "$110k - $130k USD").
-   - upskills: 2 to 4 concrete, actionable gaps to close (e.g. "learn SQL well enough to self-serve metrics", "ship one externally-facing roadmap").
-   - firstMove: A concrete "first move this month" step.`;
+   - salaryRange: Realistic, market-calibrated (see above).
+   - upskills: 2 to 4 concrete, actionable gaps to close.
+   - firstMove: A concrete "first move this month" step.
+7. Calibrate ambition honestly via "ambitionCheck" on EVERY path — compare what the candidate is aiming for against what their profile supports:
+   - "too_high": their target jumps further than their evidence supports. Set verdict "too_high" and in "note" say plainly they'll need more-than-average effort, with a concrete extended timeline and/or the realistic number of intermediate job-switches/promotions needed.
+   - "too_low": their target undersells demonstrated capability. Set verdict "too_low", cite the specific evidence, and push the title/scope above what they asked for.
+   - "aligned": target roughly matches evidence. Fill "note" with a one-sentence honest confirmation citing why.
+   Never fabricate "aligned" just to be agreeable.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: `${MENTOR_SYSTEM_PROMPT} Output exactly 3 career paths in a JSON array inside a "paths" key matching the requested schema.` },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.7,
   });
 
   const content = response.choices[0].message.content || '{}';
@@ -176,75 +366,31 @@ Hard constraints to follow:
   return validated.paths;
 }
 
+/* =====================================================================================
+ * Chat turn streaming
+ * ===================================================================================== */
+
 /**
- * Streams a chat turn from the coach.
- * We include the conversation history, profile, and current signals to help it maintain context and guide the conversation.
+ * Discriminated set of turn types. This replaces the old positional boolean flags
+ * (rejectedAll / insufficientInfo / chosenPath / roadmap) with explicit, named intents
+ * so the orchestration can express the new flows (ask_country, ask_preferences,
+ * rejected_all_final) unambiguously.
  */
-export async function streamChatTurn(
-  chatHistory: ChatMessage[],
-  profile: Profile | null,
-  signals: UserSignals,
-  chosenPath?: CareerPath | null,
-  rejectedAll?: boolean
-): Promise<Response> {
-  const openai = getOpenAIClient();
+export type CoachTurn =
+  | { kind: 'understanding' }
+  | { kind: 'ask_country'; detectedCountries: string[] }          // change #4
+  | { kind: 'ask_preferences' }                                    // change #8 (after 2 declined decks)
+  | { kind: 'insufficient_info' }                                  // change #2 / #3 (give-up decline)
+  | { kind: 'rejected_all_final' }                                 // change #8.1 (final decline)
+  | { kind: 'path_locked'; chosenPath: CareerPath }                // closing after selection
+  | { kind: 'roadmap_followup'; chosenPath: CareerPath; roadmap: Roadmap };
 
-  // Create instructions for this chat turn based on the stage/state
-  let systemInstruction = `${MENTOR_SYSTEM_PROMPT}
-
-Keep in mind the candidate's profile context:
-${profile ? JSON.stringify(profile) : 'No resume uploaded yet.'}
-
-Current conversation signals:
-${JSON.stringify(signals)}
-`;
-
-  if (chosenPath) {
-    systemInstruction += `
-The candidate has officially selected this path: "${chosenPath.title}".
-Your task is to write a tailored closing message:
-1. Reflect their choice back to them with encouragement.
-2. Restate the 1-2 highest-leverage next moves they need to make based on this path (upskills: ${JSON.stringify(chosenPath.upskills)}, first move: ${chosenPath.firstMove}).
-3. End with one decisive, powerful mentor-like line.
-4. Do NOT ask any more questions. This is the end of the session. Keep it to 3-5 sentences, warm, direct, and senior.`;
-  } else if (rejectedAll) {
-    systemInstruction += `
-The candidate has declined all recommended paths.
-Your task is to write a tailored closing message:
-1. Honestly name the pattern in their rejections based on their signals (rejected directions: ${JSON.stringify(signals.rejectedDirections)}). E.g., "Every path you turned down kept you a step away from owning the outcome — that's the real signal".
-2. Give one grounded, realistic direction for them to think about.
-3. Close warmly but decisively.
-4. Do NOT ask any more questions. This is the end of the session. Keep it to 3-5 sentences, warm, direct, and senior.`;
-  } else {
-    systemInstruction += `
-Guidelines for the conversation:
-1. You are in the UNDERSTANDING phase. Keep messages short (2-5 sentences). 
-2. Do not show lists, forms, or multiple questions at once. Ask exactly ONE sharp, natural question at a time.
-3. React to what they just said. Do not ignore their responses.
-4. Try to surface their motivations (e.g., salary vs. impact vs. learning), constraints (location, remote vs. onsite, staying vs. leaving), and narrow down their path.
-5. If they give a one-word or very short answer, gently probe or call it out (e.g., "Money is a given, but what does that purchase you? Security, or flexibility?").
-6. If they contradict themselves, point it out kindly but directly (e.g., "Earlier you said you wanted stability, but now you're talking about joining a 3-person pre-seed startup. Which one is the real driver?").
-7. If they say "nothing bothers me" or they are happy, pivot to what they want *more* of, or what the next level looks like.
-8. Make the conversation feel like a real coffee chat with a senior director, not a scripted intake form.`;
-  }
-
-
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: systemInstruction },
-    ...chatHistory.map(msg => ({
-      role: msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-      content: msg.content
-    }))
-  ];
-
-  const stream = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages,
-    stream: true,
-    temperature: 0.7,
-  });
-
-  // Convert the OpenAI stream into a Web standard ReadableStream for SSE / streaming response
+/** Wraps an OpenAI streaming completion into a chunked text Response. Shared by every
+ * user-facing text generator that streams (currently streamChatTurn and
+ * nextGuidedProfileQuestion) so the ReadableStream plumbing is written once. */
+function toStreamingResponse(
+  stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
+): Response {
   const encoder = new TextEncoder();
   const readableStream = new ReadableStream({
     async start(controller) {
@@ -271,37 +417,200 @@ Guidelines for the conversation:
 }
 
 /**
+ * Streams a chat turn from the coach. Always pass the explicit `turn` intent so the
+ * coach knows which stage it's in. Profile/signals/journey/market are folded into the
+ * system instruction so every turn is stage- and persona-aware.
+ */
+export async function streamChatTurn(
+  chatHistory: ChatMessage[],
+  profile: Profile | null,
+  signals: UserSignals,
+  turn: CoachTurn
+): Promise<Response> {
+  const openai = getOpenAIClient();
+
+  const band = deriveExperienceBand(profile?.yearsExperience ?? 0, profile?.inferredPersona);
+  const market = resolveMarket(profile, signals);
+  const isFirstCoachMessage = chatHistory.filter(m => m.role === 'assistant').length === 0;
+
+  let systemInstruction = `${MENTOR_SYSTEM_PROMPT}
+
+Candidate profile context (raw data for YOUR reasoning only — never quote keys/values/formatting back; always translate to plain speech):
+${profile ? JSON.stringify(profile) : 'No resume uploaded yet — you are building understanding purely from the conversation.'}
+
+Current conversation signals:
+${JSON.stringify(signals)}
+
+Journey stage guidance for THIS candidate:
+${journeyGuidance(band)}
+
+Market: assume ${market.country} and its job-market / salary norms unless the candidate says otherwise.
+`;
+
+  switch (turn.kind) {
+    case 'understanding': {
+      const knownDomains = [...(profile?.domains ?? []), ...(signals.knownDomains ?? [])].filter(Boolean);
+      const knownSkills = [...(profile?.skills ?? []), ...(signals.knownSkills ?? [])].filter(Boolean);
+      const years = profile ? profile.yearsExperience : null;
+
+      systemInstruction += `
+You are in the UNDERSTANDING phase. Keep messages short (2-5 sentences), ask exactly ONE sharp, natural question at a time, and react to what they just said. Your questions should never feel like a form. Be warm and kind.
+${isFirstCoachMessage && !(profile?.name) ? `This is your first message and you do NOT know their name yet — greet warmly and ask their name in one short, natural clause before anything else.` : ''}
+${profile?.name && isFirstCoachMessage ? `Address them by their first name ("${profile.name}") in this first message.` : ''}
+
+What you ALREADY know — do NOT ask about any of these again, and do not contradict them:
+- Years of experience: ${years === null ? 'still being established' : years}
+- Field(s)/domain(s) already stated: ${knownDomains.length ? knownDomains.join(', ') : 'none yet'}
+- Skill(s) already stated: ${knownSkills.length ? knownSkills.join(', ') : 'none yet'}
+- Motivations: ${signals.motivations?.join(', ') || 'none yet'} | Constraints: ${signals.constraints?.join(', ') || 'none yet'}
+
+Rules:
+1. If a domain/field was already given${knownDomains[0] ? ` (e.g. "${knownDomains[0]}")` : ''},
+do NOT ask which field interests them — build on it (go deeper, or ask about specific skills/roles within it).
+2. If they have 0 / no experience, NEVER ask "what field are you already in" or anything that assumes a current job.
+If they are studying or a new grad, then domain/field would be the area they are studying or want to enter.
+Treat them as a fresh entrant exploring options.
+3. Tailor every question to their journey stage above.
+4. You may NOT move toward recommendations until you have at least ONE concrete skill OR domain from them. If you still don't have one, this turn's question must be aimed at getting it.
+5. You may ALSO NOT move toward recommendations until you know something about HOW they want to progress — e.g. grow in place vs switch roles/companies, what they're optimizing for (comp, ownership, learning, stability, flexibility), or a real constraint. A skill/domain alone is not direction. If this is still missing (see Motivations/Constraints above), this turn's question must be aimed at surfacing it — that takes priority over everything except rule 4.
+6. You are a career-direction coach in this phase — not a resume-writing/formatting/document-drafting assistant, and not a data-collection form. If the candidate asks you to do something else — pull/write a resume bullet, draft a headline, rewrite a line, reformat something, or hands the question back to you ("fetch it from my resume", "you tell me") — do not perform that task, AND do not ask them to paste/upload/supply raw text as a substitute either (that is still outsourcing the thinking, just in a different shape). Acknowledge briefly in passing (a short clause, never the point of the message), then re-ask your real question in plain spoken terms they can answer from memory — rephrase it simpler if it helps — or move to whichever of rules 4/5 is still open. The point of every turn is a real answer about THEM, never a document exchange.
+7. If they're vague / evasive / one-word, do not let it slide — ask a sharper, more concrete follow-up. Don't move on with nothing.
+8. If they contradict themselves, name it kindly and directly, and ask which is the real driver.
+9. If they say "nothing bothers me" or they're happy, pivot to what they want MORE of, or what the next level looks like.
+10. Make it feel like a coffee chat with a senior career mentor, not a scripted intake form.`;
+      break;
+    }
+
+    case 'ask_country':
+      systemInstruction += `
+The resume references more than one country (${turn.detectedCountries.join(', ')}), so you don't yet know which job market to calibrate salaries and roles to.
+Ask, in ONE warm, natural sentence, which country / market they're targeting for this move. Do not recommend anything yet and do not ask anything else.`;
+      break;
+
+    case 'ask_preferences':
+      systemInstruction += `
+The candidate has now declined TWO full sets of recommendations. Don't just reshuffle again.
+In one or two sentences, acknowledge that the first two rounds missed, then ask them directly what they'd change — what kind of role, domain, or direction they actually want, or what specifically felt off. Ask ONE focused question. Do not present any paths in this message.`;
+      break;
+
+    case 'insufficient_info':
+      systemInstruction += `
+Across this entire conversation the candidate has still given nothing real to work with 
+— no concrete skill, domain, or direction, only vague, evasive, or non-answers.
+You will NOT invent a recommendation. Write a short, kind-but-direct closing that:
+1. Is honest and a touch wry about having nothing concrete to go on — never mean.
+2. States plainly that you can't responsibly recommend paths without at least one real skill, domain, or goal, and that you won't fake it.
+3. Invites them to come back once they've jotted down their role, experience, skills, and goals.
+Keep it to 3-4 sentences, end warm. Ask no further questions — this ends the session.`;
+      break;
+
+    case 'path_locked':
+      systemInstruction += `
+The candidate selected this path: "${turn.chosenPath.title}".
+Write a tailored closing: reflect their choice back with encouragement, 
+restate the 1-2 highest-leverage next moves in your own natural words 
+(their upskills: ${JSON.stringify(turn.chosenPath.upskills)}; first move: ${turn.chosenPath.firstMove ?? 'n/a'}), 
+and end on one decisive mentor line. No questions. 3-5 sentences.`;
+      break;
+
+    case 'roadmap_followup':
+      systemInstruction += `
+The candidate locked in "${turn.chosenPath.title}" and is reviewing their roadmap (skill level: ${turn.roadmap.skillLevel}, ${turn.roadmap.totalDuration}). 
+The session is OPEN — this is NOT a closing message.
+1. Respond naturally to whatever they said.
+2. If they want a roadmap change (pace, focus, swapping a topic), acknowledge it and point them to the "Adjust roadmap" control — 
+you are not regenerating the structured roadmap in this reply.
+3. Keep it to 2-4 sentences, warm, senior. Do not re-ask onboarding questions.`;
+      break;
+
+    case 'rejected_all_final':
+      systemInstruction += `
+The candidate has declined every set of recommendations, INCLUDING the round tailored to the specific changes they asked for.
+Write the final closing: honestly name the pattern across their rejections in your own plain words (never repeat the raw rejected-direction strings verbatim), offer one grounded direction for them to sit with, and close warmly but decisively. No questions. This ends the session. 3-5 sentences.`;
+      break;
+  }
+
+  // Cap the history sent to the model — token cost grows with conversation length, and the
+  // durable facts (profile, signals) are already distilled into the system instruction above,
+  // so very old turns add cost without adding information. Always keep the first couple of
+  // messages (the personalized opener) for continuity, plus the most recent window.
+  const HISTORY_WINDOW = 16;
+  const boundedHistory =
+    chatHistory.length > HISTORY_WINDOW
+      ? [...chatHistory.slice(0, 2), ...chatHistory.slice(-(HISTORY_WINDOW - 2))]
+      : chatHistory;
+
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemInstruction },
+    ...boundedHistory.map(msg => ({
+      role: msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: msg.content
+    }))
+  ];
+
+  const stream = await openai.chat.completions.create({
+    model: 'gpt-5-mini',
+    messages,
+    stream: true,
+  });
+
+  return toStreamingResponse(stream);
+}
+
+/* =====================================================================================
+ * Opening message
+ * ===================================================================================== */
+
+/**
  * Generates a highly personalized opening message (the hook) based on the profile.
- * It must prove understanding by mentioning a specific detail and tension point.
+ * Change #1: always address the user by name (or ask for it if unknown).
+ * Change #5 / #7: journey-aware — no experienced-person framing for fresh entrants.
  */
 export async function generateOpeningMessage(profile: Profile): Promise<string> {
   const openai = getOpenAIClient();
+  const band = deriveExperienceBand(profile.yearsExperience, profile.inferredPersona);
+  const name = profile.name?.trim();
 
   const prompt = `Analyze the candidate's career profile:
 ${JSON.stringify(profile, null, 2)}
 
+Journey context for THIS candidate:
+${journeyGuidance(band)}
+
 Write the opening chat message as a sharp career mentor.
 Guidelines:
-1. Prove you read the resume — name a real, specific detail (a role transition in their history, a tenure pattern, a title-vs-impact gap, a skill cluster, or an industry shift).
-2. Surface a genuine, specific tension or opportunity (e.g. "You've shipped X for 3 years but every title still says Y — that gap is the whole conversation").
-3. Keep it short and punchy (2-4 sentences, max 80 words).
-4. Persona: direct, warm, and economical with words. Speak like a senior operator, not a chatbot.
-5. HARD RULE: No generic greetings (e.g. "Welcome!", "Hello! Let's get started", "I have parsed your resume"). Jump straight into the specific observation. It must be impossible to send this message to any other candidate.`;
+1. ${name ? `Address them by their first name ("${name}") in the very first sentence.` : `Their name is unknown — open warmly without inventing a name, and ask their name in one short, natural clause.`}
+2. Prove you read the profile — name a real, specific detail appropriate to their stage. For a student/new grad: their field of study, a project, or a stated interest. 
+For an experienced person: a role transition, tenure pattern, or title-vs-impact gap. Never assert seniority, titles, or "years in the field" the profile does not support.
+3. Surface a genuine, specific tension or opportunity that fits their stage. 
+Do NOT use experienced-person framing ("title-vs-impact gap", "you're already in X field") for someone with little or no experience.
+4. Keep it short and punchy (2-4 sentences, max 80 words).
+5. Persona: direct, warm, economical. A senior career mentor, not a chatbot.
+6. HARD RULE: no generic greetings ("Welcome!", "I have parsed your resume"). Jump into the specific observation. It must be impossible to send this message to any other candidate.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
-    temperature: 0.8,
   });
 
-  return response.choices[0].message.content || 'I read your profile. Let us dive in.';
+  return (
+    response.choices[0].message.content ||
+    (name ? `${name}, I read your profile — let's dig in.` : `I read your profile — but first, what should I call you?`)
+  );
 }
+
+/* =====================================================================================
+ * Signal analysis
+ * ===================================================================================== */
 
 /**
  * Analyzes the chat history to extract and update career signals.
+ * Change #2 / #5 / #6: captures concrete skills/domains, gates readiness on having at
+ * least one, and records what's known so the coach never re-asks an answered question.
+ * Change #4: captures an explicitly stated target country.
  */
 export async function analyzeSignals(
   chatHistory: ChatMessage[],
@@ -309,65 +618,78 @@ export async function analyzeSignals(
 ): Promise<UserSignals> {
   const openai = getOpenAIClient();
 
-  const prompt = `You are a career development analyst. Analyze the following conversation transcript to update the user's signals.
+  const prompt = `You are a career development analyst. Analyze the conversation transcript to update the user's signals.
 
 Current Signals:
 ${JSON.stringify(currentSignals, null, 2)}
 
 Chat history (focus on the latest messages):
-${JSON.stringify(chatHistory.slice(-4), null, 2)}
+${JSON.stringify(chatHistory.slice(-6), null, 2)}
 
-Your task:
-Extract the candidate's career preferences, rejections, constraints, and motivations. Update the UserSignals object:
-1. "intentGuess": Refine based on their choice. Use:
-   - 'pivot': Wants to transition to a different role/industry, values ownership/strategy.
-   - 'grow_in_place': Wants to level up or resolve plateaus inside their current field/company.
-   - 'early_career': New grad, needs structured choices.
-   - 'unknown': Default if not yet clear.
-2. "motivations": Add new career drivers (e.g., "higher salary", "product ownership", "mentorship", "wfh"). Do not duplicate.
-3. "constraints": Add limitations (e.g., "no relocation", "must be in USA", "max 40h/week").
-4. "rejectedDirections": Add things they explicitly rejected or disliked (e.g., "not interested in management", "avoid sales roles").
-5. "notes": Brief analytical notes about their state of mind or contradictions.
+Your task — update the UserSignals object:
+1. "intentGuess": one of 'pivot' | 'grow' | 'early_career' | 'unknown'.
+2. "motivations": career drivers (e.g. "higher salary", "product ownership", "remote work"). No duplicates.
+3. "constraints": limitations (e.g. "no relocation", "must be in India", "max 40h/week").
+4. "rejectedDirections": things they explicitly rejected or disliked. ALWAYS a full natural-language phrase (e.g. "not interested in management", "avoid sales roles") — NEVER a category code/slug/snake_case.
+5. "knownSkills": concrete skills or tools the candidate has actually stated they know or are comfortable with. Empty array if none stated. Only real, specific skills — not aspirations.
+6. "knownDomains": concrete fields/industries/domains the candidate has stated interest in OR experience in (e.g. "digital marketing", "B2B client outreach"). Empty array if none. Capture these even when expressed loosely, so we never re-ask which field interests them.
+7. "country": a country/market the candidate has explicitly named as their target for this move. Null if they have not named one.
+8. "notes": brief plain-English analytical notes (state of mind, contradictions).
+9. "readyForRecommendation": true ONLY IF (a) "knownSkills" or "knownDomains" has at least one real entry, AND (b) the CANDIDATE has stated an actual motivation, constraint, or direction preference (e.g. grow in place vs switch roles/companies, what they're optimizing for) in their own words this conversation, reflected in "motivations" or "constraints" below. Do NOT count the assistant's own restated profile facts, or a bare acknowledgement like "yes"/"sure"/"ok" with no new content, as satisfying (b). If you have no concrete skill/domain, or no genuine candidate-stated direction, this MUST be false.
+10. "hasUsableInfo": false ONLY if, across the ENTIRE conversation, the candidate has given no real career-relevant information at all — every reply has been a refusal, a non-answer ("idk", "whatever"), or off-topic. true the moment they've shared anything genuinely usable, even a small detail.
 
-Preserve existing signals unless the user has directly changed their mind or contradicted them.`;
+Preserve existing signals unless the user has directly changed their mind or contradicted them. Never drop a skill/domain/country once genuinely captured.`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    // gpt-5-nano (not -mini): this is a structured-extraction-into-a-fixed-schema task, the
+    // same class of work extractProfile already does on nano — and it's the highest-frequency
+    // call in the app (every chat turn), so model choice matters most here cost-wise.
+    model: 'gpt-5-nano',
     messages: [
       { role: 'system', content: 'You are a career signals extractor. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
   });
 
   const content = response.choices[0].message.content || '{}';
   const parsed = JSON.parse(content);
-  
+
   const SignalsSchema = z.object({
-    intentGuess: z.enum(['pivot', 'grow_in_place', 'early_career', 'unknown']),
+    intentGuess: z.enum(['pivot', 'grow', 'early_career', 'unknown']),
     motivations: z.array(z.string()),
     constraints: z.array(z.string()),
     rejectedDirections: z.array(z.string()),
+    knownSkills: z.array(z.string()),     // NEW (change #2/#5)
+    knownDomains: z.array(z.string()),    // NEW (change #5/#6)
+    country: z.string().nullish(),        // NEW (change #4)
     notes: z.array(z.string()),
+    readyForRecommendation: z.boolean(),
+    hasUsableInfo: z.boolean(),
   });
 
-  return SignalsSchema.parse(parsed);
+  // NOTE: keep the UserSignals type in ../state/conversation in sync with this schema.
+  return SignalsSchema.parse(parsed) as UserSignals;
 }
 
+/* =====================================================================================
+ * Roadmap generation
+ * ===================================================================================== */
+
 /**
- * Generates a phased execution roadmap for the path the candidate locked in.
- * The phase mix and content are tailored to the candidate's readiness for THIS
- * specific path (domain + skill overlap), not their general seniority.
+ * Generates a phased execution roadmap for the chosen path.
+ * Change #4: application channels are localized to the resolved market.
  */
 export async function generateRoadmap(
   profile: Profile,
   chosenPath: CareerPath,
-  signals: UserSignals
+  signals: UserSignals,
+  feedback?: string
 ): Promise<Roadmap> {
   const openai = getOpenAIClient();
+  const country = resolveMarket(profile, signals).country;
 
-  const prompt = `You are a sharp career mentor building a concrete execution roadmap for a candidate who just locked in a target career path.
+  const prompt = `You are a sharp career mentor building a concrete, week-by-week execution roadmap for a candidate who just locked in a target career path.
 
 Candidate profile:
 ${JSON.stringify(profile, null, 2)}
@@ -378,43 +700,43 @@ ${JSON.stringify(signals, null, 2)}
 Chosen path:
 ${JSON.stringify(chosenPath, null, 2)}
 
-Step 1: Classify the candidate's "skillLevel" for THIS SPECIFIC PATH (not their general seniority — someone senior in one domain can be a beginner relative to a path in a new domain). Compare their existing skills/domains/roleHistory against what the chosen path's title and upskills demand. Use exactly one of:
-- "beginner": Little to no existing skill/domain overlap with the path (e.g. <1-2 years total experience, or pivoting into a domain they have no background in).
-- "basic": Some relevant foundational skills or adjacent experience, but missing the advanced/specialized skills the path demands.
-- "good": Strong overlap — most of the core skills for the path are already present; mainly needs to prove it with real work.
-- "experienced": Already operates at or near this path's level; mainly needs to refresh/sharpen specific skills before applying.
+Target market: ${country}. When you name application channels, communities, or salary context, make them realistic for ${country}.
+${feedback ? `\nThe candidate already saw an earlier version of this roadmap and gave this feedback/preference update — revise the roadmap to honestly incorporate it (push back in "summary" if the feedback itself is unrealistic, but still produce the best honest plan): "${feedback}"\n` : ''}
 
-Step 2: Build the "phases" array using ONLY the phase combination that matches the classification (do not add phases outside this list, do not skip required ones):
-- "beginner" → phases in order: one or two "course" phases covering basic foundations THEN advanced topics, then a "project" phase (can run partially in parallel with the courses — reflect that in the timeline strings), then an "application" phase targeting internships/entry-level roles.
-- "basic" → phases in order: one "course" phase focused on advanced/specialized topics only (skip basics), then a "project" phase, then an "application" phase targeting relevant full roles.
-- "good" → phases in order: one "project" phase building portfolio-grade, industry-realistic work (no course phase), then an "application" phase.
-- "experienced" → phases in order: one "course" phase that is explicitly a refresher/advanced-edge-skills phase (not foundational), then an "application" phase (no project phase).
+Step 1: Classify the candidate's "skillLevel" for THIS SPECIFIC PATH (not their general seniority). Compare their existing skills/domains/roleHistory against what the chosen path's title and upskills demand. Use exactly one of:
+- "beginner": Little to no overlap (e.g. <1-2 years total, or pivoting into a domain with no background).
+- "basic": Some relevant foundational/adjacent skills, but missing the advanced ones the path demands.
+- "good": Strong overlap — most core skills present; mainly needs to prove it with real work.
+- "experienced": Already at/near this path's level; mainly needs to refresh/sharpen specific skills.
 
-Step 3: For every phase, make "items" concrete and specific to the candidate's actual domain, skills, and stated requirements/constraints (e.g. name real course topics, real project ideas, real application channels relevant to ${chosenPath.title} and the candidate's region/domains) — never generic filler like "take some courses."
+Step 2: Build the "phases" array using ONLY the phase combination that matches the classification. Every combination ends in exactly one "practice" phase immediately before the "application" phase — practice = mock interviews, timed case work, or simulated on-the-job tasks specific to ${chosenPath.title}, NOT more courses or building:
+- "beginner" → "course" phase(s) basics THEN advanced → "project" → "practice" → "application" targeting internships/entry-level roles.
+- "basic" → one "course" phase advanced-only (skip basics) → "project" → "practice" → "application" targeting relevant full roles.
+- "good" → one "project" phase (portfolio-grade, industry-realistic; no course phase) → "practice" → "application".
+- "experienced" → one "course" phase that is explicitly a refresher/advanced-edge phase (no project phase) → "practice" → "application".
+
+Step 3: Break EVERY phase into a week-by-week plan:
+- Sequential "week" number incrementing across the whole roadmap (never restart at 1 for a later phase).
+- Each week: a short "focus" theme and 2-5 concrete, specific "items" — real course topics, real project milestones, real mock-interview formats, real application channels relevant to ${chosenPath.title} and ${country}. Never filler like "take some courses".
+- Total realistic for skillLevel: ~10-16 weeks "beginner", 8-12 "basic", 6-10 "good", 4-8 "experienced" — adjust to the actual gap.
 
 Output a single JSON object with EXACTLY these fields:
-- "skillLevel": one of "beginner" | "basic" | "good" | "experienced" (from Step 1).
-- "summary": string, 1-2 sentences explaining the classification, citing a specific profile fact.
-- "totalDuration": string, one realistic end-to-end timeframe estimate (e.g. "3-5 months").
-- "phases": array of objects, each with:
-  - "type": one of "course" | "project" | "application".
-  - "title": short phase name.
-  - "timeline": realistic relative timeframe for this phase (e.g. "Weeks 1-6" or "Month 2-3").
-  - "items": array of 3-6 concrete, specific action strings.
-  - "description": one sentence on why this phase matters for this candidate.`;
+- "skillLevel": one of "beginner" | "basic" | "good" | "experienced".
+- "summary": 1-2 sentences explaining the classification, citing a specific profile fact.
+- "totalWeeks": number, the highest "week" number used.
+- "totalDuration": string derived from totalWeeks (e.g. "14 weeks (~3.5 months)").
+- "phases": array of objects, each with "type", "title", "description", and "weeks" (array of { "week", "focus", "items" }).`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: 'You are a career roadmap planner. Output JSON matching the requested schema exactly.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.4,
   });
 
   const content = response.choices[0].message.content || '{}';
   const parsed = JSON.parse(content);
   return RoadmapSchema.parse(parsed);
 }
-

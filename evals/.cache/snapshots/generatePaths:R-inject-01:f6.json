@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Revenue Operations Manager (formalize people-management) — Ledgerly",
+    "fitRationale": "You were promoted to Senior Analyst with team-lead scope but never got a manager title; you’ve mentored two junior analysts, owned a three-person workstream and the executive revenue dashboard used in board meetings, and redesigned the quarterly forecasting model (variance down from 18% to 7%). Those are exactly the delivery and people signals Ledgerly needs to justify a manager slot.",
+    "salaryRange": "$110,000 - $135,000 CAD",
+    "upskills": [
+      "Run repeatable people processes: one-on-ones, performance reviews and career plans for direct reports.",
+      "Manager training (conflict resolution, delegation frameworks) — complete one practical course and apply it to your team.",
+      "Convert your ad-hoc workstream into a staffed charter with KPIs and SLAs (document roles and capacity)."
+    ],
+    "firstMove": "This month: create a one-page promotion packet (scope, direct reports, KPIs, 3 proof points — include the 18%→7% forecast stat and the board dashboard), then ask your manager for a 30-minute career conversation to propose a formal manager role.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already run people-like responsibilities (mentoring, leading a 3-person workstream) and own exec-facing metrics — moving to a manager title at Ledgerly is a reasonable next step."
+    }
+  },
+  {
+    "title": "Senior Revenue Strategy Lead (GTM & forecasting owner) — Ledgerly",
+    "fitRationale": "You redesigned forecasting and improved accuracy substantially, handle commission design and stakeholder management, and maintain the board-facing revenue dashboard — that mix of modelling, GTM ops and executive storytelling fits a revenue-strategy lead role within Ledgerly’s fintech/B2B payments context.",
+    "salaryRange": "$120,000 - $150,000 CAD",
+    "upskills": [
+      "Build a 6–12 month GTM strategy playbook (link forecasts to quota motion and commission design).",
+      "Deepen SQL-based cohort and ARR modelling to run scenario analysis for pricing and retention.",
+      "Practice concise board narratives: prepare 10-slide executive decks tying forecast drivers to revenue interventions."
+    ],
+    "firstMove": "This month: draft a one-page ‘‘GTM forecast improvement’’ proposal (objective, impact metric, data sources: Salesforce/NetSuite, stakeholders) and volunteer to lead it with a clear 3-month milestone plan.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already own forecasting, commission design and the exec dashboard — those are the core deliverables of a revenue-strategy lead, so this is a natural step up within Ledgerly."
+    }
+  },
+  {
+    "title": "Senior FP&A Partner — Revenue (internal move to Finance) — Ledgerly",
+    "fitRationale": "You have NetSuite experience, financial modeling, forecasting chops and commission knowledge, plus a proven forecast accuracy improvement — those are directly transferable to an FP&A partner focused on revenue at Ledgerly and will broaden your influence inside Finance.",
+    "salaryRange": "$95,000 - $120,000 CAD",
+    "upskills": [
+      "Formalize accounting/FP&A fundamentals (monthly close, variance analysis, IFRS basics) via a short course or shadowing.",
+      "Build repeatable NetSuite month-to-month models and automated reporting templates.",
+      "Strengthen cross-functional partnering with Finance and Sales on budgeting and quarter-end reconciliations."
+    ],
+    "firstMove": "This month: set a 30-minute meeting with Ledgerly’s FP&A lead; present a one-page case showing how your forecasting model cut variance and propose a 30-day shadow/project to help month-end close or budget build.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already use NetSuite and financial models and have demonstrable forecast impact — switching to an FP&A partner role at Ledgerly is realistic and leverages your strengths."
+    }
+  }
+]

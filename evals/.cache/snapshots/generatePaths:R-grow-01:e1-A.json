@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Revenue Operations Manager (formal people manager) — Ledgerly",
+    "fitRationale": "You were promoted inside Ledgerly and expanded scope to lead a three-person workstream and own the executive revenue dashboard; you also informally mentored two junior analysts and built the SQL commission engine — that track record makes an internal step to a formal manager role the most direct way to convert your 'lead without title' work into headcount and a promotion. Because you said you want ownership and strategic scope, this path formalizes both inside the company that already trusts you.",
+    "salaryRange": "$105,000 - $135,000 CAD",
+    "upskills": [
+      "Document and quantify your impact (forecast variance cut from 18% to 7%, commission engine ROI) into a 2–3 page promotion packet",
+      "Get basic people-management training and run formal 1:1s, calibrations and performance reviews for at least two reports",
+      "Own one cross-functional project end-to-end with clear exec-level outcomes to prove managerial scope"
+    ],
+    "firstMove": "This month, book a 30–45 minute promotion conversation with your manager and bring a one-page brief that lists the forecasting improvement, commission engine outcome, and a proposed org chart for formalizing your team.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already run a workstream, own exec reporting and mentor juniors — those are the usual prerequisites for a first people-management promotion at Ledgerly."
+    }
+  },
+  {
+    "title": "Sales / GTM Finance Manager (mid-stage SaaS/fintech, external move)",
+    "fitRationale": "You have the exact technical and domain signals hiring managers for Sales Finance want: SQL, NetSuite, forecasting, commission design and financial modeling, plus the concrete result of redesigning the quarterly forecast (variance 18% → 7%) and building the first SQL commission calculation engine. You're also open to switching companies, so moving to a mid-stage SaaS/fintech to own GTM finance is a natural next step to get formal title and broader P&L remit.",
+    "salaryRange": "$115,000 - $150,000 CAD",
+    "upskills": [
+      "Deepen ERP/accounting controls knowledge (NetSuite flows, revenue recognition basics) to speak FP&A language",
+      "Build a deal-level P&L and scenario model for the sales organization you can present to CRO/Finance",
+      "Polish stakeholder narratives — prepare a 1-page executive deck showing business impact and controls"
+    ],
+    "firstMove": "Create a single-page case study this month that packages your forecasting model + commission engine, quantifies business impact, and use it when reaching out to recruiters at three target mid-stage fintech/SaaS companies.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "Your skills (commission design, NetSuite, forecasting) and concrete results map directly to Sales/GTM finance needs; you’ll need to show end-to-end ownership when interviewing but this is a realistic lateral+step-up via an external move."
+    }
+  },
+  {
+    "title": "Principal Revenue Analytics / Revenue Ops Tech Lead (senior IC)",
+    "fitRationale": "You built the first SQL-based commission engine, own executive dashboards, reduced forecast variance materially, and mentor juniors — that combination fits a senior technical IC who owns platform-level RevOps tooling and analytics. This path keeps you on an IC track while giving you the strategic ownership you want.",
+    "salaryRange": "$125,000 - $170,000 CAD",
+    "upskills": [
+      "Productionize the commission engine: add tests, monitoring, and deployment (dbt/CI or equivalent)",
+      "Advance data engineering skills (Python, ETL best-practices, or dbt) so you can own scalable pipelines",
+      "Document a 12-month product roadmap for RevOps tooling and lead a cross-functional launch to prove platform impact"
+    ],
+    "firstMove": "This month, scope and ship a production-ready iteration of the commission engine with monitoring and a one-page ROI metric; present it to execs and request formal ownership of the tool.",
+    "ambitionCheck": {
+      "verdict": "too_high",
+      "note": "Principal-level IC typically requires broader productionization experience and external recognition; expect 2–4 years and either a promotion plus major cross-company project or one external move to reach Principal."
+    }
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "name": "Maria Lindqvist",
+  "yearsExperience": 5,
+  "currentRole": "Sales Development Representative",
+  "currentLevel": "IC",
+  "roleHistory": [
+    {
+      "title": "Sales Development Representative",
+      "company": "Brightloop",
+      "durationMonths": 24
+    },
+    {
+      "title": "Retail Associate",
+      "company": "Espresso House",
+      "durationMonths": 32
+    }
+  ],
+  "skills": [
+    "Outbound prospecting",
+    "Salesforce",
+    "Outreach.io",
+    "cold calling",
+    "objection handling",
+    "basic SQL",
+    "Airtable",
+    "Notion",
+    "pipeline reporting"
+  ],
+  "domains": [
+    "B2B SaaS",
+    "retail"
+  ],
+  "region": "Stockholm, Sweden",
+  "notableTransitions": [
+    "Transitioned from part-time retail (Espresso House) to a full-time SDR role in B2B SaaS (Brightloop).",
+    "Consistently overachieved quota (e.g., 142% of quota in Q3 2023) and expanded responsibilities (lead qualification, call reviews, pipeline maintenance).",
+    "Started self-directed side projects (Notion templates) and learned SQL/Airtable to build internal reporting tools, signaling interest in product/ops.",
+    "Collaborated with product team to relay onboarding feedback, contributing to roadmap discussions."
+  ],
+  "tensions": [
+    "Title vs impact: SDR role demonstrates high impact but may not reflect seniority or leadership responsibilities.",
+    "Interest in product/ops growth vs staying in current IC path; seeking ownership opportunities without leaving the company yet.",
+    "Limited formal progression path within current role (no manager track yet) despite strong performance."
+  ],
+  "inferredPersona": "grow"
+}

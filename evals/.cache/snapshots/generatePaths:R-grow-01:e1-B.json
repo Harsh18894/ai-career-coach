@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Staff Revenue Operations Analyst — Lead IC (Ledgerly)",
+    "fitRationale": "You’ve already been promoted at Ledgerly to Senior Analyst and expanded into team‑lead scope (60 months as Senior Analyst; led a three‑person workstream and own the executive revenue dashboard). Staying in place and formalizing that remit lets you keep stability and avoid people management while capturing title and pay that match your impact.",
+    "salaryRange": "CAD 110,000 - 140,000",
+    "upskills": [
+      "Write a one‑page remit + OKRs that convert your informal lead scope into measurable deliverables",
+      "Create a promotion packet quantifying impact (e.g., show forecast variance improvement from 18% to 7%)",
+      "Formalize stakeholder SLAs and handoffs so your lead scope is visible to execs and HR"
+    ],
+    "firstMove": "This month: book a 30‑minute meeting with your manager and present a one‑page ‘Staff IC remit’ doc plus impact metrics (forecast variance reduction, commission engine replace), asking for a formal title/remit review.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already run lead responsibilities at Ledgerly and own executive outputs; a formal Staff IC title is a sensible next step without requiring a company change."
+    }
+  },
+  {
+    "title": "Revenue Systems & Commission Architect — Senior IC (Ledgerly)",
+    "fitRationale": "You built Ledgerly’s first SQL‑based commission calculation engine and work across Salesforce, NetSuite and SQL — a clear fit to own systems, automations and release ownership while staying IC and in‑company.",
+    "salaryRange": "CAD 105,000 - 150,000",
+    "upskills": [
+      "Get a Salesforce Admin (or NetSuite) certification to formalize credibility",
+      "Document the commission engine end‑to‑end and add automated tests/process owners",
+      "Build a 6‑month roadmap to migrate spreadsheet processes to supported systems"
+    ],
+    "firstMove": "This month: produce a short roadmap and risk/benefit note for making the commission engine the supported internal product, and present it to your manager + head of Sales Ops.",
+    "ambitionCheck": {
+      "verdict": "aligned",
+      "note": "You already shipped the commission engine and work with Salesforce/NetSuite — moving to a systems architect role inside Ledgerly matches your technical and domain experience."
+    }
+  },
+  {
+    "title": "Principal Revenue Data & Forecasting Engineer — Exec‑facing IC (Ledgerly)",
+    "fitRationale": "You redesigned the quarterly forecasting model (variance cut from 18% to 7%) and own the executive revenue dashboard — those outcomes point to a Principal IC role owning forecasting strategy and models across GTM.",
+    "salaryRange": "CAD 130,000 - 170,000",
+    "upskills": [
+      "Broaden influence: run a cross‑functional forecasting forum (sales, finance, product) to own cadence and assumptions",
+      "Improve reproducibility: productionize forecasting models (versioning, testing, deployment)",
+      "Deliver a visible, recurring exec brief that ties model changes to revenue outcomes"
+    ],
+    "firstMove": "This month: create a one‑page proposal to run a monthly forecasting review with execs, including a pilot forecast improvement plan and success metrics.",
+    "ambitionCheck": {
+      "verdict": "too_high",
+      "note": "You have strong wins (forecast gain, executive dashboard) but Principal usually demands broader cross‑company influence and 2–4 more years or an extra promotion; expect to formalize cross‑functional ownership and show repeatable, company‑level impact over 12–24 months."
+    }
+  }
+]

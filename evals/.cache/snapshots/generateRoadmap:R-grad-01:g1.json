@@ -1,0 +1,146 @@
+{
+  "skillLevel": "basic",
+  "summary": "Classification: basic, because Priya has relevant internship experience in data engineering (ETL, data warehousing, Airflow, dbt) but has not yet held a full-time DE role, so the plan emphasizes advanced specialization and a strong portfolio with an application phase.",
+  "totalWeeks": 12,
+  "totalDuration": "12 weeks (~3 months)",
+  "phases": [
+    {
+      "type": "course",
+      "title": "Advanced Data Engineering Foundations (ETL, Data Warehousing, Cloud basics)",
+      "description": "Intensive advanced topics to bridge internship exposure to real-world data engineering responsibilities.",
+      "weeks": [
+        {
+          "week": 1,
+          "focus": "Advanced SQL & query optimization",
+          "items": [
+            "Study window functions, CTEs, partitioning",
+            "Practice with explain plans on sample queries",
+            "Rewrite provided complex query for performance"
+          ]
+        },
+        {
+          "week": 2,
+          "focus": "Data warehousing modeling & dbt testing",
+          "items": [
+            "Design star schema for a sample analytics domain",
+            "Create dbt models and sources/refs",
+            "Implement dbt tests (unique, not_null, relationships)",
+            "Document lineage and dependencies"
+          ]
+        },
+        {
+          "week": 3,
+          "focus": "ETL orchestration & cloud basics",
+          "items": [
+            "Build an Airflow DAG skeleton with ingest, transform, load tasks",
+            "Implement retries, SLA, and basic monitoring",
+            "Set up S3/GCS bucket and basic IAM permissions",
+            "Configure environment for local vs cloud runs"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "project",
+      "title": "End-to-end Pipeline Portfolio Project",
+      "description": "Build a portfolio-grade pipeline ingesting CSV to warehouse with Airflow and dbt.",
+      "weeks": [
+        {
+          "week": 4,
+          "focus": "Project scoping and data ingestion",
+          "items": [
+            "Define dataset (CSV with 5 fields) and create sample file",
+            "Set up Git repo and project structure",
+            "Outline DAG structure and data sources"
+          ]
+        },
+        {
+          "week": 5,
+          "focus": "Airflow DAG implementation",
+          "items": [
+            "Create DAG with tasks: ingest_csv, transform_with_dbt, load_to_warehouse",
+            "Implement scheduling and dependencies",
+            "Add simple logging and retry policy"
+          ]
+        },
+        {
+          "week": 6,
+          "focus": "dbt modeling & testing",
+          "items": [
+            "Develop dbt models for staging and mart",
+            "Write tests: unique ID, not_null, relationships",
+            "Document models and lineage"
+          ]
+        },
+        {
+          "week": 7,
+          "focus": "Warehouse loading & performance",
+          "items": [
+            "Load data into Postgres/BigQuery/Redshift",
+            "Apply partitioning and indexing strategies",
+            "Validate data quality and row counts",
+            "Set up basic CI for the pipeline"
+          ]
+        },
+        {
+          "week": 8,
+          "focus": "Observability & deliverables",
+          "items": [
+            "Add Airflow task-level and DAG-level metrics",
+            "Create README with run instructions and architecture diagram",
+            "Produce 2-minute demo video linked in repo",
+            "Prepare a brief snapshot of pipeline performance"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "practice",
+      "title": "Interview & Evaluation Practice",
+      "description": "Structured mock interviews and problem-solving drills.",
+      "weeks": [
+        {
+          "week": 9,
+          "focus": "Technical mock interviews",
+          "items": [
+            "2x 45-minute mock interviews: ETL design and SQL optimization",
+            "Review common DE questions and sample answers"
+          ]
+        },
+        {
+          "week": 10,
+          "focus": "System design whiteboard drills",
+          "items": [
+            "5 design prompts focusing on data pipelines and scalability",
+            "Practice explaining tradeoffs: Postgres vs BigQuery vs Redshift"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "title": "Entry-level Data Engineer Job Search & Applications",
+      "description": "Target startups in Austin; prepare resume, portfolio, and outreach.",
+      "weeks": [
+        {
+          "week": 11,
+          "focus": "Resume/portfolio & outreach plan",
+          "items": [
+            "Tailor resume to pipeline project; create portfolio page",
+            "Draft 3 outreach emails to Austin startups",
+            "Update LinkedIn and GitHub with project links"
+          ]
+        },
+        {
+          "week": 12,
+          "focus": "Apply cadence & interview prep",
+          "items": [
+            "Apply to 15 roles; target 10 startups in Austin",
+            "Schedule 3-4 phone screens; gather feedback from mock interviews",
+            "Refine pitch and STAR stories"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { User, ShieldAlert } from 'lucide-react';
 import { ChatMessage } from '@/lib/state/conversation';
 
@@ -61,7 +61,11 @@ function renderInlineElements(text: string) {
   });
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+// Memoized: during a streamed reply, ChatWindow's `messages` array is rebuilt every token, but
+// every *unchanged* message object keeps its same reference — only the actively-streaming one
+// gets a new object. React.memo lets every other bubble (and its markdown-lite parsing below)
+// skip re-rendering on every token instead of re-running on each one.
+function MessageBubble({ message }: MessageBubbleProps) {
   const isAssistant = message.role === 'assistant';
   const isSystem = message.role === 'system';
 
@@ -78,14 +82,13 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <div
-      className={`flex items-start w-full gap-3 my-4 animate-fade-in ${
-        isAssistant ? 'justify-start' : 'justify-end'
-      }`}
+      className={`flex items-start w-full gap-3 my-4 animate-fade-in ${isAssistant ? 'justify-start' : 'justify-end'
+        }`}
     >
       {/* Avatar */}
       {isAssistant ? (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-          M
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+          C
         </div>
       ) : (
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs shadow-sm">
@@ -95,23 +98,23 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
       {/* Bubble */}
       <div
-        className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm border ${
-          isAssistant
-            ? 'bg-white border-slate-200 text-slate-800'
-            : 'bg-slate-900 border-slate-900 text-white font-medium'
-        }`}
+        className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm border ${isAssistant
+          ? 'bg-white border-slate-200 text-slate-800'
+          : 'bg-linear-to-br from-slate-900 to-indigo-950 border-indigo-950 text-white font-medium'
+          }`}
       >
         <div className="prose prose-sm">
           {formatMessageContent(message.content)}
         </div>
 
         {/* Timestamp */}
-        <span className={`block text-[10px] mt-1 text-right ${
-          isAssistant ? 'text-slate-400' : 'text-slate-300'
-        }`}>
+        <span className={`block text-[10px] mt-1 text-right ${isAssistant ? 'text-slate-400' : 'text-slate-300'
+          }`}>
           {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
     </div>
   );
 }
+
+export default memo(MessageBubble);

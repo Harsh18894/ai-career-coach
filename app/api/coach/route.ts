@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamChatTurn, analyzeSignals, generatePaths, generateRoadmap, buildProfileFromAnswers } from '@/lib/ai/coach';
+import {
+  streamChatTurn,
+  analyzeSignals,
+  generatePaths,
+  generateRoadmap,
+  buildProfileFromAnswers,
+  nextGuidedProfileQuestion,
+  resolveMarket,
+  canRecommend,
+} from '@/lib/ai/coach';
 
 export const maxDuration = 60; // Allow sufficient time for long stream operations / path generation
 
@@ -18,25 +27,41 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'recommend') {
-      const { profile, signals, shownPaths, rejectedDirections } = body;
+      const { profile, signals, shownPaths, rejectedDirections, changeRequests } = body;
       if (!profile || !signals) {
         return NextResponse.json({ error: 'Missing profile or signals.' }, { status: 400 });
       }
+
+      // Gate #2/#3: never recommend without a concrete skill/domain + readiness.
+      // The client should keep the conversation in UNDERSTANDING when this returns.
+      if (!canRecommend(profile, signals)) {
+        return NextResponse.json({ notReady: true });
+      }
+
+      // Gate #4: if the resume spans multiple countries and the user hasn't confirmed one,
+      // ask before recommending so salaries/roles calibrate to the right market.
+      const market = resolveMarket(profile, signals);
+      if (market.needsCountryConfirmation && !signals.country) {
+        const detectedCountries = Array.from(new Set<string>(profile.countriesDetected ?? []));
+        return NextResponse.json({ needsCountry: true, detectedCountries });
+      }
+
       const paths = await generatePaths(
         profile,
         signals,
         shownPaths || [],
-        rejectedDirections || []
+        rejectedDirections || [],
+        { country: market.country, changeRequests: changeRequests || undefined }
       );
-      return NextResponse.json({ paths });
+      return NextResponse.json({ paths, country: market.country });
     }
 
     if (action === 'roadmap') {
-      const { profile, chosenPath, signals } = body;
+      const { profile, chosenPath, signals, feedback } = body;
       if (!profile || !chosenPath || !signals) {
         return NextResponse.json({ error: 'Missing profile, chosenPath, or signals.' }, { status: 400 });
       }
-      const roadmap = await generateRoadmap(profile, chosenPath, signals);
+      const roadmap = await generateRoadmap(profile, chosenPath, signals, feedback);
       return NextResponse.json({ roadmap });
     }
 
@@ -49,14 +74,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ profile });
     }
 
+    if (action === 'next-profile-question') {
+      const { answers } = body;
+      if (!answers || !Array.isArray(answers)) {
+        return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+      }
+      return await nextGuidedProfileQuestion(answers);
+    }
+
     if (action === 'chat' || !action) {
-      const { messages, profile, signals, chosenPath, rejectedAll } = body;
+      // `turn` is the discriminated CoachTurn object built by the client (see coach.ts):
+      //   { kind: 'understanding' }
+      //   { kind: 'ask_country', detectedCountries }
+      //   { kind: 'ask_preferences' }
+      //   { kind: 'insufficient_info' }
+      //   { kind: 'path_locked', chosenPath }
+      //   { kind: 'roadmap_followup', chosenPath, roadmap }
+      //   { kind: 'rejected_all_final' }
+      const { messages, profile, signals, turn } = body;
       if (!messages || !signals) {
         return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
       }
-      return await streamChatTurn(messages, profile, signals, chosenPath, rejectedAll);
+      const coachTurn = turn ?? { kind: 'understanding' };
+      return await streamChatTurn(messages, profile, signals, coachTurn);
     }
-
 
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
   } catch (error: any) {
