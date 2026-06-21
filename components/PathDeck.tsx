@@ -61,7 +61,6 @@ export default function PathDeck({
         ))}
       </div>
 
-      {/* Control Buttons underneath the deck */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
         {canRegenerate ? (
           <button

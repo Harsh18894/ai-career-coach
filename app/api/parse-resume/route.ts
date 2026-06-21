@@ -20,18 +20,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
       }
 
-      // Guard: Validate file type
       if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
         return NextResponse.json({ error: 'Only PDF files are accepted.' }, { status: 400 });
       }
 
-      // Guard: Validate file size (max ~5MB)
       const MAX_SIZE = 5 * 1024 * 1024;
       if (file.size > MAX_SIZE) {
         return NextResponse.json({ error: 'File size exceeds the 5 MB limit.' }, { status: 400 });
       }
 
-      // Parse PDF using PDFParse
       const arrayBuffer = await file.arrayBuffer();
       try {
         const parser = new PDFParse({ data: new Uint8Array(arrayBuffer) });
@@ -48,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const cleanText = text.trim();
 
-    // Check if pdf has readable text layer (e.g. scanned image with no OCR)
+    // Too short to be a real resume — most likely a scanned image with no OCR text layer.
     if (cleanText.length < 150) {
       return NextResponse.json({
         textIsEmpty: true,
@@ -56,7 +53,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate Profile & Opening message
     const profile = await extractProfile(cleanText);
 
     if (!profile) {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Loader2, Link2, ChevronDown } from 'lucide-react';
 import { Profile } from '@/lib/ai/schemas';
 
 interface ResumeUploadProps {
@@ -21,7 +21,8 @@ export default function ResumeUpload({
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [showTextFallback, setShowTextFallback] = useState(false);
   const [manualText, setManualText] = useState('');
-  
+  const [showLinkedinHelp, setShowLinkedinHelp] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -55,13 +56,11 @@ export default function ResumeUpload({
     setError(null);
     setShowTextFallback(false);
 
-    // Validate type (must be PDF)
     if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
       setError('Please upload a PDF file only.');
       return;
     }
 
-    // Validate size (max 5MB)
     const MAX_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       setError('File is too large. Maximum allowed size is 5 MB.');
@@ -126,16 +125,15 @@ export default function ResumeUpload({
           </span>
         </h1>
         <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-          Upload your resume, have a brief conversation with a sharp career mentor, and unlock 3 personalized paths forward.
+          Upload your resume, have a brief conversation with Aria, a sharp career mentor, and unlock 3 personalized paths forward.
         </p>
       </div>
 
       <div
-        className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200 ${
-          dragActive
-            ? 'border-violet-400 bg-linear-to-br from-indigo-50/60 to-violet-50/60'
-            : 'border-slate-200 bg-slate-50'
-        } ${isLoading ? 'pointer-events-none opacity-80' : ''}`}
+        className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200 ${dragActive
+          ? 'border-violet-400 bg-linear-to-br from-indigo-50/60 to-violet-50/60'
+          : 'border-slate-200 bg-slate-50'
+          } ${isLoading ? 'pointer-events-none opacity-80' : ''}`}
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
@@ -187,16 +185,59 @@ export default function ResumeUpload({
       </div>
 
       {!isLoading && (
-        <p className="mt-4 text-center text-sm text-slate-500">
-          Don&apos;t have a resume ready?{' '}
-          <button
-            type="button"
-            onClick={onStartWithoutResume}
-            className="font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
-          >
-            Build your profile in chat instead
-          </button>
-        </p>
+        <>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            Don&apos;t have a resume ready?{' '}
+            <button
+              type="button"
+              onClick={onStartWithoutResume}
+              className="font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+            >
+              Build your profile in chat instead
+            </button>
+          </p>
+
+          <p className="mt-2 text-center text-sm text-slate-500">
+            <button
+              type="button"
+              onClick={() => setShowLinkedinHelp((prev) => !prev)}
+              aria-expanded={showLinkedinHelp}
+              className="inline-flex items-center gap-1.5 font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Or share your LinkedIn profile
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showLinkedinHelp ? 'rotate-180' : ''}`} />
+            </button>
+          </p>
+
+          {showLinkedinHelp && (
+            <div className="mt-3 p-5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 animate-fade-in">
+              <p className="font-semibold text-slate-800 mb-2">
+                Follow the below steps to download your LinkedIn profile as a PDF and upload it here:
+              </p>
+              <ol className="list-decimal pl-5 space-y-1.5">
+                <li>
+                  <span className="font-medium text-slate-800">Log in</span> to your LinkedIn account on a desktop browser.
+                </li>
+                <li>
+                  Click the <span className="font-medium text-slate-800">Me</span> icon at the top of the page and select <span className="font-medium text-slate-800">View Profile</span>.
+                </li>
+                <li>
+                  Click the <span className="font-medium text-slate-800">More</span> or <span className="font-medium text-slate-800">Resources</span> button located below your profile picture and headline.
+                </li>
+                <li>
+                  Select <span className="font-medium text-slate-800">Save to PDF</span> from the dropdown menu.
+                </li>
+                <li>
+                  Wait a few moments for the download to complete into your default downloads folder.
+                </li>
+                <li>
+                  Upload the downloaded PDF above to start your career analysis.
+                </li>
+              </ol>
+            </div>
+          )}
+        </>
       )}
 
       {error && (

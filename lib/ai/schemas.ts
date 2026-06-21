@@ -15,7 +15,6 @@ export const ProfileSchema = z.object({
   skills: z.array(z.string()),
   domains: z.array(z.string()),
   region: z.string().nullish(),
-  // NEW (demography / market — see change #4):
   // Single best-guess country for the candidate (from locations, addresses, phone code, education).
   // Null if it cannot be determined or the resume is ambiguous across countries.
   country: z.string().nullish(),
@@ -47,7 +46,6 @@ export const PathDeckSchema = z.object({
   paths: z.array(CareerPathSchema).length(3),
 });
 
-
 export type AmbitionCheck = z.infer<typeof AmbitionCheckSchema>;
 export type CareerPath = z.infer<typeof CareerPathSchema>;
 
@@ -67,7 +65,7 @@ export const RoadmapPhaseSchema = z.object({
 export const RoadmapSchema = z.object({
   skillLevel: z.enum(['beginner', 'basic', 'good', 'experienced']), // candidate's readiness for the CHOSEN PATH specifically, not their overall seniority
   summary: z.string(), // 1-2 sentences explaining the classification, citing a profile fact
-  totalWeeks: z.number(), // total number of weeks across all phases (sum, not max week number)
+  totalWeeks: z.number(), // the highest "week" number used across all phases (not a sum)
   totalDuration: z.string(), // human label derived from totalWeeks, e.g. "16 weeks (~4 months)"
   phases: z.array(RoadmapPhaseSchema).min(1),
 });

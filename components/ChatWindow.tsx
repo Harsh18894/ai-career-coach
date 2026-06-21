@@ -65,7 +65,6 @@ export default function ChatWindow({
   initialOpeningMessage,
   onReset,
 }: ChatWindowProps) {
-  // Initialize local conversation state
   const [state, setState] = useState<ConversationState>(() => {
     if (initialProfile && initialOpeningMessage) {
       return {
@@ -126,7 +125,6 @@ export default function ChatWindow({
   const lastScrollAtRef = useRef(0);
   const pendingScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Scroll to bottom helper
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     lastScrollAtRef.current = Date.now();
@@ -159,7 +157,6 @@ export default function ChatWindow({
     };
   }, [state.messages, isThinking, state.currentPaths, showRejectReasonInput, state.roadmap, isRoadmapLoading]);
 
-  // Load from localStorage if present on mount
   useEffect(() => {
     const saved = localStorage.getItem('career_coach_session');
     if (saved) {
@@ -327,9 +324,6 @@ export default function ChatWindow({
     }
   };
 
-  // Streams one `chat` turn from the coach and appends it as a single growing assistant message.
-  // Always sends an explicit `turn` so the server knows which stage-specific instruction to use
-  // (it defaults to 'understanding' if omitted, which silently misroutes closing/roadmap turns).
   // Drains a streamed text Response into a single new assistant message, appended to
   // `messagesForTurn` and grown token-by-token in state. Returns the final accumulated text —
   // some callers (the guided-intake question flow) need the full text afterward, e.g. to track
@@ -372,6 +366,9 @@ export default function ChatWindow({
     return accumulatedContent;
   };
 
+  // Posts a `chat` turn and streams the reply via streamIntoNewMessage. Always sends an
+  // explicit `turn` so the server applies the right stage-specific instruction (it defaults to
+  // 'understanding' if omitted, which would silently misroute closing/roadmap turns).
   const streamCoachTurn = async (
     messagesForTurn: ChatMessage[],
     turn: CoachTurn,
@@ -512,7 +509,6 @@ export default function ChatWindow({
       createdAt: new Date().toISOString(),
     };
 
-    // Update state with user message
     const updatedMessages = [...state.messages, userMessage];
     setState((prev) => ({
       ...prev,
@@ -522,7 +518,8 @@ export default function ChatWindow({
     setIsThinking(true);
 
     try {
-      // 1. Analyze signals in background
+      // The branch decision below (decline / recommend / continue) depends on this result,
+      // so it's awaited before anything else.
       const analyzeResponse = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -564,8 +561,8 @@ export default function ChatWindow({
         ((understandingMessageCount >= MIN_UNDERSTANDING_TURNS && nextSignals.readyForRecommendation) ||
           understandingMessageCount >= MAX_UNDERSTANDING_TURNS);
 
-      // 2. The candidate has stonewalled every question — stop probing and decline honestly instead
-      // of fabricating a recommendation from nothing.
+      // The candidate has stonewalled every question — stop probing and decline honestly
+      // instead of fabricating a recommendation from nothing.
       if (shouldDecline) {
         setState((prev) => ({
           ...prev,
@@ -577,7 +574,6 @@ export default function ChatWindow({
         await streamCoachTurn(updatedMessages, { kind: 'insufficient_info' }, nextSignals);
         setIsThinking(false);
       } else if (shouldRecommend) {
-        // Transition assistant message
         const transitionMessage: ChatMessage = {
           id: Math.random().toString(),
           role: 'assistant',
@@ -595,7 +591,7 @@ export default function ChatWindow({
         await runRecommendFlow(messagesWithTransition, nextSignals);
         setIsThinking(false);
       } else {
-        // Continue chat stream — a roadmap follow-up gets its own non-onboarding instruction.
+        // A roadmap follow-up gets its own non-onboarding instruction.
         setState((prev) => ({ ...prev, understandingMessageCount }));
 
         const turn: CoachTurn =
@@ -643,7 +639,7 @@ export default function ChatWindow({
       ...prev,
       signals: updatedSignals,
       messages: [...prev.messages, userDeclineMessage],
-      currentPaths: null, // Clear current paths while loading
+      currentPaths: null,
     }));
 
     const nextMessages = [...state.messages, userDeclineMessage];
@@ -707,7 +703,7 @@ export default function ChatWindow({
       ...prev,
       stage: 'ROADMAP',
       chosenPath: path,
-      currentPaths: null, // Clear deck after selection
+      currentPaths: null,
       selectedPathIndex: null,
       messages: nextMessages,
     }));
@@ -851,7 +847,7 @@ export default function ChatWindow({
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 bg-emerald-500 rounded-full" aria-hidden="true" />
           <span className="text-xs font-semibold text-slate-600">
-            Coach session: {state.profile?.name || 'Active candidate'}
+            Aria session: {state.profile?.name || 'Active candidate'}
           </span>
           {state.signals.intentGuess !== 'unknown' && (
             <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">

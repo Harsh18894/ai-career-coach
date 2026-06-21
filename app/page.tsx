@@ -14,7 +14,6 @@ export default function Home() {
   const [isSubmitTextLoading, setIsSubmitTextLoading] = useState(false);
   const [manualTextError, setManualTextError] = useState<string | null>(null);
 
-  // Check if there is an active session in localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('career_coach_session');
     if (saved) {
