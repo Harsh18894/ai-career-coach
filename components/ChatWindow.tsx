@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2 } from 'lucide-react';
+import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe } from 'lucide-react';
 import { Profile, CareerPath, Roadmap } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
@@ -10,6 +10,7 @@ import TypingIndicator from './TypingIndicator';
 import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
+import QuickOptions, { type QuickOption } from './QuickOptions';
 
 // Readiness gating for the UNDERSTANDING phase: ask at least this many questions before
 // recommending, recommend regardless after the cap so the conversation can't stall forever,
@@ -27,6 +28,43 @@ const PROFILE_BUILD_TOTAL_STEPS = 5;
 const PROFILE_BUILD_INTRO_QUESTION =
   "First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?";
 const PROFILE_BUILD_REGION_QUESTION = "Last one — what country or region are you based in?";
+
+// Quick-select options offered for the candidate's very first UNDERSTANDING reply, in place of
+// free typing — this is effectively the "direction" question (grow in place / switch / change
+// domain) that hasDirectionSignal() treats as a hard gate before any recommendation anyway, so
+// a one-click answer covers the common cases instead of making every candidate type it out.
+// `value` is a natural sentence (not a category code) so analyzeSignals reads it exactly like
+// any other typed reply.
+const DIRECTION_OPTIONS: QuickOption[] = [
+  { label: 'Grow in the same role/organisation', value: "I'd like to grow in my current role and organization rather than switch jobs." },
+  { label: 'Make a job switch', value: "I'm looking to make a job switch to a new company." },
+  { label: 'Change domain to something else', value: "I want to change my domain or field entirely — explore something different from what I'm in now." },
+];
+
+// Common categories for "what should we change?" after 2 declined decks — labels double as the
+// sent value (natural enough on their own), so no separate `value` is needed.
+const ASK_PREFERENCES_OPTIONS: QuickOption[] = [
+  { label: 'A different domain or industry' },
+  { label: 'A different seniority level or scope' },
+  { label: 'More remote-friendly roles' },
+];
+
+// Quick categories for the no-resume guided intake's very first question.
+const PROFILE_BUILD_INTRO_OPTIONS: QuickOption[] = [
+  { label: 'Studying' },
+  { label: 'Working' },
+  { label: 'Between things / exploring' },
+];
+
+// Common reasons for declining a deck — the trailing option intentionally sends an empty string
+// so handleRegenerate falls back to its no-reason path ("No, show me 3 different paths.") instead
+// of treating "no specific reason" as a typed-out reason.
+const REJECT_REASON_OPTIONS: QuickOption[] = [
+  { label: 'Too technical or too senior for me' },
+  { label: 'Wrong domain or industry' },
+  { label: "Salary doesn't match my expectations" },
+  { label: 'No specific reason — just show me different paths', value: '' },
+];
 
 // Shared request/response handling for the `/api/coach` endpoint — every action follows the
 // same fetch -> parse JSON -> throw on non-ok shape; this was previously duplicated at every
@@ -113,13 +151,26 @@ export default function ChatWindow({
   const [isRoadmapLoading, setIsRoadmapLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   
-  // For regeneration feedback
+  // For regeneration feedback — QuickOptions owns its own "Something else" text internally, so
+  // this is just the gate for whether the reason panel is showing at all.
   const [showRejectReasonInput, setShowRejectReasonInput] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
 
-  // For roadmap adjustment feedback
+  // Countries detected on the resume, surfaced as quick-select options when ASK_COUNTRY fires.
+  const [detectedCountries, setDetectedCountries] = useState<string[]>([]);
+
+  // Every site below renders a <QuickOptions> panel and disables the main chat box for the same
+  // duration — gates are kept as simple booleans so the textarea's `disabled` condition (further
+  // down) can OR them all together in one place.
+  const isFirstUnderstandingReply = state.stage === 'UNDERSTANDING' && state.understandingMessageCount === 0;
+  const showDirectionOptions = isFirstUnderstandingReply;
+  const showCountryOptions = state.stage === 'ASK_COUNTRY';
+  const showProfileBuildIntroOptions = state.stage === 'PROFILE_BUILDING' && state.profileBuildStep === 0;
+  const showAskPreferencesOptions = state.stage === 'ASK_PREFERENCES';
+  const anyQuickOptionsShowing =
+    showDirectionOptions || showCountryOptions || showProfileBuildIntroOptions || showAskPreferencesOptions;
+
+  // For roadmap adjustment feedback — QuickOptions (inside RoadmapPanel) owns the typed text.
   const [showRoadmapFeedbackInput, setShowRoadmapFeedbackInput] = useState(false);
-  const [roadmapFeedback, setRoadmapFeedback] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastScrollAtRef = useRef(0);
@@ -420,6 +471,7 @@ export default function ChatWindow({
     );
 
     if (recommendData.needsCountry) {
+      setDetectedCountries(recommendData.detectedCountries ?? []);
       setState((prev) => ({ ...prev, stage: 'ASK_COUNTRY', messages: messagesSoFar }));
       await streamCoachTurn(
         messagesSoFar,
@@ -609,28 +661,27 @@ export default function ChatWindow({
     }
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (reason: string = '') => {
     setApiError(null);
     setIsThinking(true);
+    setShowRejectReasonInput(false);
 
     let updatedSignals = { ...state.signals };
 
-    // If they typed a rejection reason, capture it into rejectedDirections
-    if (rejectReason.trim()) {
+    // If they gave a rejection reason, capture it into rejectedDirections
+    if (reason.trim()) {
       updatedSignals.rejectedDirections = [
         ...updatedSignals.rejectedDirections,
-        rejectReason.trim(),
+        reason.trim(),
       ];
-      setRejectReason('');
-      setShowRejectReasonInput(false);
     }
 
     // Add a system-like text to conversational history representing the decline
     const userDeclineMessage: ChatMessage = {
       id: Math.random().toString(),
       role: 'user',
-      content: rejectReason.trim()
-        ? `No, show me something else. Reason: ${rejectReason.trim()}`
+      content: reason.trim()
+        ? `No, show me something else. Reason: ${reason.trim()}`
         : "No, show me 3 different paths.",
       createdAt: new Date().toISOString(),
     };
@@ -747,19 +798,18 @@ export default function ChatWindow({
     }
   };
 
-  const handleUpdateRoadmap = async () => {
-    if (!roadmapFeedback.trim() || !state.chosenPath) return;
+  const handleUpdateRoadmap = async (feedback: string) => {
+    if (!feedback.trim() || !state.chosenPath) return;
     setApiError(null);
 
     const feedbackMessage: ChatMessage = {
       id: Math.random().toString(),
       role: 'user',
-      content: `Adjust the roadmap: ${roadmapFeedback.trim()}`,
+      content: `Adjust the roadmap: ${feedback.trim()}`,
       createdAt: new Date().toISOString(),
     };
 
-    const submittedFeedback = roadmapFeedback.trim();
-    setRoadmapFeedback('');
+    const submittedFeedback = feedback.trim();
     setShowRoadmapFeedbackInput(false);
     setIsRoadmapLoading(true);
     setState((prev) => ({
@@ -914,47 +964,65 @@ export default function ChatWindow({
           />
         )}
 
-        {/* Overlay prompt for rejection feedback */}
+        {/* Quick-select options for the first UNDERSTANDING reply, in place of free typing */}
+        {showDirectionOptions && (
+          <QuickOptions
+            icon={Compass}
+            prompt="What are you looking for right now?"
+            options={DIRECTION_OPTIONS}
+            onSelect={(value) => handleSend(value)}
+            disabled={isThinking}
+            customPlaceholder="Tell me what you're looking for..."
+          />
+        )}
+
+        {/* No-resume guided intake's first question — same idea, different copy */}
+        {showProfileBuildIntroOptions && (
+          <QuickOptions
+            icon={Compass}
+            prompt="What are you currently doing?"
+            options={PROFILE_BUILD_INTRO_OPTIONS}
+            onSelect={(value) => handleProfileBuildAnswer(value)}
+            disabled={isThinking}
+            customPlaceholder="Describe what you're doing and your area/role..."
+          />
+        )}
+
+        {/* Resume spans multiple countries — pick the target market from what was detected */}
+        {showCountryOptions && (
+          <QuickOptions
+            icon={Globe}
+            prompt="Which market should I calibrate roles and salary to?"
+            options={detectedCountries.map((country) => ({ label: country }))}
+            onSelect={(value) => handleSend(value)}
+            disabled={isThinking}
+            customPlaceholder="Type the country/market..."
+          />
+        )}
+
+        {/* Two decks declined — ask what to change before a tailored third */}
+        {showAskPreferencesOptions && (
+          <QuickOptions
+            icon={Sparkles}
+            prompt="What would you like me to change?"
+            options={ASK_PREFERENCES_OPTIONS}
+            onSelect={(value) => handleAskPreferencesAnswer(value)}
+            disabled={isThinking}
+            customPlaceholder="Tell me what to change..."
+          />
+        )}
+
+        {/* Overlay prompt for rejection feedback (declining 1st deck, or one not-yet-2nd decline) */}
         {showRejectReasonInput && (
-          <div className="p-5 rounded-2xl bg-linear-to-br from-indigo-50/70 to-violet-50/50 border border-indigo-200 my-6 space-y-3 animate-fade-in max-w-xl mx-auto">
-            <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <span>What should we adjust for the next deck?</span>
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Tell me what was off with the previous recommendations (e.g. &ldquo;too technical&rdquo;, &ldquo;want more sales focus&rdquo;, &ldquo;stay in B2C&rdquo;). We will avoid these directions.
-            </p>
-            <input
-              type="text"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="E.g. Too technical, avoid engineering management..."
-              aria-label="Feedback on previous path recommendations"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRegenerate();
-              }}
-            />
-            <div className="flex justify-end gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRejectReasonInput(false);
-                  setRejectReason('');
-                }}
-                className="px-4 py-2 hover:bg-slate-100 rounded-lg text-slate-600 font-semibold transition-colors duration-150"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                className="px-4 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150"
-              >
-                Generate next 3 paths
-              </button>
-            </div>
-          </div>
+          <QuickOptions
+            icon={Sparkles}
+            prompt="What should we adjust for the next deck?"
+            options={REJECT_REASON_OPTIONS}
+            onSelect={(value) => handleRegenerate(value)}
+            disabled={isThinking}
+            customPlaceholder="E.g. Too technical, avoid engineering management..."
+            onCancel={() => setShowRejectReasonInput(false)}
+          />
         )}
 
         {isThinking && (
@@ -1016,15 +1084,21 @@ export default function ChatWindow({
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={state.stage === 'ROADMAP' ? 'Comment on your roadmap, or anything else...' : 'Type your response here...'}
-                  disabled={isThinking || isRoadmapLoading || state.currentPaths !== null}
+                  placeholder={
+                    anyQuickOptionsShowing
+                      ? 'Choose an option above, or tell me more...'
+                      : state.stage === 'ROADMAP'
+                        ? 'Comment on your roadmap, or anything else...'
+                        : 'Type your response here...'
+                  }
+                  disabled={isThinking || isRoadmapLoading || state.currentPaths !== null || anyQuickOptionsShowing}
                   rows={1}
                   className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-slate-100"
                 />
               </div>
               <button
                 type="submit"
-                disabled={!inputValue.trim() || isThinking || isRoadmapLoading || state.currentPaths !== null}
+                disabled={!inputValue.trim() || isThinking || isRoadmapLoading || state.currentPaths !== null || anyQuickOptionsShowing}
                 aria-label="Send message"
                 className="p-3.5 bg-linear-to-r from-indigo-600 to-violet-600 text-white rounded-xl hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 shadow-sm hover:shadow-md"
               >
@@ -1045,13 +1119,8 @@ export default function ChatWindow({
           onClose={() => setState((prev) => ({ ...prev, roadmapPanelOpen: false }))}
           isUpdating={isRoadmapLoading}
           showFeedbackInput={showRoadmapFeedbackInput}
-          feedbackValue={roadmapFeedback}
-          onFeedbackValueChange={setRoadmapFeedback}
           onOpenFeedbackInput={() => setShowRoadmapFeedbackInput(true)}
-          onCancelFeedback={() => {
-            setShowRoadmapFeedbackInput(false);
-            setRoadmapFeedback('');
-          }}
+          onCancelFeedback={() => setShowRoadmapFeedbackInput(false)}
           onSubmitFeedback={handleUpdateRoadmap}
         />
       )}

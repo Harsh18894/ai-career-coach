@@ -4,6 +4,14 @@ import React from 'react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 import { Roadmap } from '@/lib/ai/schemas';
 import RoadmapView from './RoadmapView';
+import QuickOptions, { type QuickOption } from './QuickOptions';
+
+// Common adjustments — labels double as the sent value, no separate `value` needed.
+const ROADMAP_FEEDBACK_OPTIONS: QuickOption[] = [
+  { label: 'This pace is too fast' },
+  { label: 'This pace is too slow' },
+  { label: 'Swap one of the topics/courses' },
+];
 
 interface RoadmapPanelProps {
   roadmap: Roadmap;
@@ -12,11 +20,9 @@ interface RoadmapPanelProps {
   onClose: () => void;
   isUpdating: boolean;
   showFeedbackInput: boolean;
-  feedbackValue: string;
-  onFeedbackValueChange: (value: string) => void;
   onOpenFeedbackInput: () => void;
   onCancelFeedback: () => void;
-  onSubmitFeedback: () => void;
+  onSubmitFeedback: (feedback: string) => void;
 }
 
 /**
@@ -31,8 +37,6 @@ export default function RoadmapPanel({
   onClose,
   isUpdating,
   showFeedbackInput,
-  feedbackValue,
-  onFeedbackValueChange,
   onOpenFeedbackInput,
   onCancelFeedback,
   onSubmitFeedback,
@@ -88,43 +92,15 @@ export default function RoadmapPanel({
               </button>
             </div>
           ) : (
-            <div className="p-5 rounded-2xl bg-linear-to-br from-indigo-50/70 to-violet-50/50 border border-indigo-200 mb-4 space-y-3 animate-fade-in">
-              <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                <span>What should we change?</span>
-              </h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                E.g. &ldquo;I can only commit 5 hours a week&rdquo;, &ldquo;swap the SQL course for Python&rdquo;.
-              </p>
-              <input
-                type="text"
-                value={feedbackValue}
-                onChange={(e) => onFeedbackValueChange(e.target.value)}
-                placeholder="Tell me what to adjust..."
-                aria-label="Feedback to adjust the roadmap"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onSubmitFeedback();
-                }}
-              />
-              <div className="flex justify-end gap-3 text-xs">
-                <button
-                  type="button"
-                  onClick={onCancelFeedback}
-                  className="px-4 py-2 hover:bg-slate-100 rounded-lg text-slate-600 font-semibold transition-colors duration-150"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={onSubmitFeedback}
-                  disabled={!feedbackValue.trim()}
-                  className="px-4 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-50"
-                >
-                  Update roadmap
-                </button>
-              </div>
-            </div>
+            <QuickOptions
+              icon={Sparkles}
+              prompt="What should we change?"
+              options={ROADMAP_FEEDBACK_OPTIONS}
+              onSelect={onSubmitFeedback}
+              disabled={isUpdating}
+              customPlaceholder="E.g. only 5 hours a week, swap the SQL course for Python..."
+              onCancel={onCancelFeedback}
+            />
           )}
         </div>
       </div>
