@@ -121,4 +121,86 @@ describe('QuickOptions', () => {
     }
     expect(screen.getByRole('button', { name: 'Something else' })).toBeDisabled();
   });
+
+  it('omits the heading row entirely when no prompt is given', () => {
+    render(<QuickOptions options={OPTIONS} onSelect={vi.fn()} />);
+    expect(screen.queryByText('Prompt')).not.toBeInTheDocument();
+    // Options still render fine without a heading.
+    expect(screen.getByRole('button', { name: 'Make a job switch' })).toBeInTheDocument();
+  });
+
+  describe('multiSelect', () => {
+    const MULTI_OPTIONS: QuickOption[] = [
+      { label: 'Python' },
+      { label: 'SQL' },
+      { label: 'Stakeholder management' },
+    ];
+
+    it('toggles options into a selection instead of firing onSelect immediately', async () => {
+      const onSelect = vi.fn();
+      render(<QuickOptions options={MULTI_OPTIONS} onSelect={onSelect} multiSelect />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Python' }));
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Python' })).toHaveAttribute('aria-pressed', 'true');
+
+      // Continue is enabled once something is selected.
+      const continueButton = screen.getByRole('button', { name: /Continue/ });
+      expect(continueButton).not.toBeDisabled();
+      expect(continueButton).toHaveTextContent('Continue (1 selected)');
+    });
+
+    it('clicking a selected option again deselects it', async () => {
+      render(<QuickOptions options={MULTI_OPTIONS} onSelect={vi.fn()} multiSelect />);
+
+      const python = screen.getByRole('button', { name: 'Python' });
+      await userEvent.click(python);
+      expect(python).toHaveAttribute('aria-pressed', 'true');
+
+      await userEvent.click(python);
+      expect(python).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('button', { name: /Continue/ })).toBeDisabled();
+    });
+
+    it('Continue joins multiple picks into one naturally-phrased string', async () => {
+      const onSelect = vi.fn();
+      render(<QuickOptions options={MULTI_OPTIONS} onSelect={onSelect} multiSelect />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Python' }));
+      await userEvent.click(screen.getByRole('button', { name: 'SQL' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Stakeholder management' }));
+      await userEvent.click(screen.getByRole('button', { name: /Continue/ }));
+
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(onSelect).toHaveBeenCalledWith('Python, SQL, and Stakeholder management');
+    });
+
+    it('"Something else" in multiSelect mode adds custom text as a removable chip instead of submitting immediately', async () => {
+      const onSelect = vi.fn();
+      render(<QuickOptions options={MULTI_OPTIONS} onSelect={onSelect} multiSelect />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Python' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Something else' }));
+      await userEvent.type(screen.getByPlaceholderText('Type your own answer...'), 'Figma prototyping');
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(screen.getByText('Figma prototyping')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Continue/ })).toHaveTextContent('Continue (2 selected)');
+
+      // Removing the chip drops it back out of the selection.
+      await userEvent.click(screen.getByRole('button', { name: 'Remove Figma prototyping' }));
+      expect(screen.queryByText('Figma prototyping')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Continue/ })).toHaveTextContent('Continue (1 selected)');
+
+      await userEvent.click(screen.getByRole('button', { name: /Continue/ }));
+      expect(onSelect).toHaveBeenCalledWith('Python');
+    });
+
+    it('single-select mode is unaffected: clicking an option still fires onSelect immediately, no Continue button', () => {
+      const onSelect = vi.fn();
+      render(<QuickOptions options={MULTI_OPTIONS} onSelect={onSelect} />);
+      expect(screen.queryByRole('button', { name: /Continue/ })).not.toBeInTheDocument();
+    });
+  });
 });

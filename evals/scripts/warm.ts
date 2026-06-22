@@ -74,6 +74,25 @@ async function main() {
     ])
   );
 
+  console.log('nextGuidedProfileQuestionFull:J1');
+  await warmSnapshot('nextGuidedProfileQuestionFull:J1', () =>
+    coach.nextGuidedProfileQuestionFull([
+      {
+        question:
+          'First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?',
+        answer: 'studying in information technology. i know some python and sql. plus i have c language in college',
+      },
+      {
+        question:
+          'Good — have you applied python, sql, or c outside of class, like in a personal project, part-time/freelance work, or volunteer work?',
+        answer: 'part-time or volunteer work and personal projects',
+      },
+    ])
+  );
+
+  console.log('generateOpenerFull:K1');
+  await warmSnapshot('generateOpenerFull:K1', () => coach.generateOpenerFull(profiles['R-grad-01']!));
+
   console.log('\nDone. evals/.cache/snapshots/ is now populated for eval:cheap.');
 }
 

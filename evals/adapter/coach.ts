@@ -11,8 +11,10 @@
 
 import type { ChatMessage, UserSignals as FullSignals } from '../../lib/state/conversation';
 import type { CoachTurn } from '../../lib/ai/coach';
+import type { PathTier } from '../../lib/ai/tiers';
+import type { AdaptiveQuestion } from '../../lib/ai/schemas';
 
-export type { ChatMessage, FullSignals, CoachTurn };
+export type { ChatMessage, FullSignals, CoachTurn, PathTier, AdaptiveQuestion };
 
 export type Profile = {
   name?: string;
@@ -41,6 +43,7 @@ export type AmbitionCheck = {
 
 export type CareerPath = {
   title: string;
+  tier: PathTier;
   fitRationale: string;
   salaryRange: string;
   upskills: string[];
@@ -73,6 +76,12 @@ export type Roadmap = {
 export interface CoachAdapter {
   extractProfile(resumeText: string): Promise<Profile>;
   generateOpener(profile: Profile): Promise<string>;
+  /**
+   * Same call as generateOpener, but returns the full structured turn (options, allowMultiple
+   * included) instead of discarding them down to just the message text — needed by evals that
+   * check whether the opener's quick-reply options actually answer the question it asked.
+   */
+  generateOpenerFull(profile: Profile): Promise<AdaptiveQuestion>;
   generatePaths(profile: Profile, signals: UserSignals, shown: string[]): Promise<CareerPath[]>;
   generateRoadmap(profile: Profile, chosenPath: CareerPath, signals: UserSignals): Promise<Roadmap>;
   /**
@@ -88,6 +97,12 @@ export interface CoachAdapter {
   analyzeSignals(chatHistory: ChatMessage[], currentSignals: FullSignals): Promise<FullSignals>;
   /** Next guided-onboarding question (no-resume flow), given the Q&A pairs so far. */
   nextGuidedProfileQuestion(answersSoFar: { question: string; answer: string }[]): Promise<string>;
+  /**
+   * Same call as nextGuidedProfileQuestion, but returns the full structured turn (options,
+   * allowMultiple included) instead of discarding them down to just the message text — needed
+   * by evals that check option *quality*, not just the question wording.
+   */
+  nextGuidedProfileQuestionFull(answersSoFar: { question: string; answer: string }[]): Promise<AdaptiveQuestion>;
   /** True if bound to the real lib/ai/coach.ts; false if running against the mock. */
   isReal: boolean;
 }
@@ -121,11 +136,22 @@ const mockCoach: CoachAdapter = {
     return `Mock opener referencing ${profile.currentRole ?? 'your background'} at a generic company.`;
   },
 
+  async generateOpenerFull(profile: Profile): Promise<AdaptiveQuestion> {
+    // TODO: wire to real implementation.
+    return {
+      message: `Mock opener referencing ${profile.currentRole ?? 'your background'} at a generic company.`,
+      options: null,
+      allowMultiple: false,
+    };
+  },
+
   async generatePaths(profile: Profile, signals: UserSignals, shown: string[]): Promise<CareerPath[]> {
     // TODO: wire to real implementation.
     const base = shown.length; // vary output a bit across "regenerate" calls in mock mode
+    const mockTiers: PathTier[] = ['conservative', 'realistic', 'ambitious'];
     return [0, 1, 2].map((i) => ({
       title: `Mock Path ${base + i + 1}`,
+      tier: mockTiers[i],
       fitRationale: `Mock rationale citing ${profile.currentRole ?? 'their background'} and ${signals.motivations[0] ?? 'their stated motivation'}.`,
       salaryRange: '$80k - $100k USD',
       upskills: ['mock skill A', 'mock skill B'],
@@ -170,11 +196,41 @@ const mockCoach: CoachAdapter = {
     // TODO: wire to real implementation.
     return `[MOCK] nextGuidedProfileQuestion — ${answersSoFar.length} answer(s) so far. Not wired to a real model.`;
   },
+
+  async nextGuidedProfileQuestionFull(answersSoFar: { question: string; answer: string }[]): Promise<AdaptiveQuestion> {
+    // TODO: wire to real implementation.
+    return {
+      message: `[MOCK] nextGuidedProfileQuestionFull — ${answersSoFar.length} answer(s) so far. Not wired to a real model.`,
+      options: null,
+      allowMultiple: false,
+    };
+  },
 };
 
 // ---------------------------------------------------------------------------
 // Real binding — adapts lib/ai/coach.ts's actual signatures.
 // ---------------------------------------------------------------------------
+
+/**
+ * generatePaths/generateRoadmap both want the real, full UserSignals shape (intentGuess, notes)
+ * even though this adapter's simplified eval-only UserSignals type doesn't carry those fields —
+ * shared here so the two real-binding call sites below don't each hand-roll the same object.
+ */
+function toFullSignals(profile: Profile, signals: UserSignals) {
+  return {
+    intentGuess: profile.inferredPersona,
+    motivations: signals.motivations,
+    constraints: signals.constraints,
+    rejectedDirections: signals.rejectedDirections,
+    knownSkills: [] as string[],
+    knownDomains: [] as string[],
+    notes: [] as string[],
+    // Eval fixtures always represent a fully-gathered conversation by the time generatePaths or
+    // generateRoadmap is called — these two gating fields are irrelevant to either.
+    readyForRecommendation: true,
+    hasUsableInfo: true,
+  };
+}
 
 /** Drains a streamed text Response (streamChatTurn, nextGuidedProfileQuestion) into a string. */
 async function drainTextResponse(response: Response): Promise<string> {
@@ -214,28 +270,23 @@ async function loadRealCoach(): Promise<CoachAdapter | null> {
       },
 
       async generateOpener(profile: Profile): Promise<string> {
+        // Real function now returns structured { message, options, allowMultiple } instead of a
+        // plain string — this adapter's interface only needs the message text, so options are
+        // discarded here (irrelevant to b1/b3, which only judge the message's grounding/wording).
+        const result = await coachModule.generateOpeningMessage(profile as any);
+        return result.message;
+      },
+
+      async generateOpenerFull(profile: Profile): Promise<AdaptiveQuestion> {
         return coachModule.generateOpeningMessage(profile as any);
       },
 
       async generatePaths(profile: Profile, signals: UserSignals, shown: string[]): Promise<CareerPath[]> {
-        // Real generatePaths wants the full UserSignals shape (intentGuess, notes) and
-        // rejectedDirections as a separate 4th arg, even though it's also a signals field.
-        const fullSignals = {
-          intentGuess: profile.inferredPersona,
-          motivations: signals.motivations,
-          constraints: signals.constraints,
-          rejectedDirections: signals.rejectedDirections,
-          knownSkills: [] as string[],
-          knownDomains: [] as string[],
-          notes: [] as string[],
-          // Eval fixtures always represent a fully-gathered conversation by the time
-          // generatePaths is called — these two gating fields are irrelevant to path generation.
-          readyForRecommendation: true,
-          hasUsableInfo: true,
-        };
+        // Real generatePaths wants rejectedDirections as a separate 4th arg too, even though
+        // it's also a field on the full signals object built by toFullSignals above.
         const paths = await coachModule.generatePaths(
           profile as any,
-          fullSignals,
+          toFullSignals(profile, signals),
           shown,
           signals.rejectedDirections
         );
@@ -243,18 +294,7 @@ async function loadRealCoach(): Promise<CoachAdapter | null> {
       },
 
       async generateRoadmap(profile: Profile, chosenPath: CareerPath, signals: UserSignals): Promise<Roadmap> {
-        const fullSignals = {
-          intentGuess: profile.inferredPersona,
-          motivations: signals.motivations,
-          constraints: signals.constraints,
-          rejectedDirections: signals.rejectedDirections,
-          knownSkills: [] as string[],
-          knownDomains: [] as string[],
-          notes: [] as string[],
-          readyForRecommendation: true,
-          hasUsableInfo: true,
-        };
-        const roadmap = await coachModule.generateRoadmap(profile as any, chosenPath as any, fullSignals);
+        const roadmap = await coachModule.generateRoadmap(profile as any, chosenPath as any, toFullSignals(profile, signals));
         return roadmap as Roadmap;
       },
 
@@ -268,8 +308,16 @@ async function loadRealCoach(): Promise<CoachAdapter | null> {
       },
 
       async nextGuidedProfileQuestion(answersSoFar: { question: string; answer: string }[]): Promise<string> {
-        const response = await coachModule.nextGuidedProfileQuestion(answersSoFar);
-        return drainTextResponse(response);
+        // Real function now returns structured { message, options, allowMultiple } instead of
+        // a streamed Response — this adapter's interface only needs the question text, so the
+        // options/allowMultiple fields (irrelevant to i1-guided-profile-adaptivity.eval.ts) are
+        // discarded here.
+        const result = await coachModule.nextGuidedProfileQuestion(answersSoFar);
+        return result.message;
+      },
+
+      async nextGuidedProfileQuestionFull(answersSoFar: { question: string; answer: string }[]): Promise<AdaptiveQuestion> {
+        return coachModule.nextGuidedProfileQuestion(answersSoFar);
       },
     };
 

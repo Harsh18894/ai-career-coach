@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema } from './schemas';
+import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema, AdaptiveQuestion, AdaptiveQuestionSchema } from './schemas';
 import { ChatMessage, UserSignals } from '../state/conversation';
+import { TIER_TIMELINE } from './tiers';
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -271,7 +272,7 @@ If a required array has no items to report, output an empty array rather than om
  */
 export async function nextGuidedProfileQuestion(
   answersSoFar: { question: string; answer: string }[]
-): Promise<Response> {
+): Promise<AdaptiveQuestion> {
   const openai = getOpenAIClient();
 
   const transcript = answersSoFar
@@ -286,22 +287,33 @@ ${transcript}
 Ask exactly ONE short, natural next question that fills the most useful gap below. Never re-ask, restate, or thank them for anything already said above — read the transcript carefully first.
 
 Checklist, in order of usefulness (skip any already covered):
-1. Depth of experience: if no professional role is evident (student, complete beginner, between things), ask what they've actually BUILT or worked on — projects, coursework, personal work — in their stated area. Do NOT ask "years of experience" for someone with no professional role. If real professional experience is evident, asking about years/role depth is fine.
+1. Depth of experience: if no professional role is evident (student, complete beginner, between things), ask what they've actually BUILT or worked on — projects, coursework, personal work — in their stated area. Do NOT ask "years of experience" for someone with no professional role. If real professional experience is evident, asking about years/role depth is fine. This is a "name and describe specifics" question — per the options rule below, it must get "options": null.
 2. Concrete practical application: if they named skills/tools/languages but not how they've actually used them, ask specifically about that (real frameworks, real projects, real depth) — never re-ask for the skills/tools themselves.
 3. Narrower domain/field interest, only if their stated area is still broad and not already implied or answered.
 
-Output ONLY the question text itself — 1-2 short sentences, no preamble, no quotes, no labels like "Question:".`;
+Additionally, propose 2-5 short quick-reply options covering the most likely answers to your question, and set "allowMultiple":
+- An option is only valid if picking it, alone, IS the complete answer — the coach must be able to act on it with no further detail from the candidate. If a reasonable reply still requires the candidate to type in specifics (a name, a number, a description of what they actually did), this question cannot be turned into a fixed set — omit "options" entirely (set it to null) and let them type freely. Do NOT offer vague categories or placeholders (e.g. "a personal project", "coursework", "a paid job") as if they were answers to a question that asked for specifics — that gives the coach no real information and is worse than no options at all.
+- This means: a question asking the candidate to CLASSIFY or pick from genuinely enumerable, named things (tools/skills/languages, yes-or-no, mutually exclusive directions like "grow in place or switch?") is a good fit for options. A question asking them to NAME, DESCRIBE, or ELABORATE on something specific to their own history (e.g. "what have you built — name up to three things and what you did in each") is NOT — always omit options for these, regardless of how the question is phrased.
+- If the question has mutually-exclusive answers, set "allowMultiple": false and write options as short, natural standalone statements.
+- If several answers could reasonably apply together AND each is independently a complete, nameable answer (e.g. "which of these tools have you used?" with options like "Python", "Excel"), set "allowMultiple": true and write options as short NOUN-PHRASE fragments — NOT full sentences — since multiple picks get joined together into one message, and full sentences don't join naturally.
 
-  const stream = await openai.chat.completions.create({
+Output a single JSON object with EXACTLY these fields:
+- "message": the question text itself — 1-2 short sentences, no preamble, no quotes, no labels like "Question:".
+- "options": array of 2-5 short strings as described above, or null.
+- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
+
+  const response = await openai.chat.completions.create({
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
-    stream: true,
+    response_format: { type: 'json_object' },
   });
 
-  return toStreamingResponse(stream);
+  const content = response.choices[0].message.content || '{}';
+  const parsed = JSON.parse(content);
+  return AdaptiveQuestionSchema.parse(parsed);
 }
 
 /* =====================================================================================
@@ -354,7 +366,12 @@ ${options?.changeRequests ? `5. The candidate declined the earlier rounds and as
    - "too_high": their target jumps further than their evidence supports. Set verdict "too_high" and in "note" say plainly they'll need more-than-average effort, with a concrete extended timeline and/or the realistic number of intermediate job-switches/promotions needed.
    - "too_low": their target undersells demonstrated capability. Set verdict "too_low", cite the specific evidence, and push the title/scope above what they asked for.
    - "aligned": target roughly matches evidence. Fill "note" with a one-sentence honest confirmation citing why.
-   Never fabricate "aligned" just to be agreeable.`;
+   Never fabricate "aligned" just to be agreeable.
+8. Assign each of the 3 paths a distinct "tier" — exactly one path per tier, all three tiers used once each. Base the tier on the ACTUAL size of THIS candidate's skill/experience gap for THIS specific path (not title prestige alone), standardized at a baseline of ~4-6 hours/week of effort regardless of the candidate's actual persona:
+   - "conservative": the safest, most immediately attainable move — smallest gap from where they are today, achievable within 1-2 months at ~4-6 hours/week.
+   - "realistic": the path they should actually aim for — a balanced stretch, achievable in 3-4 months at ~4-6 hours/week. This is usually your strongest, most-recommended path.
+   - "ambitious": a high-reach path with real upside — bigger leap, could take 6-8 months at ~4-6 hours/week.
+   If the candidate is a student/recent graduate with no professional track record (journey stage "fresh"), use these EXACT SAME three timeline bands — do NOT compress them just because a student might study more hours per week than a working professional. Breaking into the industry with no track record is inherently harder, which offsets any extra weekly hours available; the extra time should buy deeper preparation, not a shorter timeline.`;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-5-mini',
@@ -420,24 +437,15 @@ function toStreamingResponse(
   });
 }
 
-/**
- * Streams a chat turn from the coach. Always pass the explicit `turn` intent so the
- * coach knows which stage it's in. Profile/signals/journey/market are folded into the
- * system instruction so every turn is stage- and persona-aware.
- */
-export async function streamChatTurn(
-  chatHistory: ChatMessage[],
+/** Shared preamble (persona prompt, profile/signals context, journey stage, market) every
+ * chat-turn system instruction starts with, regardless of which stage-specific rules follow. */
+function buildBaseSystemInstruction(
   profile: Profile | null,
   signals: UserSignals,
-  turn: CoachTurn
-): Promise<Response> {
-  const openai = getOpenAIClient();
-
-  const band = deriveExperienceBand(profile?.yearsExperience ?? 0, profile?.inferredPersona);
-  const market = resolveMarket(profile, signals);
-  const isFirstCoachMessage = chatHistory.filter(m => m.role === 'assistant').length === 0;
-
-  let systemInstruction = `${MENTOR_SYSTEM_PROMPT}
+  band: ExperienceBand,
+  market: MarketResolution
+): string {
+  return `${MENTOR_SYSTEM_PROMPT}
 
 Candidate profile context (raw data for YOUR reasoning only — never quote keys/values/formatting back; always translate to plain speech):
 ${profile ? JSON.stringify(profile) : 'No resume uploaded yet — you are building understanding purely from the conversation.'}
@@ -450,14 +458,27 @@ ${journeyGuidance(band)}
 
 Market: assume ${market.country} and its job-market / salary norms unless the candidate says otherwise.
 `;
+}
 
-  switch (turn.kind) {
-    case 'understanding': {
-      const knownDomains = [...(profile?.domains ?? []), ...(signals.knownDomains ?? [])].filter(Boolean);
-      const knownSkills = [...(profile?.skills ?? []), ...(signals.knownSkills ?? [])].filter(Boolean);
-      const years = profile ? profile.yearsExperience : null;
+/**
+ * The UNDERSTANDING-phase instruction body — scope-discipline rules, the known-facts recap,
+ * the readiness gates (rules 4/5) — shared by both `streamChatTurn`'s 'understanding' case
+ * (used once, for the transition into UNDERSTANDING, where the immediately-following options
+ * are a static hardcoded panel) and `generateUnderstandingTurn` below (used for every turn
+ * after that, where options are generated alongside the question itself). Factored out so this
+ * sensitive prompt — h1-scope-discipline.eval.ts regression-tests rule 6 specifically — exists
+ * in exactly one place instead of drifting between two copies.
+ */
+function buildUnderstandingInstruction(
+  profile: Profile | null,
+  signals: UserSignals,
+  isFirstCoachMessage: boolean
+): string {
+  const knownDomains = [...(profile?.domains ?? []), ...(signals.knownDomains ?? [])].filter(Boolean);
+  const knownSkills = [...(profile?.skills ?? []), ...(signals.knownSkills ?? [])].filter(Boolean);
+  const years = profile ? profile.yearsExperience : null;
 
-      systemInstruction += `
+  return `
 You are in the UNDERSTANDING phase. Keep messages short (2-5 sentences), ask exactly ONE sharp, natural question at a time, and react to what they just said. Your questions should never feel like a form. Be warm and kind.
 ${isFirstCoachMessage && !(profile?.name) ? `This is your first message and you do NOT know their name yet — greet warmly and ask their name in one short, natural clause before anything else.` : ''}
 ${profile?.name && isFirstCoachMessage ? `Address them by their first name ("${profile.name}") in this first message.` : ''}
@@ -482,8 +503,31 @@ Treat them as a fresh entrant exploring options.
 8. If they contradict themselves, name it kindly and directly, and ask which is the real driver.
 9. If they say "nothing bothers me" or they're happy, pivot to what they want MORE of, or what the next level looks like.
 10. Make it feel like a coffee chat with a senior career mentor, not a scripted intake form.`;
+}
+
+/**
+ * Streams a chat turn from the coach. Always pass the explicit `turn` intent so the
+ * coach knows which stage it's in. Profile/signals/journey/market are folded into the
+ * system instruction so every turn is stage- and persona-aware.
+ */
+export async function streamChatTurn(
+  chatHistory: ChatMessage[],
+  profile: Profile | null,
+  signals: UserSignals,
+  turn: CoachTurn
+): Promise<Response> {
+  const openai = getOpenAIClient();
+
+  const band = deriveExperienceBand(profile?.yearsExperience ?? 0, profile?.inferredPersona);
+  const market = resolveMarket(profile, signals);
+  const isFirstCoachMessage = chatHistory.filter(m => m.role === 'assistant').length === 0;
+
+  let systemInstruction = buildBaseSystemInstruction(profile, signals, band, market);
+
+  switch (turn.kind) {
+    case 'understanding':
+      systemInstruction += buildUnderstandingInstruction(profile, signals, isFirstCoachMessage);
       break;
-    }
 
     case 'ask_country':
       systemInstruction += `
@@ -561,6 +605,66 @@ Write the final closing: honestly name the pattern across their rejections in yo
   return toStreamingResponse(stream);
 }
 
+/**
+ * Ongoing UNDERSTANDING-phase turn (every reply after the candidate's first), returned as
+ * structured data instead of a stream — alongside the question text, the model proposes
+ * quick-reply options so the candidate can tap an answer instead of typing one out every turn.
+ * Deliberately NOT used for the very first UNDERSTANDING message (the profile-build/resume-opener
+ * transition) — that one is immediately followed by a static, hardcoded direction-options panel,
+ * not model-generated options, so it stays on the plain-streaming `streamChatTurn` path above.
+ */
+export async function generateUnderstandingTurn(
+  chatHistory: ChatMessage[],
+  profile: Profile | null,
+  signals: UserSignals
+): Promise<AdaptiveQuestion> {
+  const openai = getOpenAIClient();
+
+  const band = deriveExperienceBand(profile?.yearsExperience ?? 0, profile?.inferredPersona);
+  const market = resolveMarket(profile, signals);
+  // Always false here: by definition this function is only ever called for turns AFTER the
+  // first coach message, so the "is this your first message, greet + ask their name" framing
+  // inside buildUnderstandingInstruction never applies.
+  const systemInstruction = buildBaseSystemInstruction(profile, signals, band, market)
+    + buildUnderstandingInstruction(profile, signals, false)
+    + `
+
+Additionally, propose 2-5 short quick-reply options covering the most likely answers to the question you just asked, and set "allowMultiple":
+- An option is only valid if picking it, alone, IS the complete answer — the coach must be able to act on it with no further detail from the candidate. If a reasonable reply still requires the candidate to type in specifics (a name, a number, a description of what they actually did or want), this question cannot be turned into a fixed set — omit "options" entirely (set it to null) and let them type freely. Do NOT offer vague categories or placeholders as if they were answers to a question that asked for specifics (e.g. if you asked them to name particular companies, projects, titles, or numbers, do not offer generic buckets like "a personal project" or "a previous job" as options) — that gives the coach no real information and is worse than no options at all.
+- This means: a question asking the candidate to CLASSIFY or pick from genuinely enumerable, named things (tools/skills/languages they may know, yes-or-no, mutually exclusive directions like "grow in place or switch?") is a good fit for options. A question asking them to NAME, DESCRIBE, or ELABORATE on something specific to their own history or preferences is NOT — always omit options for these, regardless of how the question is phrased.
+- If the question has mutually-exclusive answers (e.g. "grow in place or switch?"), set "allowMultiple": false and write options as short, natural standalone statements.
+- If several answers could reasonably apply together AND each is independently a complete, nameable answer (e.g. "what skills/tools do you already use?" with options like "Python", "stakeholder management"), set "allowMultiple": true and write options as short NOUN-PHRASE fragments — NOT full sentences — since multiple picks get joined together into one message ("Python, SQL, and stakeholder management"), and full sentences don't join naturally.
+
+Output a single JSON object with EXACTLY these fields:
+- "message": your question/message text, exactly as you would say it.
+- "options": array of 2-5 short strings as described above, or null.
+- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
+
+  const HISTORY_WINDOW = 16;
+  const boundedHistory =
+    chatHistory.length > HISTORY_WINDOW
+      ? [...chatHistory.slice(0, 2), ...chatHistory.slice(-(HISTORY_WINDOW - 2))]
+      : chatHistory;
+
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemInstruction },
+    ...boundedHistory.map(msg => ({
+      role: msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: msg.content
+    }))
+  ];
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-5-mini',
+    messages,
+    response_format: { type: 'json_object' },
+  });
+
+  const content = response.choices[0].message.content || '{}';
+  const parsed = JSON.parse(content);
+  return AdaptiveQuestionSchema.parse(parsed);
+}
+
 /* =====================================================================================
  * Opening message
  * ===================================================================================== */
@@ -568,9 +672,11 @@ Write the final closing: honestly name the pattern across their rejections in yo
 /**
  * Generates a highly personalized opening message (the hook) based on the profile.
  * Always addresses the candidate by name (or asks for it if unknown), and is journey-aware —
- * never frames a student/new-grad with experienced-person language.
+ * never frames a student/new-grad with experienced-person language. Returned as structured
+ * data (not a plain string) because the message ends in a real, profile-specific question —
+ * the accompanying quick-reply options must answer THAT question, not a generic stand-in.
  */
-export async function generateOpeningMessage(profile: Profile): Promise<string> {
+export async function generateOpeningMessage(profile: Profile): Promise<AdaptiveQuestion> {
   const openai = getOpenAIClient();
   const band = deriveExperienceBand(profile.yearsExperience, profile.inferredPersona);
   const name = profile.name?.trim();
@@ -584,13 +690,25 @@ ${journeyGuidance(band)}
 Write the opening chat message as a sharp career mentor.
 Guidelines:
 1. ${name ? `Address them by their first name ("${name}") in the very first sentence.` : `Their name is unknown — open warmly without inventing a name, and ask their name in one short, natural clause.`}
-2. Prove you read the profile — name a real, specific detail appropriate to their stage. For a student/new grad: their field of study, a project, or a stated interest. 
+2. Prove you read the profile — name a real, specific detail appropriate to their stage. For a student/new grad: their field of study, a project, or a stated interest.
 For an experienced person: a role transition, tenure pattern, or title-vs-impact gap. Never assert seniority, titles, or "years in the field" the profile does not support.
-3. Surface a genuine, specific tension or opportunity that fits their stage. 
+3. Surface a genuine, specific tension or opportunity that fits their stage.
 Do NOT use experienced-person framing ("title-vs-impact gap", "you're already in X field") for someone with little or no experience.
 4. Keep it short and punchy (2-4 sentences, max 80 words).
 5. Persona: direct, warm, economical. A senior career mentor, not a chatbot.
-6. HARD RULE: no generic greetings ("Welcome!", "I have parsed your resume"). Jump into the specific observation. It must be impossible to send this message to any other candidate.`;
+6. HARD RULE: no generic greetings ("Welcome!", "I have parsed your resume"). Jump into the specific observation. It must be impossible to send this message to any other candidate.
+7. End on exactly ONE concrete question, naturally phrased.
+
+Additionally, propose 2-4 short quick-reply options covering the most likely answers to the question you just asked, and set "allowMultiple":
+- An option is only valid if picking it, alone, IS the complete answer — the candidate must be able to tap it with no further detail. If your question asks them to pick among specific things you just named from their own profile (e.g. "which of these three areas — X, Y, or Z — energizes you most?"), the options MUST be those exact named things, not generic, unrelated categories — an option that doesn't correspond to anything you actually asked about is wrong even if it sounds like a plausible thing to ask a candidate in general.
+- If their name is unknown and this message asks for it, or the question otherwise demands the candidate's own specifics that no small fixed set could cover, omit "options" entirely (set it to null) and let them type freely.
+- If the question has mutually-exclusive answers, set "allowMultiple": false and write options as short, natural standalone statements.
+- If several answers could reasonably apply together AND each is independently a complete, nameable answer, set "allowMultiple": true and write options as short NOUN-PHRASE fragments — NOT full sentences — since multiple picks get joined together into one message.
+
+Output a single JSON object with EXACTLY these fields:
+- "message": the opening message itself, exactly as you'd send it (2-4 sentences as above).
+- "options": array of 2-4 short strings as described above, or null.
+- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-5-mini',
@@ -598,12 +716,12 @@ Do NOT use experienced-person framing ("title-vs-impact gap", "you're already in
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
+    response_format: { type: 'json_object' },
   });
 
-  return (
-    response.choices[0].message.content ||
-    (name ? `${name}, I read your profile — let's dig in.` : `I read your profile — but first, what should I call you?`)
-  );
+  const content = response.choices[0].message.content || '{}';
+  const parsed = JSON.parse(content);
+  return AdaptiveQuestionSchema.parse(parsed);
 }
 
 /* =====================================================================================
@@ -693,6 +811,10 @@ export async function generateRoadmap(
   const country = resolveMarket(profile, signals).country;
   const band = deriveExperienceBand(profile.yearsExperience, profile.inferredPersona);
   const defaultWeeklyHours = deriveWeeklyHoursCommitment(band);
+  // chosenPath can come from a browser session persisted under a previous build's tier values
+  // (e.g. the old "optimistic" key, renamed to "ambitious") — fall back to "realistic" rather
+  // than crashing the route on a stale, now-unrecognized tier string.
+  const { minWeeks, maxWeeks, monthsLabel } = TIER_TIMELINE[chosenPath.tier] ?? TIER_TIMELINE.realistic;
 
   const prompt = `You are a sharp career mentor building a concrete, week-by-week execution roadmap for a candidate who just locked in a target career path.
 
@@ -720,10 +842,11 @@ Step 2: Build the "phases" array using ONLY the phase combination that matches t
 - "good" → one "project" phase (portfolio-grade, industry-realistic; no course phase) → "practice" → "application".
 - "experienced" → one "course" phase that is explicitly a refresher/advanced-edge phase (no project phase) → "practice" → "application".
 
-Step 3: Determine a realistic weekly time commitment, then break EVERY phase into a week-by-week plan sized to it:
-- Default weekly commitment for this candidate: ${defaultWeeklyHours}. Use this UNLESS the candidate's signals (constraints/motivations) or the feedback below explicitly state a different weekly time commitment — if they do, use their stated number instead and name it in "summary".
-- Estimate the realistic total hours needed to close THIS SPECIFIC gap (informed by skillLevel and how much the chosen path's upskills actually demand) — do not default to a generic "2-3 months" for every plan. A wide gap (e.g. "beginner" pivoting into an unfamiliar domain) needs meaningfully more total hours than a narrow one (e.g. "experienced" refresher), and identical content takes roughly twice as many weeks at 4-6 hrs/week as it would at 8-10 hrs/week.
-- Let "totalWeeks" emerge from totalHours ÷ weeklyHours for THIS candidate and path — never anchor it to a fixed range just because of skillLevel; a "good" candidate with a wide path-specific content gap can legitimately take longer than a "basic" candidate with a narrow one.
+Step 3: Determine a realistic weekly time commitment, then break EVERY phase into a week-by-week plan that targets the timeline this path was already classified at:
+- This path was tagged "${chosenPath.tier}" when it was recommended — ${monthsLabel} of effort, i.e. a target of ${minWeeks}-${maxWeeks} weeks. Aim "totalWeeks" at this band for a typical gap at this tier.
+- Default weekly commitment for this candidate: ${defaultWeeklyHours}. Use this UNLESS the candidate's signals (constraints/motivations) or the feedback below explicitly state a different weekly time commitment — if they do, use their stated number instead and name it in "summary". Weekly hours control how much CONTENT/DEPTH is packed into each week, NOT how many weeks the plan spans — a candidate with more weekly hours available (e.g. a student) should get MORE thorough preparation (deeper projects, more practice, more applications) within the SAME ${minWeeks}-${maxWeeks}-week window, not a shorter one. Breaking into the industry without a track record requires that extra depth regardless of how many hours/week are available — never shrink "totalWeeks" below the band just because weekly hours are high.
+- The ${minWeeks}-${maxWeeks} band is a target, not an absolute wall: if THIS SPECIFIC candidate's gap for THIS path (per skillLevel and what the upskills actually demand) is genuinely too wide to compress into it without producing hollow, non-actionable weekly content, you may extend up to ${Math.round(maxWeeks * 1.5)} weeks — but you MUST say so honestly in "summary", naming why this specific gap needs more than the typical ${monthsLabel} for this tier (mirror the same honesty already required for "too_high" ambitionCheck verdicts). Do not extend just because it feels safer — only when the content genuinely doesn't fit.
+- If the candidate's feedback explicitly states a much lower weekly commitment that makes even the extended band implausible, you may go beyond it — say so honestly in "summary", citing their stated constraint.
 - Sequential "week" number incrementing across the whole roadmap (never restart at 1 for a later phase).
 - Each week: a short "focus" theme and 2-5 concrete, specific "items" sized to fit inside the weekly hour budget — real course topics, real project milestones, real mock-interview formats, real application channels relevant to ${chosenPath.title} and ${country}. Never filler like "take some courses".
 
@@ -746,5 +869,15 @@ Output a single JSON object with EXACTLY these fields:
 
   const content = response.choices[0].message.content || '{}';
   const parsed = JSON.parse(content);
-  return RoadmapSchema.parse(parsed);
+  const roadmap = RoadmapSchema.parse(parsed);
+
+  // Observability, not a hard gate — the prompt allows honest overflow up to 1.5x maxWeeks for
+  // a genuinely wide gap, so this only flags totalWeeks that fell outside even that allowance.
+  if (roadmap.totalWeeks < minWeeks || roadmap.totalWeeks > Math.round(maxWeeks * 1.5)) {
+    console.warn(
+      `generateRoadmap: totalWeeks (${roadmap.totalWeeks}) fell outside the "${chosenPath.tier}" tier's expected band (${minWeeks}-${Math.round(maxWeeks * 1.5)}) for path "${chosenPath.title}".`
+    );
+  }
+
+  return roadmap;
 }

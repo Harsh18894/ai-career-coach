@@ -25,10 +25,12 @@ if (isCheap()) {
   //           B3 reuses R-pivot-01's profile+opener from B1 (0).
   //           H1 uses a hand-built fixture (no resume) — 1 streamChatTurn + 1 analyzeSignals (2).
   //           I1 uses a hand-built fixture (no resume) — 1 nextGuidedProfileQuestion (1).
-  //           -> ~16 coach calls.
-  //   judge:  B3 + C3 + E1 + F6 + G1 + H1 + I1 each run 1 judged check x voteCount -> 7 * voteCount.
-  const coachCallEstimate = 16;
-  const judgeCallEstimate = 7 * config.voteCount;
+  //           J1 uses a hand-built fixture (no resume) — 1 nextGuidedProfileQuestionFull (1).
+  //           K1 reuses R-grad-01's profile (from B1/G1), generates 1 opener (1).
+  //           -> ~18 coach calls.
+  //   judge:  B3 + C3 + E1 + F6 + G1 + H1 + I1 + J1 + K1 each run 1 judged check x voteCount -> 9 * voteCount.
+  const coachCallEstimate = 18;
+  const judgeCallEstimate = 9 * config.voteCount;
   console.log('=== Career Coach Evals: FULL mode ===');
   console.log(`Estimated calls this run: ~${coachCallEstimate} coach (OpenAI, model in lib/ai/coach.ts) `);
   console.log(`                          + ~${judgeCallEstimate} judge (OpenAI, ${config.judgeModel}, ${config.voteCount}x majority vote)`);

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, AlertCircle, Loader2, Link2, ChevronDown } from 'lucide-react';
-import { Profile } from '@/lib/ai/schemas';
+import { Upload, FileText, AlertCircle, Link2, ChevronDown } from 'lucide-react';
+import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
+import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
 interface ResumeUploadProps {
-  onUploadSuccess: (profile: Profile, openingMessage: string) => void;
+  onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
   onManualTextSubmit: (text: string) => void;
   onStartWithoutResume: () => void;
 }
@@ -18,7 +19,6 @@ export default function ResumeUpload({
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string>('');
   const [showTextFallback, setShowTextFallback] = useState(false);
   const [manualText, setManualText] = useState('');
   const [showLinkedinHelp, setShowLinkedinHelp] = useState(false);
@@ -68,7 +68,6 @@ export default function ResumeUpload({
     }
 
     setIsLoading(true);
-    setStatusMessage('Reading your resume PDF...');
 
     try {
       const formData = new FormData();
@@ -91,8 +90,7 @@ export default function ResumeUpload({
       } else if (data.insufficientInfo) {
         onStartWithoutResume();
       } else {
-        setStatusMessage('Extracting professional profile and planning opener...');
-        onUploadSuccess(data.profile, data.openingMessage);
+        onUploadSuccess(data.profile, data.opener);
       }
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -125,7 +123,7 @@ export default function ResumeUpload({
           </span>
         </h1>
         <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-          Upload your resume, have a brief conversation with Aria, a sharp career mentor, and unlock 3 personalized paths forward.
+          Upload your resume, have a brief conversation with Aria, a sharp career mentor, and unlock your <strong>personalized career paths.</strong>
         </p>
       </div>
 
@@ -149,16 +147,8 @@ export default function ResumeUpload({
         />
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-4" role="status">
-            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-            <div className="space-y-1">
-              <p className="text-base font-medium text-slate-800">
-                {statusMessage}
-              </p>
-              <p className="text-sm text-slate-500">
-                Analyzing history, tenure, and transition gaps…
-              </p>
-            </div>
+          <div className="py-10">
+            <AnalyzingProgress steps={RESUME_ANALYSIS_STEPS} />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-6">

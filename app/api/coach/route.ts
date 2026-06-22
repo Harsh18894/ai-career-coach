@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   streamChatTurn,
+  generateUnderstandingTurn,
   analyzeSignals,
   generatePaths,
   generateRoadmap,
@@ -79,7 +80,17 @@ export async function POST(request: NextRequest) {
       if (!answers || !Array.isArray(answers)) {
         return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
       }
-      return await nextGuidedProfileQuestion(answers);
+      const nextQuestion = await nextGuidedProfileQuestion(answers);
+      return NextResponse.json(nextQuestion);
+    }
+
+    if (action === 'understanding-turn') {
+      const { messages, profile, signals } = body;
+      if (!messages || !signals) {
+        return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+      }
+      const turn = await generateUnderstandingTurn(messages, profile, signals);
+      return NextResponse.json(turn);
     }
 
     if (action === 'chat' || !action) {

@@ -3,6 +3,7 @@
 import React from 'react';
 import { DollarSign, BookOpen, Navigation, Target, ChevronDown, TrendingUp, TrendingDown, CheckCircle2, Map } from 'lucide-react';
 import { CareerPath } from '@/lib/ai/schemas';
+import TierBadge, { getTierMeta } from './TierBadge';
 
 interface PathCardProps {
   path: CareerPath;
@@ -45,10 +46,11 @@ export default function PathCard({
 }: PathCardProps) {
   const ambition = AMBITION_META[path.ambitionCheck.verdict];
   const AmbitionIcon = ambition.icon;
+  const tier = getTierMeta(path.tier);
 
   return (
     <div
-      className={`relative w-full flex flex-col rounded-2xl border transition-all duration-200 ${isSelected
+      className={`relative w-full flex flex-col rounded-2xl border border-t-4 ${tier.topBorderClass} transition-all duration-200 ${isSelected
         ? 'border-indigo-600 bg-linear-to-br from-indigo-50 via-white to-violet-50/60 shadow-md ring-1 ring-indigo-600'
         : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md shadow-sm'
         } ${disabled && !isSelected ? 'opacity-60' : ''}`}
@@ -69,10 +71,7 @@ export default function PathCard({
               <DollarSign className="w-3.5 h-3.5 text-slate-400 mr-1" />
               {path.salaryRange}
             </span>
-            <span className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full border ${ambition.badgeClass}`}>
-              <AmbitionIcon className="w-3 h-3" />
-              {ambition.label}
-            </span>
+            <TierBadge tier={path.tier} />
           </div>
         </button>
 
