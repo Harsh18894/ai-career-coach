@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Compass, Sparkles, XCircle } from 'lucide-react';
 import { CareerPath } from '@/lib/ai/schemas';
+import { TIER_ORDER, TIER_TIMELINE } from '@/lib/ai/tiers';
 import PathCard from './PathCard';
 
 interface PathDeckProps {
@@ -29,6 +30,14 @@ export default function PathDeck({
   const maxDecks = 3;
   const canRegenerate = deckCount < maxDecks;
 
+  // Always render Conservative -> Realistic -> Ambitious, regardless of the order the model
+  // returned them in — predictable left-to-right/top-to-bottom scanability. `selectedIndex` is
+  // positional, so render and index-based selection must both derive from this SAME array.
+  const sortedPaths = useMemo(
+    () => [...paths].sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier)),
+    [paths]
+  );
+
   const handleToggleCard = (index: number) => {
     onSelectIndex(selectedIndex === index ? null : index);
   };
@@ -43,13 +52,18 @@ export default function PathDeck({
           <span>Your recommended career paths</span>
         </h2>
         <p className="text-sm text-slate-500 mt-1">
-          Deck {deckCount} of {maxDecks} · Expand a path to review it, then lock it in.
+          Expand a path to review it, then lock it in.
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          <span className="font-semibold text-emerald-600">Conservative</span> = safest bet ({TIER_TIMELINE.conservative.monthsLabel}) ·{' '}
+          <span className="font-semibold text-indigo-600">Realistic</span> = aim here ({TIER_TIMELINE.realistic.monthsLabel}) ·{' '}
+          <span className="font-semibold text-fuchsia-600">Ambitious</span> = stretch goal ({TIER_TIMELINE.ambitious.monthsLabel})
         </p>
       </div>
 
-      {/* Single vertical column — each path is a full-width accordion, stacked in recommendation order */}
+      {/* Single vertical column — each path is a full-width accordion, sorted Conservative -> Realistic -> Ambitious */}
       <div className="flex flex-col gap-4">
-        {paths.map((path, index) => (
+        {sortedPaths.map((path, index) => (
           <PathCard
             key={index}
             path={path}

@@ -52,6 +52,10 @@ export type ConversationState = {
   // (generated live, not a fixed array), so the asked text must be tracked alongside the
   // answers for both the next adaptive call and the final profile-synthesis call.
   profileBuildQuestions: string[];
+  // Quick-reply options for the most recent dynamically-generated turn (ongoing UNDERSTANDING
+  // follow-ups, guided-intake adaptive questions) — null when there are none (falls back to
+  // free text) or once the candidate has replied (cleared synchronously on send).
+  pendingTurnOptions: { options: string[]; allowMultiple: boolean } | null;
 };
 
 export const INITIAL_STATE: ConversationState = {
@@ -85,4 +89,5 @@ export const INITIAL_STATE: ConversationState = {
   profileBuildStep: 0,
   profileBuildAnswers: [],
   profileBuildQuestions: [],
+  pendingTurnOptions: null,
 };

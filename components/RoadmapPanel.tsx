@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 import { Roadmap } from '@/lib/ai/schemas';
+import type { PathTier } from '@/lib/ai/tiers';
 import RoadmapView from './RoadmapView';
 import QuickOptions, { type QuickOption } from './QuickOptions';
 
@@ -16,6 +17,7 @@ const ROADMAP_FEEDBACK_OPTIONS: QuickOption[] = [
 interface RoadmapPanelProps {
   roadmap: Roadmap;
   roadmapVersion: number;
+  tier: PathTier | null;
   open: boolean;
   onClose: () => void;
   isUpdating: boolean;
@@ -33,6 +35,7 @@ interface RoadmapPanelProps {
 export default function RoadmapPanel({
   roadmap,
   roadmapVersion,
+  tier,
   open,
   onClose,
   isUpdating,
@@ -78,7 +81,7 @@ export default function RoadmapPanel({
             </div>
           )}
 
-          <RoadmapView key={roadmapVersion} roadmap={roadmap} />
+          <RoadmapView key={roadmapVersion} roadmap={roadmap} tier={tier} />
 
           {!showFeedbackInput ? (
             <div className="flex justify-center mt-4 mb-2">

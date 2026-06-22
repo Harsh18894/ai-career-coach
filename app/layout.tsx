@@ -53,7 +53,7 @@ export default function RootLayout({
                 href="/about"
                 className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors duration-150"
               >
-                About the Logic
+                How this works?
               </Link>
             </nav>
           </div>

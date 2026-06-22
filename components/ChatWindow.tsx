@@ -2,11 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe } from 'lucide-react';
-import { Profile, CareerPath, Roadmap } from '@/lib/ai/schemas';
+import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
 import MessageBubble from './MessageBubble';
-import TypingIndicator from './TypingIndicator';
+import ThinkingBubble from './ThinkingBubble';
 import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
@@ -29,17 +29,36 @@ const PROFILE_BUILD_INTRO_QUESTION =
   "First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?";
 const PROFILE_BUILD_REGION_QUESTION = "Last one — what country or region are you based in?";
 
-// Quick-select options offered for the candidate's very first UNDERSTANDING reply, in place of
-// free typing — this is effectively the "direction" question (grow in place / switch / change
-// domain) that hasDirectionSignal() treats as a hard gate before any recommendation anyway, so
-// a one-click answer covers the common cases instead of making every candidate type it out.
+// Static fallback quick-select options for the candidate's very first UNDERSTANDING reply, used
+// ONLY when no model-generated options exist for that turn — i.e. the no-resume guided-intake's
+// transition into UNDERSTANDING (a streamed free-text message, not structured data; see the
+// `streamChatTurn`/`buildUnderstandingInstruction` comments for why that one call site stays on
+// the streaming path). The resume-upload path's first reply gets its options dynamically from
+// `generateOpeningMessage` instead (carried in `pendingTurnOptions` from the very first render —
+// see ChatWindow's initial state below), since that opener's question is profile-specific and a
+// fixed panel can't reliably match it (e.g. "which of these 3 named project areas energizes
+// you?" needs THOSE 3 named areas as options, not a generic "grow / switch / change domain" set).
+//
 // `value` is a natural sentence (not a category code) so analyzeSignals reads it exactly like
-// any other typed reply.
-const DIRECTION_OPTIONS: QuickOption[] = [
+// any other typed reply. "Grow in the same role" / "make a job switch" both presuppose an
+// existing job — nonsensical for a student/recent grad with no role to grow in or switch from
+// (inferredPersona 'early_career'), so that persona gets its own set framed around landing a
+// first role/internship instead. Everyone else (pivot/grow/unknown) gets the original set.
+const DIRECTION_OPTIONS_DEFAULT: QuickOption[] = [
   { label: 'Grow in the same role/organisation', value: "I'd like to grow in my current role and organization rather than switch jobs." },
   { label: 'Make a job switch', value: "I'm looking to make a job switch to a new company." },
   { label: 'Change domain to something else', value: "I want to change my domain or field entirely — explore something different from what I'm in now." },
 ];
+
+const DIRECTION_OPTIONS_EARLY_CAREER: QuickOption[] = [
+  { label: 'Land my first internship or job', value: "I'm looking to land my first internship or job — I don't have a role to grow in or switch from yet." },
+  { label: 'Build a portfolio to get noticed', value: "I want to build a stronger portfolio of projects so I have something concrete to show employers." },
+  { label: 'Figure out which domain to focus on', value: "I'm still figuring out which domain or specialization to focus on." },
+];
+
+function getDirectionOptions(persona: Profile['inferredPersona'] | undefined): QuickOption[] {
+  return persona === 'early_career' ? DIRECTION_OPTIONS_EARLY_CAREER : DIRECTION_OPTIONS_DEFAULT;
+}
 
 // Common categories for "what should we change?" after 2 declined decks — labels double as the
 // sent value (natural enough on their own), so no separate `value` is needed.
@@ -71,6 +90,15 @@ const REJECT_REASON_OPTIONS: QuickOption[] = [
 // call site. Split into two pieces (rather than one do-it-all function) so a caller that needs
 // to fire the request early and parse the result later (see handleSelectPath's roadmap fetch,
 // run concurrently with the closing-message stream) can still reuse the parsing half.
+function makeMessage(role: ChatMessage['role'], content: string): ChatMessage {
+  return {
+    id: Math.random().toString(),
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function coachRequestInit(body: Record<string, unknown>): RequestInit {
   return {
     method: 'POST',
@@ -94,17 +122,17 @@ async function postCoach<T>(body: Record<string, unknown>, fallbackErrorMessage:
 
 interface ChatWindowProps {
   initialProfile: Profile | null;
-  initialOpeningMessage: string | null;
+  initialOpener: AdaptiveQuestion | null;
   onReset: () => void;
 }
 
 export default function ChatWindow({
   initialProfile,
-  initialOpeningMessage,
+  initialOpener,
   onReset,
 }: ChatWindowProps) {
   const [state, setState] = useState<ConversationState>(() => {
-    if (initialProfile && initialOpeningMessage) {
+    if (initialProfile && initialOpener) {
       return {
         ...INITIAL_STATE,
         stage: 'UNDERSTANDING',
@@ -117,10 +145,16 @@ export default function ChatWindow({
           {
             id: 'opener',
             role: 'assistant',
-            content: initialOpeningMessage,
+            content: initialOpener.message,
             createdAt: new Date().toISOString(),
           },
         ],
+        // Carries the opener's own profile-specific options (or null, e.g. when the opener had
+        // to ask for the candidate's name instead) — see the DIRECTION_OPTIONS_DEFAULT comment
+        // above for why this can't be a static panel.
+        pendingTurnOptions: initialOpener.options
+          ? { options: initialOpener.options, allowMultiple: initialOpener.allowMultiple }
+          : null,
       };
     }
 
@@ -162,12 +196,16 @@ export default function ChatWindow({
   // duration — gates are kept as simple booleans so the textarea's `disabled` condition (further
   // down) can OR them all together in one place.
   const isFirstUnderstandingReply = state.stage === 'UNDERSTANDING' && state.understandingMessageCount === 0;
-  const showDirectionOptions = isFirstUnderstandingReply;
+  // Only the no-resume transition reaches this with pendingTurnOptions still null (it stays on
+  // the streaming free-text path) — the resume-upload opener already populated pendingTurnOptions
+  // at init, so this static fallback must not also render and double up the options panels.
+  const showDirectionOptions = isFirstUnderstandingReply && state.pendingTurnOptions === null;
   const showCountryOptions = state.stage === 'ASK_COUNTRY';
   const showProfileBuildIntroOptions = state.stage === 'PROFILE_BUILDING' && state.profileBuildStep === 0;
   const showAskPreferencesOptions = state.stage === 'ASK_PREFERENCES';
   const anyQuickOptionsShowing =
-    showDirectionOptions || showCountryOptions || showProfileBuildIntroOptions || showAskPreferencesOptions;
+    showDirectionOptions || showCountryOptions || showProfileBuildIntroOptions || showAskPreferencesOptions ||
+    state.pendingTurnOptions !== null;
 
   // For roadmap adjustment feedback — QuickOptions (inside RoadmapPanel) owns the typed text.
   const [showRoadmapFeedbackInput, setShowRoadmapFeedbackInput] = useState(false);
@@ -229,7 +267,9 @@ export default function ChatWindow({
   // short quiet period; a visibility/unload flush keeps the last few tokens from being lost if
   // the tab closes mid-burst.
   const latestStateRef = useRef(state);
-  latestStateRef.current = state;
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     if (!state.profile) return;
@@ -257,18 +297,14 @@ export default function ChatWindow({
   }, []);
 
   const handleProfileBuildAnswer = async (textToSend: string) => {
-    const userMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: textToSend,
-      createdAt: new Date().toISOString(),
-    };
+    const userMessage: ChatMessage = makeMessage('user', textToSend);
 
     const updatedMessages = [...state.messages, userMessage];
     const updatedAnswers = [...state.profileBuildAnswers, textToSend.trim()];
     const questionsAskedSoFar = state.profileBuildQuestions;
     const nextStep = state.profileBuildStep + 1;
     setInputValue('');
+    setState((prev) => ({ ...prev, pendingTurnOptions: null }));
 
     // Middle 3 steps are turn-by-turn adaptive — ask the model for the next question given
     // everything answered so far, instead of indexing into a fixed script.
@@ -289,12 +325,16 @@ export default function ChatWindow({
           throw new Error(errData.error || 'Failed to generate the next question.');
         }
 
-        const questionText = await streamIntoNewMessage(updatedMessages, response);
+        const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean } = await response.json();
+        await revealIntoNewMessage(updatedMessages, nextQuestion.message);
 
         setState((prev) => ({
           ...prev,
           profileBuildStep: nextStep,
-          profileBuildQuestions: [...prev.profileBuildQuestions, questionText],
+          profileBuildQuestions: [...prev.profileBuildQuestions, nextQuestion.message],
+          pendingTurnOptions: nextQuestion.options && nextQuestion.options.length > 0
+            ? { options: nextQuestion.options, allowMultiple: nextQuestion.allowMultiple }
+            : null,
         }));
       } catch (err: any) {
         console.error('Next profile question error:', err);
@@ -307,12 +347,7 @@ export default function ChatWindow({
 
     // Closing region question is always static — never redundant, always needed, no API call.
     if (nextStep === PROFILE_BUILD_TOTAL_STEPS - 1) {
-      const nextQuestionMessage: ChatMessage = {
-        id: Math.random().toString(),
-        role: 'assistant',
-        content: PROFILE_BUILD_REGION_QUESTION,
-        createdAt: new Date().toISOString(),
-      };
+      const nextQuestionMessage: ChatMessage = makeMessage('assistant', PROFILE_BUILD_REGION_QUESTION);
       setState((prev) => ({
         ...prev,
         profileBuildStep: nextStep,
@@ -349,12 +384,10 @@ export default function ChatWindow({
         ...state.signals,
         intentGuess: builtProfile.inferredPersona,
       };
-      const transitionMessage: ChatMessage = {
-        id: Math.random().toString(),
-        role: 'assistant',
-        content: "Perfect — that gives me a real picture of where you're starting from. A few quick questions, then I'll map out some paths for you.",
-        createdAt: new Date().toISOString(),
-      };
+      const transitionMessage: ChatMessage = makeMessage(
+        'assistant',
+        "Perfect — that gives me a real picture of where you're starting from. A few quick questions, then I'll map out some paths for you."
+      );
       const messagesWithTransition = [...updatedMessages, transitionMessage];
 
       setState((prev) => ({
@@ -383,13 +416,8 @@ export default function ChatWindow({
     messagesForTurn: ChatMessage[],
     response: Response
   ): Promise<string> => {
-    const messageId = Math.random().toString();
-    const initialMessage: ChatMessage = {
-      id: messageId,
-      role: 'assistant',
-      content: '',
-      createdAt: new Date().toISOString(),
-    };
+    const initialMessage: ChatMessage = makeMessage('assistant', '');
+    const messageId = initialMessage.id;
 
     setState((prev) => ({
       ...prev,
@@ -444,6 +472,65 @@ export default function ChatWindow({
     await streamIntoNewMessage(messagesForTurn, chatResponse);
   };
 
+  // Reveals an already-known full string into a new assistant message via a fast chunked
+  // update, instead of true token streaming — used for the structured (non-streaming)
+  // AdaptiveQuestion turns below, so they still read as "the coach is typing" rather than the
+  // whole message appearing at once. Mirrors streamIntoNewMessage's "create empty message, then
+  // grow content" shape exactly, so ThinkingBubble hands off to it the same way either path.
+  const revealIntoNewMessage = async (messagesForTurn: ChatMessage[], fullText: string): Promise<void> => {
+    const initialMessage: ChatMessage = makeMessage('assistant', '');
+    const messageId = initialMessage.id;
+
+    setState((prev) => ({
+      ...prev,
+      messages: [...messagesForTurn, initialMessage],
+    }));
+
+    const CHUNK_SIZE = 5;
+    const CHUNK_DELAY_MS = 20;
+    for (let i = 0; i < fullText.length; i += CHUNK_SIZE) {
+      const revealed = fullText.slice(0, i + CHUNK_SIZE);
+      setState((prev) => ({
+        ...prev,
+        messages: prev.messages.map((m) => (m.id === messageId ? { ...m, content: revealed } : m)),
+      }));
+      await new Promise((resolve) => setTimeout(resolve, CHUNK_DELAY_MS));
+    }
+    // Covers fullText.length === 0 and guarantees the final content is exactly fullText.
+    setState((prev) => ({
+      ...prev,
+      messages: prev.messages.map((m) => (m.id === messageId ? { ...m, content: fullText } : m)),
+    }));
+  };
+
+  // Posts an ongoing UNDERSTANDING-phase turn (every reply after the candidate's first) as a
+  // structured, non-streaming call, reveals the question, then sets pendingTurnOptions from the
+  // response so the right QuickOptions (single or multi-select, or none) renders next.
+  const postUnderstandingTurn = async (
+    messagesForTurn: ChatMessage[],
+    signalsForTurn: UserSignals,
+    profileForTurn: Profile | null = state.profile
+  ) => {
+    const response = await fetch('/api/coach', coachRequestInit({
+      action: 'understanding-turn',
+      messages: messagesForTurn,
+      profile: profileForTurn,
+      signals: signalsForTurn,
+    }));
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error || 'Failed to generate the next question.');
+    }
+
+    const turn: { message: string; options?: string[] | null; allowMultiple: boolean } = await response.json();
+    await revealIntoNewMessage(messagesForTurn, turn.message);
+    setState((prev) => ({
+      ...prev,
+      pendingTurnOptions: turn.options && turn.options.length > 0 ? { options: turn.options, allowMultiple: turn.allowMultiple } : null,
+    }));
+  };
+
   // Calls the `recommend` action and handles every shape it can return: a real deck, `notReady`
   // (the server's readiness gate disagrees even though the client thought it was time), or
   // `needsCountry` (the resume spans multiple countries and the market isn't confirmed yet).
@@ -451,7 +538,7 @@ export default function ChatWindow({
   const runRecommendFlow = async (
     messagesSoFar: ChatMessage[],
     signalsForRecommend: UserSignals,
-    options?: { changeRequests?: string }
+    options?: { changeRequests?: string; transitionMessage?: string }
   ) => {
     const recommendData = await postCoach<{
       needsCountry?: boolean;
@@ -483,20 +570,25 @@ export default function ChatWindow({
 
     if (recommendData.notReady) {
       setState((prev) => ({ ...prev, stage: 'UNDERSTANDING', messages: messagesSoFar }));
-      await streamCoachTurn(messagesSoFar, { kind: 'understanding' }, signalsForRecommend);
+      await postUnderstandingTurn(messagesSoFar, signalsForRecommend);
       return;
     }
 
     // Reached only once needsCountry/notReady have been ruled out above — route.ts's contract
-    // guarantees `paths` is present in every other case.
+    // guarantees `paths` is present in every other case. `options.transitionMessage` (e.g. "Got
+    // it, let me compile three paths...") is only ever added to the chat HERE, once paths are
+    // actually in hand — never optimistically before this call, since `notReady` above can still
+    // bounce back to another question, and showing "let me compile your paths" right before
+    // asking yet another question is exactly the confusing, repeated-message bug this avoids.
     const newPaths: CareerPath[] = recommendData.paths!;
     const newPathTitles = newPaths.map((p) => p.title);
-    const coachRecMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'assistant',
-      content: "Here are **3 customized career directions** built from your background and priorities. Review them below. Tell me which one makes sense to explore, or let's pivot if they're off.",
-      createdAt: new Date().toISOString(),
-    };
+    const messagesWithAck = options?.transitionMessage
+      ? [...messagesSoFar, makeMessage('assistant', options.transitionMessage)]
+      : messagesSoFar;
+    const coachRecMessage: ChatMessage = makeMessage(
+      'assistant',
+      "Here are **3 customized career directions** built from your background and priorities. Review them below. Tell me which one makes sense to explore, or let's pivot if they're off."
+    );
 
     setState((prev) => ({
       ...prev,
@@ -507,7 +599,7 @@ export default function ChatWindow({
       shownPaths: Array.from(new Set([...prev.shownPaths, ...newPathTitles])),
       deckCount: prev.deckCount + 1,
       changeRequests: null,
-      messages: [...messagesSoFar, coachRecMessage],
+      messages: [...messagesWithAck, coachRecMessage],
     }));
   };
 
@@ -515,12 +607,7 @@ export default function ChatWindow({
   // this raw text IS the changeRequests payload, not something to run through analyzeSignals.
   const handleAskPreferencesAnswer = async (textToSend: string) => {
     setApiError(null);
-    const userMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: textToSend,
-      createdAt: new Date().toISOString(),
-    };
+    const userMessage: ChatMessage = makeMessage('user', textToSend);
     const updatedMessages = [...state.messages, userMessage];
     setInputValue('');
     setIsThinking(true);
@@ -554,17 +641,13 @@ export default function ChatWindow({
     }
 
     setApiError(null);
-    const userMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: textToSend,
-      createdAt: new Date().toISOString(),
-    };
+    const userMessage: ChatMessage = makeMessage('user', textToSend);
 
     const updatedMessages = [...state.messages, userMessage];
     setState((prev) => ({
       ...prev,
       messages: updatedMessages,
+      pendingTurnOptions: null,
     }));
     setInputValue('');
     setIsThinking(true);
@@ -626,32 +709,31 @@ export default function ChatWindow({
         await streamCoachTurn(updatedMessages, { kind: 'insufficient_info' }, nextSignals);
         setIsThinking(false);
       } else if (shouldRecommend) {
-        const transitionMessage: ChatMessage = {
-          id: Math.random().toString(),
-          role: 'assistant',
-          content: "Got it. Let me compile three career paths tailored specifically to what we've discussed...",
-          createdAt: new Date().toISOString(),
-        };
-        const messagesWithTransition = [...updatedMessages, transitionMessage];
-
         setState((prev) => ({
           ...prev,
           understandingMessageCount,
-          messages: messagesWithTransition,
+          messages: updatedMessages,
         }));
 
-        await runRecommendFlow(messagesWithTransition, nextSignals);
+        await runRecommendFlow(updatedMessages, nextSignals, {
+          transitionMessage: "Got it. Let me compile three career paths tailored specifically to what we've discussed...",
+        });
         setIsThinking(false);
       } else {
-        // A roadmap follow-up gets its own non-onboarding instruction.
+        // A roadmap follow-up gets its own non-onboarding instruction; it stays free-text/
+        // streamed (post-roadmap "stay and iterate" chat is open-ended by design). Every other
+        // ongoing UNDERSTANDING turn uses the structured, options-generating path instead.
         setState((prev) => ({ ...prev, understandingMessageCount }));
 
-        const turn: CoachTurn =
-          state.stage === 'ROADMAP' && state.chosenPath && state.roadmap
-            ? { kind: 'roadmap_followup', chosenPath: state.chosenPath, roadmap: state.roadmap }
-            : { kind: 'understanding' };
-
-        await streamCoachTurn(updatedMessages, turn, nextSignals);
+        if (state.stage === 'ROADMAP' && state.chosenPath && state.roadmap) {
+          await streamCoachTurn(
+            updatedMessages,
+            { kind: 'roadmap_followup', chosenPath: state.chosenPath, roadmap: state.roadmap },
+            nextSignals
+          );
+        } else {
+          await postUnderstandingTurn(updatedMessages, nextSignals);
+        }
         setIsThinking(false);
       }
     } catch (err: any) {
@@ -666,7 +748,7 @@ export default function ChatWindow({
     setIsThinking(true);
     setShowRejectReasonInput(false);
 
-    let updatedSignals = { ...state.signals };
+    const updatedSignals = { ...state.signals };
 
     // If they gave a rejection reason, capture it into rejectedDirections
     if (reason.trim()) {
@@ -677,14 +759,10 @@ export default function ChatWindow({
     }
 
     // Add a system-like text to conversational history representing the decline
-    const userDeclineMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: reason.trim()
-        ? `No, show me something else. Reason: ${reason.trim()}`
-        : "No, show me 3 different paths.",
-      createdAt: new Date().toISOString(),
-    };
+    const userDeclineMessage: ChatMessage = makeMessage(
+      'user',
+      reason.trim() ? `No, show me something else. Reason: ${reason.trim()}` : 'No, show me 3 different paths.'
+    );
 
     setState((prev) => ({
       ...prev,
@@ -711,12 +789,7 @@ export default function ChatWindow({
     setApiError(null);
     setIsThinking(true);
 
-    const declineMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: "No, show me something else.",
-      createdAt: new Date().toISOString(),
-    };
+    const declineMessage: ChatMessage = makeMessage('user', 'No, show me something else.');
     const nextMessages = [...state.messages, declineMessage];
 
     setState((prev) => ({
@@ -741,12 +814,7 @@ export default function ChatWindow({
     setApiError(null);
     setIsThinking(true);
 
-    const selectMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: `I've chosen: ${path.title}`,
-      createdAt: new Date().toISOString(),
-    };
+    const selectMessage: ChatMessage = makeMessage('user', `I've chosen: ${path.title}`);
 
     const nextMessages = [...state.messages, selectMessage];
 
@@ -802,12 +870,7 @@ export default function ChatWindow({
     if (!feedback.trim() || !state.chosenPath) return;
     setApiError(null);
 
-    const feedbackMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: `Adjust the roadmap: ${feedback.trim()}`,
-      createdAt: new Date().toISOString(),
-    };
+    const feedbackMessage: ChatMessage = makeMessage('user', `Adjust the roadmap: ${feedback.trim()}`);
 
     const submittedFeedback = feedback.trim();
     setShowRoadmapFeedbackInput(false);
@@ -850,12 +913,7 @@ export default function ChatWindow({
     setApiError(null);
     setIsThinking(true);
 
-    const rejectAllMessage: ChatMessage = {
-      id: Math.random().toString(),
-      role: 'user',
-      content: "I decline all options.",
-      createdAt: new Date().toISOString(),
-    };
+    const rejectAllMessage: ChatMessage = makeMessage('user', 'I decline all options.');
 
     const nextMessages = [...state.messages, rejectAllMessage];
 
@@ -960,16 +1018,21 @@ export default function ChatWindow({
             title={state.chosenPath?.title ?? 'Your execution roadmap'}
             totalDuration={state.roadmap.totalDuration}
             weeklyHoursCommitment={state.roadmap.weeklyHoursCommitment}
+            tier={state.chosenPath?.tier ?? null}
             onOpen={() => setState((prev) => ({ ...prev, roadmapPanelOpen: true }))}
           />
         )}
 
-        {/* Quick-select options for the first UNDERSTANDING reply, in place of free typing */}
-        {showDirectionOptions && (
+        {/* Quick-select options for the first UNDERSTANDING reply, in place of free typing.
+            Gated on !isThinking (not just `disabled`) so the panel actually disappears the
+            instant a choice is sent, the same as the dynamic pendingTurnOptions block below —
+            `showDirectionOptions` itself only flips false once the async response lands, which
+            without this guard left the panel visibly lingering alongside the thinking bubble. */}
+        {showDirectionOptions && !isThinking && (
           <QuickOptions
             icon={Compass}
             prompt="What are you looking for right now?"
-            options={DIRECTION_OPTIONS}
+            options={getDirectionOptions(state.profile?.inferredPersona)}
             onSelect={(value) => handleSend(value)}
             disabled={isThinking}
             customPlaceholder="Tell me what you're looking for..."
@@ -977,7 +1040,7 @@ export default function ChatWindow({
         )}
 
         {/* No-resume guided intake's first question — same idea, different copy */}
-        {showProfileBuildIntroOptions && (
+        {showProfileBuildIntroOptions && !isThinking && (
           <QuickOptions
             icon={Compass}
             prompt="What are you currently doing?"
@@ -989,7 +1052,7 @@ export default function ChatWindow({
         )}
 
         {/* Resume spans multiple countries — pick the target market from what was detected */}
-        {showCountryOptions && (
+        {showCountryOptions && !isThinking && (
           <QuickOptions
             icon={Globe}
             prompt="Which market should I calibrate roles and salary to?"
@@ -1001,7 +1064,7 @@ export default function ChatWindow({
         )}
 
         {/* Two decks declined — ask what to change before a tailored third */}
-        {showAskPreferencesOptions && (
+        {showAskPreferencesOptions && !isThinking && (
           <QuickOptions
             icon={Sparkles}
             prompt="What would you like me to change?"
@@ -1009,6 +1072,20 @@ export default function ChatWindow({
             onSelect={(value) => handleAskPreferencesAnswer(value)}
             disabled={isThinking}
             customPlaceholder="Tell me what to change..."
+          />
+        )}
+
+        {/* Dynamically-generated quick-reply options for the question just asked (ongoing
+            UNDERSTANDING turns, guided-intake adaptive questions) — no heading, since the
+            question itself is already the preceding chat bubble. Hidden while the next reveal
+            is in flight so it doesn't flash stale options mid-thought. */}
+        {state.pendingTurnOptions && !isThinking && (
+          <QuickOptions
+            options={state.pendingTurnOptions.options.map((label) => ({ label }))}
+            onSelect={(value) => handleSend(value)}
+            multiSelect={state.pendingTurnOptions.allowMultiple}
+            disabled={isThinking}
+            customPlaceholder="Type your own answer..."
           />
         )}
 
@@ -1025,11 +1102,7 @@ export default function ChatWindow({
           />
         )}
 
-        {isThinking && (
-          <div className="my-4">
-            <TypingIndicator />
-          </div>
-        )}
+        {isThinking && <ThinkingBubble />}
 
         {apiError && (
           <div role="alert" className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
@@ -1115,6 +1188,7 @@ export default function ChatWindow({
         <RoadmapPanel
           roadmap={state.roadmap}
           roadmapVersion={state.roadmapVersion}
+          tier={state.chosenPath?.tier ?? null}
           open={state.roadmapPanelOpen}
           onClose={() => setState((prev) => ({ ...prev, roadmapPanelOpen: false }))}
           isUpdating={isRoadmapLoading}

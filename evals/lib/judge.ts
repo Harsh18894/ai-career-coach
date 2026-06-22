@@ -68,14 +68,18 @@ export async function judge<T extends { pass: boolean }>(
   rubric: string,
   payload: Record<string, unknown>
 ): Promise<{ result: T; votes: boolean[]; disagreement: boolean }> {
-  const results: T[] = [];
-  for (let i = 0; i < config.voteCount; i++) {
-    const parsed = (await callJudgeOnce(rubric, payload)) as T;
-    if (typeof parsed.pass !== 'boolean') {
-      throw new Error(`[judge] Vote ${i + 1}/${config.voteCount} missing boolean "pass" field. Got: ${JSON.stringify(parsed)}`);
-    }
-    results.push(parsed);
-  }
+  // The voteCount votes are independent (same rubric/payload, sampled separately for majority
+  // voting) — no ordering dependency between them, so firing them concurrently instead of one
+  // at a time cuts a judged eval's wall-clock judging time by roughly voteCount.
+  const results = await Promise.all(
+    Array.from({ length: config.voteCount }, async (_, i) => {
+      const parsed = (await callJudgeOnce(rubric, payload)) as T;
+      if (typeof parsed.pass !== 'boolean') {
+        throw new Error(`[judge] Vote ${i + 1}/${config.voteCount} missing boolean "pass" field. Got: ${JSON.stringify(parsed)}`);
+      }
+      return parsed;
+    })
+  );
 
   const votes = results.map((r) => r.pass);
   const passCount = votes.filter(Boolean).length;

@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import { Map, Clock, Timer, GraduationCap, Hammer, Dumbbell, Briefcase, ChevronDown, type LucideIcon } from 'lucide-react';
 import { Roadmap, RoadmapPhase } from '@/lib/ai/schemas';
+import type { PathTier } from '@/lib/ai/tiers';
+import TierBadge from './TierBadge';
 
 interface RoadmapViewProps {
   roadmap: Roadmap;
+  tier: PathTier | null;
 }
 
 const PHASE_META: Record<RoadmapPhase['type'], { label: string; icon: LucideIcon; chipClass: string; labelClass: string }> = {
@@ -22,7 +25,7 @@ const SKILL_LEVEL_LABEL: Record<Roadmap['skillLevel'], string> = {
   experienced: 'Experienced',
 };
 
-export default function RoadmapView({ roadmap }: RoadmapViewProps) {
+export default function RoadmapView({ roadmap, tier }: RoadmapViewProps) {
   const [expandedPhase, setExpandedPhase] = useState<number | null>(0);
 
   return (
@@ -37,6 +40,7 @@ export default function RoadmapView({ roadmap }: RoadmapViewProps) {
               <span>Your execution roadmap</span>
             </h2>
             <div className="flex items-center gap-2">
+              {tier && <TierBadge tier={tier} />}
               <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">
                 {SKILL_LEVEL_LABEL[roadmap.skillLevel]}
               </span>

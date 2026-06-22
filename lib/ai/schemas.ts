@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TIER_ORDER, type PathTier } from './tiers';
 
 export const RoleHistorySchema = z.object({
   title: z.string(),
@@ -35,6 +36,7 @@ export const AmbitionCheckSchema = z.object({
 
 export const CareerPathSchema = z.object({
   title: z.string(),
+  tier: z.enum(TIER_ORDER as [PathTier, ...PathTier[]]), // difficulty/effort-timeline classification — exactly one path per tier among the 3 in a deck
   fitRationale: z.string(), // MUST cite a profile fact or a user statement
   salaryRange: z.string(),  // indicative, region-aware, labeled (local currency for the resolved market)
   upskills: z.array(z.string()), // 2-4 concrete skills to acquire
@@ -74,3 +76,17 @@ export const RoadmapSchema = z.object({
 export type RoadmapWeek = z.infer<typeof RoadmapWeekSchema>;
 export type RoadmapPhase = z.infer<typeof RoadmapPhaseSchema>;
 export type Roadmap = z.infer<typeof RoadmapSchema>;
+
+// A dynamically-generated coach question paired with optional quick-reply choices — used for
+// turns where the question text itself varies every time (ongoing UNDERSTANDING-phase follow-ups,
+// the no-resume guided intake's adaptive questions), so options can't be hardcoded client-side.
+export const AdaptiveQuestionSchema = z.object({
+  message: z.string(), // the coach's question/message, in natural mentor voice
+  // 2-5 short quick-reply choices covering the most likely answers to THIS question; omit/null
+  // if the question is genuinely too open-ended for a good small fixed set (the UI then falls
+  // back to plain free text, same as today).
+  options: z.array(z.string()).min(2).max(5).nullish(),
+  allowMultiple: z.boolean(), // true if multiple options can sensibly apply together (renders as multi-select)
+});
+
+export type AdaptiveQuestion = z.infer<typeof AdaptiveQuestionSchema>;

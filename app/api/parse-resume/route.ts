@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const openingMessage = await generateOpeningMessage(profile);
+    const opener = await generateOpeningMessage(profile);
 
     return NextResponse.json({
       profile,
-      openingMessage,
+      opener,
       textIsEmpty: false,
     });
   } catch (error: any) {
