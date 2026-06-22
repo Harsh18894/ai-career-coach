@@ -16,7 +16,7 @@ export default function AboutPage() {
     },
     {
       title: 'Skip the resume entirely',
-      desc: "No resume at all? The coach builds your profile from a short adaptive Q&A instead — it asks one question at a time, never re-asking what you've already told it.",
+      desc: "No resume at all? The coach builds your profile from a short adaptive Q&A instead — it asks one question at a time, never re-asking what you've already told it. The opening question offers quick picks (studying / working / between things) alongside a custom option.",
     },
   ];
 
@@ -35,11 +35,11 @@ export default function AboutPage() {
     },
     {
       title: '4. Understanding chat',
-      desc: 'A few back-and-forth turns where the coach asks exactly one sharp, natural question at a time, reacting to what you actually said. It will not move toward recommendations until it has at least one concrete skill or domain from you, AND a sense of direction (grow in place vs. switch, what you\'re optimizing for, or a real constraint) — both are hard-checked, not just assumed from the model\'s own read of the conversation.',
+      desc: 'A few back-and-forth turns where the coach asks exactly one sharp, natural question at a time, reacting to what you actually said. The very first reply is offered as one-click options (grow in place / switch jobs / change domain) instead of a blank box, since that\'s effectively the direction question the coach needs answered anyway — pick one, or type your own. It will not move toward recommendations until it has at least one concrete skill or domain from you, AND a sense of direction (grow in place vs. switch, what you\'re optimizing for, or a real constraint) — both are hard-checked, not just assumed from the model\'s own read of the conversation.',
     },
     {
       title: '5. Market check (if needed)',
-      desc: 'If your resume spans more than one country, the coach asks once which market to target before recommending, so salary ranges and role framing calibrate correctly.',
+      desc: 'If your resume spans more than one country, the coach asks once which market to target before recommending — the countries actually detected in your resume are offered as quick picks, with a custom option if you mean somewhere else, so salary ranges and role framing calibrate correctly.',
     },
     {
       title: '6. Path generation',
@@ -47,7 +47,7 @@ export default function AboutPage() {
     },
     {
       title: '7. Decline & refine loop',
-      desc: 'Not feeling a deck? "Show me more paths" generates a fresh, non-overlapping deck (up to 3 decks, 9 paths total). After two declined decks, the coach stops reshuffling blindly and asks directly what you\'d change before generating a tailored third deck. Decline that too, and you get an honest closing instead of an endless shuffle.',
+      desc: 'Not feeling a deck? "Show me more paths" generates a fresh, non-overlapping deck (up to 3 decks, 9 paths total) — declining offers common reasons (too technical, wrong domain, salary mismatch, or none at all) as quick picks, plus a custom option. After two declined decks, the coach stops reshuffling blindly and asks directly what you\'d change (again as quick picks or custom text) before generating a tailored third deck. Decline that too, and you get an honest closing instead of an endless shuffle.',
     },
     {
       title: '8. Lock in a path → roadmap',
@@ -55,7 +55,7 @@ export default function AboutPage() {
     },
     {
       title: '9. Stay and iterate',
-      desc: "The session doesn't end at the roadmap. You can keep chatting (the coach treats this as open conversation, not re-onboarding) or request roadmap adjustments — pace, focus, swapping a topic, or stating your own weekly hour availability (e.g. \"I can only commit 5 hours a week\") — which regenerate the plan honestly incorporating your feedback, overriding the default pacing.",
+      desc: "The session doesn't end at the roadmap. You can keep chatting (the coach treats this as open conversation, not re-onboarding) or request roadmap adjustments — quick picks for pacing too fast/slow or swapping a topic, or your own typed feedback (e.g. \"I can only commit 5 hours a week\") — which regenerate the plan honestly incorporating it, overriding the default pacing.",
     },
   ];
 
@@ -257,6 +257,17 @@ export default function AboutPage() {
             <p className="text-xs leading-relaxed">
               Locking in a path kicks off your tailored closing message and your execution roadmap at the same time,
               instead of waiting for one to finish before starting the other.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h3 className="font-semibold text-slate-800 mb-1 text-sm">One quick-pick pattern, reused everywhere</h3>
+            <p className="text-xs leading-relaxed">
+              Every point in the conversation with a small, predictable set of likely answers — your first reply,
+              confirming a market, declining a deck, what to change, roadmap pacing — uses the same one-click options
+              control, always with a &quot;something else&quot; escape into free text. Picking an option posts it as
+              a normal chat message and the options disappear immediately, so it always reads as a real reply, never
+              a form. Open-ended, dynamically generated questions (the rest of the understanding chat, the adaptive
+              guided-intake questions) stay free text, since there&apos;s no small fixed answer set to offer.
             </p>
           </div>
         </div>
