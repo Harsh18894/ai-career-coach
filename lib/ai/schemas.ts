@@ -87,6 +87,12 @@ export const AdaptiveQuestionSchema = z.object({
   // back to plain free text, same as today).
   options: z.array(z.string()).min(2).max(5).nullish(),
   allowMultiple: z.boolean(), // true if multiple options can sensibly apply together (renders as multi-select)
+  // True ONLY if the candidate's last message tried to redirect the coach into something
+  // unrelated to their career (entertainment, general life chat, anything off-topic) — when
+  // true, "message" is itself the firm decline-and-close statement (no further question), and
+  // the client ends the session rather than offering more options. Defaults to false since the
+  // opener (generateOpeningMessage) has no prior candidate reply to evaluate for this at all.
+  offTopic: z.boolean().default(false),
 });
 
 export type AdaptiveQuestion = z.infer<typeof AdaptiveQuestionSchema>;

@@ -142,6 +142,7 @@ const mockCoach: CoachAdapter = {
       message: `Mock opener referencing ${profile.currentRole ?? 'your background'} at a generic company.`,
       options: null,
       allowMultiple: false,
+      offTopic: false,
     };
   },
 
@@ -203,6 +204,7 @@ const mockCoach: CoachAdapter = {
       message: `[MOCK] nextGuidedProfileQuestionFull — ${answersSoFar.length} answer(s) so far. Not wired to a real model.`,
       options: null,
       allowMultiple: false,
+      offTopic: false,
     };
   },
 };
