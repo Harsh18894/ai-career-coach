@@ -26,7 +26,7 @@ export default function Home() {
           // conversation (including any real options) itself from the same localStorage key,
           // so the options/allowMultiple fields here are irrelevant placeholders.
           const openerMessage = parsed.messages.find((m: any) => m.id === 'opener')?.content || parsed.messages[0]?.content;
-          setOpener({ message: openerMessage, options: null, allowMultiple: false });
+          setOpener({ message: openerMessage, options: null, allowMultiple: false, offTopic: false });
         }
       } catch (e) {
         console.error('Failed to parse saved session:', e);

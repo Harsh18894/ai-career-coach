@@ -325,8 +325,17 @@ export default function ChatWindow({
           throw new Error(errData.error || 'Failed to generate the next question.');
         }
 
-        const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean } = await response.json();
+        const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
         await revealIntoNewMessage(updatedMessages, nextQuestion.message);
+
+        // Same hard boundary as postUnderstandingTurn below — the candidate tried to redirect
+        // the conversation away from career coaching entirely, nextQuestion.message is already
+        // the firm decline-and-close statement, so end the session instead of continuing the
+        // guided intake.
+        if (nextQuestion.offTopic) {
+          setState((prev) => ({ ...prev, stage: 'CLOSED', pendingTurnOptions: null }));
+          return;
+        }
 
         setState((prev) => ({
           ...prev,
@@ -523,8 +532,16 @@ export default function ChatWindow({
       throw new Error(errData.error || 'Failed to generate the next question.');
     }
 
-    const turn: { message: string; options?: string[] | null; allowMultiple: boolean } = await response.json();
+    const turn: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
     await revealIntoNewMessage(messagesForTurn, turn.message);
+    // The candidate tried to redirect the conversation away from career coaching entirely (e.g.
+    // asking for movie recommendations) — `turn.message` is already the firm decline-and-close
+    // statement, so end the session here rather than offering more quick-pick options to type
+    // into, which would imply the conversation is still open.
+    if (turn.offTopic) {
+      setState((prev) => ({ ...prev, stage: 'CLOSED', pendingTurnOptions: null }));
+      return;
+    }
     setState((prev) => ({
       ...prev,
       pendingTurnOptions: turn.options && turn.options.length > 0 ? { options: turn.options, allowMultiple: turn.allowMultiple } : null,

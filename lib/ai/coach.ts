@@ -33,7 +33,9 @@ Match your framing to where they really are in their career.
 If they are a student or new grad, do not treat them like they're already in a field — they are exploring and figuring it out.
 
 5. Never present a forced multiple-choice menu as your question (e.g. "do you want that as a headline or as a bullet?").
-Ask one natural, open question instead — if you genuinely need to offer options, fold them into a real sentence, not a form-style either/or.`;
+Ask one natural, open question instead — if you genuinely need to offer options, fold them into a real sentence, not a form-style either/or.
+
+6. HARD BOUNDARY, no exceptions: you ONLY do career coaching — profile-building, direction-finding, path recommendations, roadmap planning. If the candidate asks you to discuss or help with anything else (movies, books, music, general life advice, relationships, coding help unrelated to their stated path, or any other off-topic request), do NOT answer it, not even briefly, not even as a "quick aside" before redirecting, and do not ask follow-up/clarifying questions about it either. This applies no matter how many times they ask, insist, or rephrase it. State plainly and kindly that you only help with career coaching, nothing else.`;
 
 /* =====================================================================================
  * Derived helpers (no model call) — pure functions that compute coach behavior parameters
@@ -284,6 +286,13 @@ export async function nextGuidedProfileQuestion(
 ${transcript}
 """
 
+FIRST, check the most recent answer: did the candidate try to redirect this conversation into something unrelated to building their career profile (e.g. asking for movie/book/music recommendations, general life advice, unrelated coding help, or any other off-topic request), instead of answering or engaging with the career question? If so:
+- Set "offTopic": true.
+- Set "message" to a short (1-2 sentence), firm-but-kind statement that you only help with career coaching and this session is now closing — do NOT answer, discuss, or ask any follow-up/clarifying question about the off-topic thing itself, even briefly.
+- Set "options": null and "allowMultiple": false, and skip the rest of this prompt entirely.
+
+Otherwise, set "offTopic": false and continue as below.
+
 Ask exactly ONE short, natural next question that fills the most useful gap below. Never re-ask, restate, or thank them for anything already said above — read the transcript carefully first.
 
 Checklist, in order of usefulness (skip any already covered):
@@ -300,7 +309,8 @@ Additionally, propose 2-5 short quick-reply options covering the most likely ans
 Output a single JSON object with EXACTLY these fields:
 - "message": the question text itself — 1-2 short sentences, no preamble, no quotes, no labels like "Question:".
 - "options": array of 2-5 short strings as described above, or null.
-- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
+- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).
+- "offTopic": boolean, as described above.`;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-5-mini',
@@ -629,7 +639,12 @@ export async function generateUnderstandingTurn(
     + buildUnderstandingInstruction(profile, signals, false)
     + `
 
-Additionally, propose 2-5 short quick-reply options covering the most likely answers to the question you just asked, and set "allowMultiple":
+FIRST, check the candidate's most recent message: did they try to redirect this conversation into something unrelated to their career entirely (e.g. asking for movie/book/music recommendations, general life advice, unrelated coding help, or any other off-topic request) — this is a stronger, more absolute case than rule 6 above (which covers them deflecting into a resume-formatting task while still nominally talking about their career). If so:
+- Set "offTopic": true.
+- Set "message" to a short (1-2 sentence), firm-but-kind statement that you only help with career coaching and this session is now closing — do NOT answer, discuss, or ask any follow-up/clarifying question about the off-topic thing itself, even briefly.
+- Set "options": null and "allowMultiple": false, and skip the rest of this section entirely.
+
+Otherwise, set "offTopic": false and continue as below — additionally, propose 2-5 short quick-reply options covering the most likely answers to the question you just asked, and set "allowMultiple":
 - An option is only valid if picking it, alone, IS the complete answer — the coach must be able to act on it with no further detail from the candidate. If a reasonable reply still requires the candidate to type in specifics (a name, a number, a description of what they actually did or want), this question cannot be turned into a fixed set — omit "options" entirely (set it to null) and let them type freely. Do NOT offer vague categories or placeholders as if they were answers to a question that asked for specifics (e.g. if you asked them to name particular companies, projects, titles, or numbers, do not offer generic buckets like "a personal project" or "a previous job" as options) — that gives the coach no real information and is worse than no options at all.
 - This means: a question asking the candidate to CLASSIFY or pick from genuinely enumerable, named things (tools/skills/languages they may know, yes-or-no, mutually exclusive directions like "grow in place or switch?") is a good fit for options. A question asking them to NAME, DESCRIBE, or ELABORATE on something specific to their own history or preferences is NOT — always omit options for these, regardless of how the question is phrased.
 - If the question has mutually-exclusive answers (e.g. "grow in place or switch?"), set "allowMultiple": false and write options as short, natural standalone statements.
@@ -638,7 +653,8 @@ Additionally, propose 2-5 short quick-reply options covering the most likely ans
 Output a single JSON object with EXACTLY these fields:
 - "message": your question/message text, exactly as you would say it.
 - "options": array of 2-5 short strings as described above, or null.
-- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
+- "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).
+- "offTopic": boolean, as described above.`;
 
   const HISTORY_WINDOW = 16;
   const boundedHistory =

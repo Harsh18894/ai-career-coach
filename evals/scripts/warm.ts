@@ -93,6 +93,17 @@ async function main() {
   console.log('generateOpenerFull:K1');
   await warmSnapshot('generateOpenerFull:K1', () => coach.generateOpenerFull(profiles['R-grad-01']!));
 
+  console.log('nextGuidedProfileQuestionFull:L1');
+  await warmSnapshot('nextGuidedProfileQuestionFull:L1', () =>
+    coach.nextGuidedProfileQuestionFull([
+      {
+        question:
+          'First — what are you currently doing? (e.g. studying, working, between things) and in what area or role?',
+        answer: 'I want to talk about life and not career. Suggest me movies to watch this week',
+      },
+    ])
+  );
+
   console.log('\nDone. evals/.cache/snapshots/ is now populated for eval:cheap.');
 }
 
