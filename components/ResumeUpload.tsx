@@ -90,7 +90,16 @@ export default function ResumeUpload({
       } else if (data.insufficientInfo) {
         onStartWithoutResume();
       } else {
-        onUploadSuccess(data.profile, data.opener);
+        const openerResponse = await fetch('/api/generate-opener', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile: data.profile }),
+        });
+        const openerData = await openerResponse.json();
+        if (!openerResponse.ok) {
+          throw new Error(openerData.error || 'Failed to generate opener.');
+        }
+        onUploadSuccess(data.profile, openerData.opener);
       }
     } catch (err: any) {
       console.error('Upload error:', err);

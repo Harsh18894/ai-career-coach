@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
-import { extractProfile, generateOpeningMessage } from '@/lib/ai/coach';
+import { extractProfile } from '@/lib/ai/coach';
 
-export const maxDuration = 60; // Allow enough time for parsing + model generation
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,11 +62,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const opener = await generateOpeningMessage(profile);
-
     return NextResponse.json({
       profile,
-      opener,
       textIsEmpty: false,
     });
   } catch (error: any) {
