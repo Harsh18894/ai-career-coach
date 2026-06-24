@@ -67,8 +67,18 @@ export default function Home() {
         return;
       }
 
+      const openerResponse = await fetch('/api/generate-opener', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: data.profile }),
+      });
+      const openerData = await openerResponse.json();
+      if (!openerResponse.ok) {
+        throw new Error(openerData.error || 'Failed to generate opener.');
+      }
+
       setProfile(data.profile);
-      setOpener(data.opener);
+      setOpener(openerData.opener);
     } catch (err: any) {
       console.error('Manual submission error:', err);
       setManualTextError(err.message || 'An error occurred while analyzing the text.');
