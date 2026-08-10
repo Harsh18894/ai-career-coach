@@ -3,6 +3,7 @@ import { PDFParse } from 'pdf-parse';
 import { extractProfile } from '@/lib/ai/coach';
 import { enforceLimits } from '@/lib/rate-limit';
 import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
+import { errorResponse, failWith } from '@/lib/api-response';
 
 export const maxDuration = 60;
 
@@ -25,16 +26,16 @@ export async function POST(request: NextRequest) {
       const file = formData.get('file') as File | null;
 
       if (!file) {
-        return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
+        return failWith('RESUME_PARSE_FAILED', 'No file was uploaded. Choose a PDF, or paste your resume text instead.');
       }
 
       if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-        return NextResponse.json({ error: 'Only PDF files are accepted.' }, { status: 400 });
+        return failWith('RESUME_PARSE_FAILED', 'Only PDF files are accepted. You can also paste your resume text instead.');
       }
 
       const MAX_SIZE = 5 * 1024 * 1024;
       if (file.size > MAX_SIZE) {
-        return NextResponse.json({ error: 'File size exceeds the 5 MB limit.' }, { status: 400 });
+        return failWith('RESUME_PARSE_FAILED', 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.');
       }
 
       const arrayBuffer = await file.arrayBuffer();
@@ -43,22 +44,25 @@ export async function POST(request: NextRequest) {
         const textResult = await parser.getText();
         text = textResult.text || '';
         await parser.destroy();
-      } catch (parseError: any) {
+      } catch (parseError) {
         console.error('PDF parsing library error:', parseError);
-        return NextResponse.json({
-          error: 'Unreadable PDF file. The file may be corrupt or secured.',
-        }, { status: 450 });
+        return failWith(
+          'RESUME_PARSE_FAILED',
+          "We couldn't open that PDF — it may be corrupt or password-protected. Paste your resume text instead."
+        );
       }
     }
 
     const cleanText = text.trim();
 
     // Too short to be a real resume — most likely a scanned image with no OCR text layer.
+    // Returned as a typed RESUME_PARSE_FAILED so the client shows the paste-text fallback as
+    // an explicit next action rather than inferring it from a 200 with a flag.
     if (cleanText.length < 150) {
-      return NextResponse.json({
-        textIsEmpty: true,
-        error: 'This PDF seems to have no readable text layer (e.g. it is a scanned image). Please paste your resume text in the chat instead.',
-      });
+      return failWith(
+        'RESUME_PARSE_FAILED',
+        'This PDF has no readable text layer — it looks like a scan or an image. Paste your resume text instead and we can carry on.'
+      );
     }
 
     const profile = await withTelemetryContext(
@@ -77,10 +81,7 @@ export async function POST(request: NextRequest) {
       profile,
       textIsEmpty: false,
     });
-  } catch (error: any) {
-    console.error('Error in parse-resume route:', error);
-    return NextResponse.json({
-      error: error.message || 'An error occurred during resume parsing.',
-    }, { status: 500 });
+  } catch (error) {
+    return errorResponse(error);
   }
 }

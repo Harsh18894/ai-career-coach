@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai/coach';
 import { enforceLimits } from '@/lib/rate-limit';
 import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
+import { errorResponse, failWith } from '@/lib/api-response';
 
 export const maxDuration = 60; // Allow sufficient time for long stream operations / path generation
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       if (action === 'analyze') {
         const { messages, signals } = body;
         if (!messages || !signals) {
-          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing messages or signals.');
         }
         const updatedSignals = await analyzeSignals(messages, signals);
         return NextResponse.json({ signals: updatedSignals });
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       if (action === 'recommend') {
         const { profile, signals, shownPaths, rejectedDirections, changeRequests } = body;
         if (!profile || !signals) {
-          return NextResponse.json({ error: 'Missing profile or signals.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing profile or signals.');
         }
 
         // Hard gate: never recommend without a concrete skill/domain + readiness.
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       if (action === 'roadmap') {
         const { profile, chosenPath, signals, feedback } = body;
         if (!profile || !chosenPath || !signals) {
-          return NextResponse.json({ error: 'Missing profile, chosenPath, or signals.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing profile, chosenPath, or signals.');
         }
         const roadmap = await generateRoadmap(profile, chosenPath, signals, feedback);
         return NextResponse.json({ roadmap });
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       if (action === 'build-profile') {
         const { answers } = body;
         if (!answers || !Array.isArray(answers) || answers.length === 0) {
-          return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing answers.');
         }
         const profile = await buildProfileFromAnswers(answers);
         return NextResponse.json({ profile });
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       if (action === 'next-profile-question') {
         const { answers } = body;
         if (!answers || !Array.isArray(answers)) {
-          return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing answers.');
         }
         const nextQuestion = await nextGuidedProfileQuestion(answers);
         return NextResponse.json(nextQuestion);
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
       if (action === 'understanding-turn') {
         const { messages, profile, signals } = body;
         if (!messages || !signals) {
-          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing messages or signals.');
         }
         const turn = await generateUnderstandingTurn(messages, profile, signals);
         return NextResponse.json(turn);
@@ -115,18 +116,15 @@ export async function POST(request: NextRequest) {
         // `turn` is the discriminated CoachTurn the client built (see CoachTurn in lib/ai/coach.ts).
         const { messages, profile, signals, turn } = body;
         if (!messages || !signals) {
-          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+          return failWith('UNKNOWN', 'Missing messages or signals.');
         }
         const coachTurn = turn ?? { kind: 'understanding' };
         return await streamChatTurn(messages, profile, signals, coachTurn);
       }
 
-      return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
+      return failWith('UNKNOWN', 'Invalid action.');
     });
-  } catch (error: any) {
-    console.error('Error in coach route:', error);
-    return NextResponse.json({
-      error: error.message || 'Aria ran into an error. Please try again.',
-    }, { status: 500 });
+  } catch (error) {
+    return errorResponse(error);
   }
 }

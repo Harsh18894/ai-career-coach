@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type OpenAI from 'openai';
 import { Redis } from '@upstash/redis';
 import { RATE_LIMIT_CONFIG, dailySpendKey } from './rate-limit';
+import { classifyUpstreamError } from './errors';
 
 /* =====================================================================================
  * Token + cost telemetry.
@@ -140,19 +141,10 @@ function emit(record: LlmCallRecord): void {
   console.log(JSON.stringify(record));
 }
 
-/**
- * Coarse classification of a failed call. Task 3 owns the real taxonomy in lib/errors.ts;
- * this exists so a failed call's log line is still useful before that lands.
- */
+/** Failed calls are logged with the same codes the user-facing taxonomy uses, so a log line
+ * and the message the visitor saw can be lined up. */
 function classifyError(error: unknown): string {
-  const err = error as { status?: number; name?: string; code?: string };
-  if (err?.name === 'AbortError' || err?.code === 'ETIMEDOUT') return 'UPSTREAM_TIMEOUT';
-  if (typeof err?.status === 'number') {
-    if (err.status === 429) return 'RATE_LIMITED';
-    if (err.status >= 500) return 'UPSTREAM_ERROR';
-    return 'UPSTREAM_ERROR';
-  }
-  return 'UNKNOWN';
+  return classifyUpstreamError(error);
 }
 
 /* =====================================================================================
@@ -310,11 +302,12 @@ function finishWithError(call: string, model: string, startedAt: number, streame
 export async function trackedCompletion(
   openai: OpenAI,
   params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
-  call: string
+  call: string,
+  requestOptions?: { timeout?: number; maxRetries?: number }
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
   const startedAt = Date.now();
   try {
-    const response = await openai.chat.completions.create(params);
+    const response = await openai.chat.completions.create(params, requestOptions);
     await finish(call, params.model, response.usage, startedAt, false);
     return response;
   } catch (error) {
@@ -340,17 +333,18 @@ export async function trackedCompletion(
 export async function trackedStream(
   openai: OpenAI,
   params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
-  call: string
+  call: string,
+  requestOptions?: { timeout?: number; maxRetries?: number }
 ): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
   const startedAt = Date.now();
   const capturedContext = currentContext();
 
   let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
   try {
-    stream = await openai.chat.completions.create({
-      ...params,
-      stream_options: { ...params.stream_options, include_usage: true },
-    });
+    stream = await openai.chat.completions.create(
+      { ...params, stream_options: { ...params.stream_options, include_usage: true } },
+      requestOptions
+    );
   } catch (error) {
     finishWithError(call, params.model, startedAt, true, error);
     throw error;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { type ApiErrorBody, type ErrorCode, httpStatusFor } from './errors';
 
 /* =====================================================================================
  * Abuse + spend protection for a public, unauthenticated demo.
@@ -51,22 +52,6 @@ export const RATE_LIMIT_CONFIG = {
   /** Prefix for every Redis key this module and lib/telemetry.ts own. */
   keyPrefix: 'aria',
 } as const;
-
-/* =====================================================================================
- * Error shape
- * ===================================================================================== */
-
-/** Codes this module can return. Task 3 widens this into the full taxonomy in lib/errors.ts;
- * every API route already returns this same envelope so that widening is additive. */
-export type RateLimitErrorCode = 'RATE_LIMITED' | 'BUDGET_EXCEEDED';
-
-export type ApiErrorBody<TCode extends string = RateLimitErrorCode> = {
-  error: {
-    code: TCode;
-    message: string;
-    retryAfterSeconds?: number;
-  };
-};
 
 /* =====================================================================================
  * Redis / limiter singletons
@@ -262,13 +247,13 @@ function secondsUntilUtcMidnight(): number {
 }
 
 function errorResponse(
-  code: RateLimitErrorCode,
+  code: Extract<ErrorCode, 'RATE_LIMITED' | 'BUDGET_EXCEEDED'>,
   message: string,
   retryAfterSeconds: number
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json<ApiErrorBody>(
     { error: { code, message, retryAfterSeconds } },
-    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
+    { status: httpStatusFor(code), headers: { 'Retry-After': String(retryAfterSeconds) } }
   );
 }
 

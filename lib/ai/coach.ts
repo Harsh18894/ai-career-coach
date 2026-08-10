@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema, AdaptiveQuestion, AdaptiveQuestionSchema } from './schemas';
 import { ChatMessage, UserSignals } from '../state/conversation';
 import { TIER_TIMELINE } from './tiers';
-import { trackedCompletion, trackedStream } from '../telemetry';
+import { structuredCompletion, resilientStream, TIMEOUTS } from './resilience';
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -189,23 +189,20 @@ Resume Text:
 ${resumeText}
 """`;
 
-  const response = await trackedCompletion(openai, {
+  // `bailIf` handles the model's legitimate "this isn't a resume" answer, which arrives as
+  // valid JSON that does not satisfy ProfileSchema — an outcome, not a failure.
+  return structuredCompletion(openai, {
     model: 'gpt-5-nano',
     messages: [
       { role: 'system', content: 'You are a career profile parser. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'extractProfile');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-
-  if (parsed.hasSufficientInfo === false) {
-    return null;
-  }
-
-  return ProfileSchema.parse(parsed);
+  }, {
+    call: 'extractProfile',
+    schema: ProfileSchema,
+    bailIf: (raw) => (raw as { hasSufficientInfo?: unknown })?.hasSufficientInfo === false,
+  });
 }
 
 /**
@@ -251,18 +248,14 @@ Output a single JSON object with EXACTLY these fields (no extra fields, no nesti
 
 If a required array has no items to report, output an empty array rather than omitting the field.`;
 
-  const response = await trackedCompletion(openai, {
+  return structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: 'You are a career profile builder. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'buildProfileFromAnswers');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  return ProfileSchema.parse(parsed);
+  }, { call: 'buildProfileFromAnswers', schema: ProfileSchema });
 }
 
 /**
@@ -313,18 +306,14 @@ Output a single JSON object with EXACTLY these fields:
 - "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).
 - "offTopic": boolean, as described above.`;
 
-  const response = await trackedCompletion(openai, {
+  return structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'nextGuidedProfileQuestion');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  return AdaptiveQuestionSchema.parse(parsed);
+  }, { call: 'nextGuidedProfileQuestion', schema: AdaptiveQuestionSchema });
 }
 
 /* =====================================================================================
@@ -384,18 +373,14 @@ ${options?.changeRequests ? `5. The candidate declined the earlier rounds and as
    - "ambitious": a high-reach path with real upside — bigger leap, could take 6-8 months at ~4-6 hours/week.
    If the candidate is a student/recent graduate with no professional track record (journey stage "fresh"), use these EXACT SAME three timeline bands — do NOT compress them just because a student might study more hours per week than a working professional. Breaking into the industry with no track record is inherently harder, which offsets any extra weekly hours available; the extra time should buy deeper preparation, not a shorter timeline.`;
 
-  const response = await trackedCompletion(openai, {
+  const validated = await structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: `${MENTOR_SYSTEM_PROMPT} Output exactly 3 career paths in a JSON array inside a "paths" key matching the requested schema.` },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'generatePaths');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  const validated = PathDeckSchema.parse(parsed);
+  }, { call: 'generatePaths', schema: PathDeckSchema });
   return validated.paths;
 }
 
@@ -607,7 +592,7 @@ Write the final closing: honestly name the pattern across their rejections in yo
     }))
   ];
 
-  const stream = await trackedStream(openai, {
+  const stream = await resilientStream(openai, {
     model: 'gpt-5-mini',
     messages,
     stream: true,
@@ -671,15 +656,11 @@ Output a single JSON object with EXACTLY these fields:
     }))
   ];
 
-  const response = await trackedCompletion(openai, {
+  return structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages,
     response_format: { type: 'json_object' },
-  }, 'generateUnderstandingTurn');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  return AdaptiveQuestionSchema.parse(parsed);
+  }, { call: 'generateUnderstandingTurn', schema: AdaptiveQuestionSchema });
 }
 
 /* =====================================================================================
@@ -727,18 +708,14 @@ Output a single JSON object with EXACTLY these fields:
 - "options": array of 2-4 short strings as described above, or null.
 - "allowMultiple": boolean as described above (still required even when "options" is null — just set it false).`;
 
-  const response = await trackedCompletion(openai, {
+  return structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'generateOpeningMessage');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  return AdaptiveQuestionSchema.parse(parsed);
+  }, { call: 'generateOpeningMessage', schema: AdaptiveQuestionSchema });
 }
 
 /* =====================================================================================
@@ -778,21 +755,7 @@ Your task — update the UserSignals object:
 
 Preserve existing signals unless the user has directly changed their mind or contradicted them. Never drop a skill/domain/country once genuinely captured.`;
 
-  const response = await trackedCompletion(openai, {
-    // gpt-5-nano (not -mini): this is a structured-extraction-into-a-fixed-schema task, the
-    // same class of work extractProfile already does on nano — and it's the highest-frequency
-    // call in the app (every chat turn), so model choice matters most here cost-wise.
-    model: 'gpt-5-nano',
-    messages: [
-      { role: 'system', content: 'You are a career signals extractor. Output JSON matching the requested schema.' },
-      { role: 'user', content: prompt }
-    ],
-    response_format: { type: 'json_object' },
-  }, 'analyzeSignals');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-
+  // NOTE: keep the UserSignals type in ../state/conversation in sync with this schema.
   const SignalsSchema = z.object({
     intentGuess: z.enum(['pivot', 'grow', 'early_career', 'unknown']),
     motivations: z.array(z.string()),
@@ -806,8 +769,19 @@ Preserve existing signals unless the user has directly changed their mind or con
     hasUsableInfo: z.boolean(),
   });
 
-  // NOTE: keep the UserSignals type in ../state/conversation in sync with this schema.
-  return SignalsSchema.parse(parsed) as UserSignals;
+  const signals = await structuredCompletion(openai, {
+    // gpt-5-nano (not -mini): this is a structured-extraction-into-a-fixed-schema task, the
+    // same class of work extractProfile already does on nano — and it's the highest-frequency
+    // call in the app (every chat turn), so model choice matters most here cost-wise.
+    model: 'gpt-5-nano',
+    messages: [
+      { role: 'system', content: 'You are a career signals extractor. Output JSON matching the requested schema.' },
+      { role: 'user', content: prompt }
+    ],
+    response_format: { type: 'json_object' },
+  }, { call: 'analyzeSignals', schema: SignalsSchema });
+
+  return signals as UserSignals;
 }
 
 /* =====================================================================================
@@ -875,18 +849,14 @@ Output a single JSON object with EXACTLY these fields:
 - "totalDuration": string derived from totalWeeks (e.g. "14 weeks (~3.5 months)").
 - "phases": array of objects, each with "type", "title", "description", and "weeks" (array of { "week", "focus", "items" }).`;
 
-  const response = await trackedCompletion(openai, {
+  const roadmap = await structuredCompletion(openai, {
     model: 'gpt-5-mini',
     messages: [
       { role: 'system', content: 'You are a career roadmap planner. Output JSON matching the requested schema exactly.' },
       { role: 'user', content: prompt }
     ],
     response_format: { type: 'json_object' },
-  }, 'generateRoadmap');
-
-  const content = response.choices[0].message.content || '{}';
-  const parsed = JSON.parse(content);
-  const roadmap = RoadmapSchema.parse(parsed);
+  }, { call: 'generateRoadmap', schema: RoadmapSchema, timeoutMs: TIMEOUTS.roadmap });
 
   // Observability, not a hard gate — the prompt allows honest overflow up to 1.5x maxWeeks for
   // a genuinely wide gap, so this only flags totalWeeks that fell outside even that allowance.

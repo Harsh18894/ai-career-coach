@@ -3,6 +3,7 @@ import { generateOpeningMessage } from '@/lib/ai/coach';
 import { ProfileSchema } from '@/lib/ai/schemas';
 import { enforceLimits } from '@/lib/rate-limit';
 import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
+import { errorResponse } from '@/lib/api-response';
 
 export const maxDuration = 60;
 
@@ -22,11 +23,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ opener });
       }
     );
-  } catch (error: any) {
-    console.error('Error in generate-opener route:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate opening message.' },
-      { status: 500 }
-    );
+  } catch (error) {
+    return errorResponse(error);
   }
 }
