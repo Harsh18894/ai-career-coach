@@ -11,6 +11,7 @@ import {
   canRecommend,
 } from '@/lib/ai/coach';
 import { enforceLimits } from '@/lib/rate-limit';
+import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
 
 export const maxDuration = 60; // Allow sufficient time for long stream operations / path generation
 
@@ -30,92 +31,98 @@ export async function POST(request: NextRequest) {
     const limited = await enforceLimits(request, { sessionStart: isSessionStart });
     if (limited) return limited;
 
-    if (action === 'analyze') {
-      const { messages, signals } = body;
-      if (!messages || !signals) {
-        return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
-      }
-      const updatedSignals = await analyzeSignals(messages, signals);
-      return NextResponse.json({ signals: updatedSignals });
-    }
+    // Everything below runs inside the telemetry context, so each LLM call reached from any
+    // of the actions is attributed to this session without threading a parameter through
+    // lib/ai/coach.ts's signatures.
+    return await withTelemetryContext(telemetryContextFromRequest(request, '/api/coach'), async () => {
 
-    if (action === 'recommend') {
-      const { profile, signals, shownPaths, rejectedDirections, changeRequests } = body;
-      if (!profile || !signals) {
-        return NextResponse.json({ error: 'Missing profile or signals.' }, { status: 400 });
-      }
-
-      // Hard gate: never recommend without a concrete skill/domain + readiness.
-      // The client should keep the conversation in UNDERSTANDING when this returns.
-      if (!canRecommend(profile, signals)) {
-        return NextResponse.json({ notReady: true });
+      if (action === 'analyze') {
+        const { messages, signals } = body;
+        if (!messages || !signals) {
+          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+        }
+        const updatedSignals = await analyzeSignals(messages, signals);
+        return NextResponse.json({ signals: updatedSignals });
       }
 
-      // If the resume spans multiple countries and the user hasn't confirmed one,
-      // ask before recommending so salaries/roles calibrate to the right market.
-      const market = resolveMarket(profile, signals);
-      if (market.needsCountryConfirmation && !signals.country) {
-        const detectedCountries = Array.from(new Set<string>(profile.countriesDetected ?? []));
-        return NextResponse.json({ needsCountry: true, detectedCountries });
+      if (action === 'recommend') {
+        const { profile, signals, shownPaths, rejectedDirections, changeRequests } = body;
+        if (!profile || !signals) {
+          return NextResponse.json({ error: 'Missing profile or signals.' }, { status: 400 });
+        }
+
+        // Hard gate: never recommend without a concrete skill/domain + readiness.
+        // The client should keep the conversation in UNDERSTANDING when this returns.
+        if (!canRecommend(profile, signals)) {
+          return NextResponse.json({ notReady: true });
+        }
+
+        // If the resume spans multiple countries and the user hasn't confirmed one,
+        // ask before recommending so salaries/roles calibrate to the right market.
+        const market = resolveMarket(profile, signals);
+        if (market.needsCountryConfirmation && !signals.country) {
+          const detectedCountries = Array.from(new Set<string>(profile.countriesDetected ?? []));
+          return NextResponse.json({ needsCountry: true, detectedCountries });
+        }
+
+        const paths = await generatePaths(
+          profile,
+          signals,
+          shownPaths || [],
+          rejectedDirections || [],
+          { country: market.country, changeRequests: changeRequests || undefined }
+        );
+        return NextResponse.json({ paths, country: market.country });
       }
 
-      const paths = await generatePaths(
-        profile,
-        signals,
-        shownPaths || [],
-        rejectedDirections || [],
-        { country: market.country, changeRequests: changeRequests || undefined }
-      );
-      return NextResponse.json({ paths, country: market.country });
-    }
-
-    if (action === 'roadmap') {
-      const { profile, chosenPath, signals, feedback } = body;
-      if (!profile || !chosenPath || !signals) {
-        return NextResponse.json({ error: 'Missing profile, chosenPath, or signals.' }, { status: 400 });
+      if (action === 'roadmap') {
+        const { profile, chosenPath, signals, feedback } = body;
+        if (!profile || !chosenPath || !signals) {
+          return NextResponse.json({ error: 'Missing profile, chosenPath, or signals.' }, { status: 400 });
+        }
+        const roadmap = await generateRoadmap(profile, chosenPath, signals, feedback);
+        return NextResponse.json({ roadmap });
       }
-      const roadmap = await generateRoadmap(profile, chosenPath, signals, feedback);
-      return NextResponse.json({ roadmap });
-    }
 
-    if (action === 'build-profile') {
-      const { answers } = body;
-      if (!answers || !Array.isArray(answers) || answers.length === 0) {
-        return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+      if (action === 'build-profile') {
+        const { answers } = body;
+        if (!answers || !Array.isArray(answers) || answers.length === 0) {
+          return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+        }
+        const profile = await buildProfileFromAnswers(answers);
+        return NextResponse.json({ profile });
       }
-      const profile = await buildProfileFromAnswers(answers);
-      return NextResponse.json({ profile });
-    }
 
-    if (action === 'next-profile-question') {
-      const { answers } = body;
-      if (!answers || !Array.isArray(answers)) {
-        return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+      if (action === 'next-profile-question') {
+        const { answers } = body;
+        if (!answers || !Array.isArray(answers)) {
+          return NextResponse.json({ error: 'Missing answers.' }, { status: 400 });
+        }
+        const nextQuestion = await nextGuidedProfileQuestion(answers);
+        return NextResponse.json(nextQuestion);
       }
-      const nextQuestion = await nextGuidedProfileQuestion(answers);
-      return NextResponse.json(nextQuestion);
-    }
 
-    if (action === 'understanding-turn') {
-      const { messages, profile, signals } = body;
-      if (!messages || !signals) {
-        return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+      if (action === 'understanding-turn') {
+        const { messages, profile, signals } = body;
+        if (!messages || !signals) {
+          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+        }
+        const turn = await generateUnderstandingTurn(messages, profile, signals);
+        return NextResponse.json(turn);
       }
-      const turn = await generateUnderstandingTurn(messages, profile, signals);
-      return NextResponse.json(turn);
-    }
 
-    if (action === 'chat' || !action) {
-      // `turn` is the discriminated CoachTurn the client built (see CoachTurn in lib/ai/coach.ts).
-      const { messages, profile, signals, turn } = body;
-      if (!messages || !signals) {
-        return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+      if (action === 'chat' || !action) {
+        // `turn` is the discriminated CoachTurn the client built (see CoachTurn in lib/ai/coach.ts).
+        const { messages, profile, signals, turn } = body;
+        if (!messages || !signals) {
+          return NextResponse.json({ error: 'Missing messages or signals.' }, { status: 400 });
+        }
+        const coachTurn = turn ?? { kind: 'understanding' };
+        return await streamChatTurn(messages, profile, signals, coachTurn);
       }
-      const coachTurn = turn ?? { kind: 'understanding' };
-      return await streamChatTurn(messages, profile, signals, coachTurn);
-    }
 
-    return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
+    });
   } catch (error: any) {
     console.error('Error in coach route:', error);
     return NextResponse.json({

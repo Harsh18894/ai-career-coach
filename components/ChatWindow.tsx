@@ -6,6 +6,7 @@ import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
 import { errorMessageFrom } from '@/lib/api-error';
+import { sessionHeaders, startNewSession } from '@/lib/session';
 import MessageBubble from './MessageBubble';
 import ThinkingBubble from './ThinkingBubble';
 import PathDeck from './PathDeck';
@@ -103,7 +104,7 @@ function makeMessage(role: ChatMessage['role'], content: string): ChatMessage {
 function coachRequestInit(body: Record<string, unknown>): RequestInit {
   return {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
     body: JSON.stringify(body),
   };
 }
@@ -956,6 +957,9 @@ export default function ChatWindow({
 
   const handleResetSession = () => {
     localStorage.removeItem('career_coach_session');
+    // A reset ends the session being measured — mint a new id so the next conversation's
+    // cost isn't aggregated onto this one's.
+    startNewSession();
     onReset();
   };
 

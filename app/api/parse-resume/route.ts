@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { extractProfile } from '@/lib/ai/coach';
 import { enforceLimits } from '@/lib/rate-limit';
+import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
 
 export const maxDuration = 60;
 
@@ -60,7 +61,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const profile = await extractProfile(cleanText);
+    const profile = await withTelemetryContext(
+      telemetryContextFromRequest(request, '/api/parse-resume'),
+      () => extractProfile(cleanText)
+    );
 
     if (!profile) {
       return NextResponse.json({

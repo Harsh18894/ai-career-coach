@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, FileText, AlertCircle, Link2, ChevronDown } from 'lucide-react';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import { errorMessageFrom } from '@/lib/api-error';
+import { sessionHeaders } from '@/lib/session';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
 interface ResumeUploadProps {
@@ -76,6 +77,8 @@ export default function ResumeUpload({
 
       const response = await fetch('/api/parse-resume', {
         method: 'POST',
+        // No Content-Type — the browser sets the multipart boundary itself.
+        headers: sessionHeaders(),
         body: formData,
       });
 
@@ -93,7 +96,7 @@ export default function ResumeUpload({
       } else {
         const openerResponse = await fetch('/api/generate-opener', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
           body: JSON.stringify({ profile: data.profile }),
         });
         const openerData = await openerResponse.json();

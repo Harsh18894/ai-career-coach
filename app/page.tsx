@@ -7,6 +7,7 @@ import ChatWindow from '@/components/ChatWindow';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from '@/components/AnalyzingProgress';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import { errorMessageFrom } from '@/lib/api-error';
+import { sessionHeaders } from '@/lib/session';
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -53,7 +54,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/parse-resume', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
         body: JSON.stringify({ text }),
       });
 
@@ -70,7 +71,7 @@ export default function Home() {
 
       const openerResponse = await fetch('/api/generate-opener', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
         body: JSON.stringify({ profile: data.profile }),
       });
       const openerData = await openerResponse.json();
