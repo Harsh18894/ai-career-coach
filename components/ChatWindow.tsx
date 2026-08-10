@@ -5,6 +5,7 @@ import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe } fro
 import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
+import { errorMessageFrom } from '@/lib/api-error';
 import MessageBubble from './MessageBubble';
 import ThinkingBubble from './ThinkingBubble';
 import PathDeck from './PathDeck';
@@ -110,7 +111,7 @@ function coachRequestInit(body: Record<string, unknown>): RequestInit {
 async function parseCoachResponse<T>(response: Response, fallbackErrorMessage: string): Promise<T> {
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || fallbackErrorMessage);
+    throw new Error(errorMessageFrom(data) || fallbackErrorMessage);
   }
   return data as T;
 }
@@ -322,7 +323,7 @@ export default function ChatWindow({
         const response = await fetch('/api/coach', coachRequestInit({ action: 'next-profile-question', answers: qaPairs }));
         if (!response.ok) {
           const errData = await response.json();
-          throw new Error(errData.error || 'Failed to generate the next question.');
+          throw new Error(errorMessageFrom(errData) || 'Failed to generate the next question.');
         }
 
         const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
@@ -475,7 +476,7 @@ export default function ChatWindow({
 
     if (!chatResponse.ok) {
       const errData = await chatResponse.json();
-      throw new Error(errData.error || 'Streaming error.');
+      throw new Error(errorMessageFrom(errData) || 'Streaming error.');
     }
 
     await streamIntoNewMessage(messagesForTurn, chatResponse);
@@ -529,7 +530,7 @@ export default function ChatWindow({
 
     if (!response.ok) {
       const errData = await response.json();
-      throw new Error(errData.error || 'Failed to generate the next question.');
+      throw new Error(errorMessageFrom(errData) || 'Failed to generate the next question.');
     }
 
     const turn: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();

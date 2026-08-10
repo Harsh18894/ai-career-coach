@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, AlertCircle, Link2, ChevronDown } from 'lucide-react';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
+import { errorMessageFrom } from '@/lib/api-error';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
 interface ResumeUploadProps {
@@ -81,7 +82,7 @@ export default function ResumeUpload({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to parse resume.');
+        throw new Error(errorMessageFrom(data) || 'Failed to parse resume.');
       }
 
       if (data.textIsEmpty) {
@@ -97,7 +98,7 @@ export default function ResumeUpload({
         });
         const openerData = await openerResponse.json();
         if (!openerResponse.ok) {
-          throw new Error(openerData.error || 'Failed to generate opener.');
+          throw new Error(errorMessageFrom(openerData) || 'Failed to generate opener.');
         }
         onUploadSuccess(data.profile, openerData.opener);
       }

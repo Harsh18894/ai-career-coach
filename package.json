@@ -14,6 +14,8 @@
     "eval:warm": "tsx evals/scripts/warm.ts"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "openai": "^6.44.0",

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateOpeningMessage } from '@/lib/ai/coach';
 import { ProfileSchema } from '@/lib/ai/schemas';
+import { enforceLimits } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    // Not a session start — /api/parse-resume already charged that quota for this visitor.
+    const limited = await enforceLimits(request);
+    if (limited) return limited;
+
     const body = await request.json();
     const profile = ProfileSchema.parse(body.profile);
     const opener = await generateOpeningMessage(profile);

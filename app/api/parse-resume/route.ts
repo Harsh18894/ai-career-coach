@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { extractProfile } from '@/lib/ai/coach';
+import { enforceLimits } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    // Both intake paths that produce a profile (PDF upload and pasted text) land here, so this
+    // is where a resume-based session starts. Checked before the body is read so an oversized
+    // upload from a limited caller is rejected without being buffered.
+    const limited = await enforceLimits(request, { sessionStart: true });
+    if (limited) return limited;
+
     let text = '';
     const contentType = request.headers.get('content-type') || '';
 

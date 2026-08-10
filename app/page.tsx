@@ -6,6 +6,7 @@ import ResumeUpload from '@/components/ResumeUpload';
 import ChatWindow from '@/components/ChatWindow';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from '@/components/AnalyzingProgress';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
+import { errorMessageFrom } from '@/lib/api-error';
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -59,7 +60,7 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to analyze text.');
+        throw new Error(errorMessageFrom(data) || 'Failed to analyze text.');
       }
 
       if (data.insufficientInfo) {
@@ -74,7 +75,7 @@ export default function Home() {
       });
       const openerData = await openerResponse.json();
       if (!openerResponse.ok) {
-        throw new Error(openerData.error || 'Failed to generate opener.');
+        throw new Error(errorMessageFrom(openerData) || 'Failed to generate opener.');
       }
 
       setProfile(data.profile);

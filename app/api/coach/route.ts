@@ -10,6 +10,7 @@ import {
   resolveMarket,
   canRecommend,
 } from '@/lib/ai/coach';
+import { enforceLimits } from '@/lib/rate-limit';
 
 export const maxDuration = 60; // Allow sufficient time for long stream operations / path generation
 
@@ -17,6 +18,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action } = body;
+
+    // The no-resume path never touches /api/parse-resume, so its first adaptive question (the
+    // one asked with nothing answered yet) is that flow's real session start. Every other
+    // action is mid-session and only charges the LLM-call quota.
+    const isSessionStart =
+      action === 'next-profile-question' &&
+      Array.isArray(body.answers) &&
+      body.answers.length === 0;
+
+    const limited = await enforceLimits(request, { sessionStart: isSessionStart });
+    if (limited) return limited;
 
     if (action === 'analyze') {
       const { messages, signals } = body;
