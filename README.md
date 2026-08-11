@@ -22,6 +22,61 @@ A hosted, demo-ready web application built using **Next.js (App Router)**, **Typ
 
 ---
 
+## 📄 Resume review
+
+A second surface, separate from the coaching conversation. Being coached toward a direction and
+having a document marked up are different jobs; folding the second into the first would have
+meant bending a seven-stage conversation around something that is not a conversation. You can
+use either without the other.
+
+Most of what is interesting about it is in the constraints, not the features.
+
+**The bar moves with the candidate.** The same bullet is fine from a student and a failure from
+someone eight years in, so the review works out roughly where the candidate is — `student`,
+`early_career`, `mid_level`, `senior` — and judges everything at that bar. A harsher bar means
+more things count as findings, never that the tone gets meaner. The persona is always shown with
+the reasoning behind it and a one-click override that re-runs the review, because misclassifying
+here is the worst thing the tool could do: telling an experienced engineer to go get an
+internship would end the session and deserve to. Borderline calls say so and ask rather than
+asserting. `career_switcher` is a separate flag rather than a fifth bucket — ten years in
+marketing moving toward data means senior-level writing ability and entry-level domain evidence,
+and both readings have to apply at once.
+
+**It never invents a number.** Turning "worked on the billing service" into "drove a 40%
+reduction in billing latency" reads better and is a lie the candidate has to defend in an
+interview they then fail. Where a rewrite needs a figure that was not supplied, it emits a
+labelled blank — `Reduced billing latency by [X%]` — for the candidate to fill in. This is not
+trusted to the prompt: every rewrite is checked in code before it is returned, and any number
+not present in the candidate's own words and not inside a blank causes the whole finding to be
+discarded and logged. An eval enforces the same rule on real output at every build, and fails
+the build if a fabrication is introduced deliberately.
+
+**Links are chosen, not generated.** Student reviews suggest where to look for internships from
+a hardcoded, region-filtered registry; the model picks by id and the URL is looked up in code, so
+it never has a web address in its context to invent a variation of. This is a direct consequence
+of the Phase 0 link baseline — a model asked for a URL will confidently produce one that has
+never existed. A CI check (`npm run check:platform-links`) fails if any registry link dies.
+
+**A good resume is allowed to come back quiet.** A tool that always finds ten problems is
+decorative rather than thorough, so a strong resume returns few or zero critical findings and
+says so plainly. Being strict about senior resumes means more things count *if they are wrong*,
+not that something must be found.
+
+**Two paths.** On its own merits, or against one specific job. The against-job path leads with
+what a recruiter sees in ten to fifteen seconds, then walks the job's stated requirements as
+covered / partly covered / not addressed — explicitly a surface match, never a verdict on whether
+the candidate would get the job. Pasting a job description always works; fetching a URL often
+will not, because the largest job sites block server-side access, so that failure drops straight
+into the paste field rather than being retried. URL fetching is guarded against SSRF: https only,
+every resolved address checked against private and cloud-metadata ranges, and re-checked after
+each redirect.
+
+The quality bar was written down before any of it was built — see
+[docs/resume-review-rubric.md](docs/resume-review-rubric.md), which remains the source of truth
+where it and the code disagree.
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 16 (App Router), React 19
@@ -45,11 +100,20 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env.local` file in the root directory:
+Copy `.env.example` to `.env.local` and fill it in. Only the first is required:
+
 ```env
-# Required for LLM calls (server-side only)
 OPENAI_API_KEY=your-openai-api-key-here
+
+# Optional. Without these, rate limiting and the daily spend cap are disabled and every
+# request is allowed, after one warning at startup — fine locally, not for a public deploy.
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+DAILY_BUDGET_USD=5.00
 ```
+
+Upstash also backs the short-lived store that lets a resume review span two requests; without
+it the review re-parses the resume instead, which is slower but behaves identically.
 
 ### 3. Run the Development Server
 ```bash
@@ -59,9 +123,16 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. (Optional) Run the eval suite
 ```bash
-npm run eval:cheap   # free, deterministic, snapshot-cached checks
-npm run eval         # full live run against the OpenAI API (costs tokens)
+npm run eval:cheap            # free, deterministic, snapshot-cached checks
+npm run eval                  # full live run against the OpenAI API (costs tokens)
+npm run check:platform-links  # free; fails if a curated platform link has died
 ```
+
+`eval:cheap` makes no API calls and still enforces the resume review's output invariants —
+no fabricated numbers, verbatim grounding, placeholder correctness, registry integrity, persona
+gating, requirement traceability — against committed snapshots. The behavioural evals
+(classification accuracy, student branching, senior criticality, stability, restraint, refusal,
+injection resistance) need live calls and are skipped there.
 
 ---
 
@@ -90,5 +161,20 @@ npm run eval         # full live run against the OpenAI API (costs tokens)
    - Click into a path and lock it in. Aria streams a tailored closing reflection *and* generates a full execution roadmap in parallel.
    - Review the phased, week-by-week roadmap. Keep chatting or request roadmap adjustments — the session stays open.
    - Alternatively, click **Decline all paths** to end the session with an honest closing instead.
-8. **Inspect the Architecture**:
-   - Click the **About the Logic** link in the header. Review the assumptions, the full step-by-step flow, and the conversation state-machine diagram written for non-technical reviewers.
+8. **Try the resume review** (a separate surface — **Resume review** in the header, or the link
+   under the upload box):
+   - Pick a sample profile again if you would rather not upload anything; if you already
+     supplied a resume to the coach, it carries over.
+   - Check the detected experience level at the top, and the reasoning behind it. Override it to
+     `Student` and watch the whole review re-run at a different bar — project suggestions and
+     internship platforms appear, and the tone of what counts as serious changes.
+   - Look for a rewrite containing a blank like `[X%]`. That is the tool refusing to invent a
+     number; the note beside it explains why. Copy a rewrite with the button on it.
+   - Try the **student, no projects or internships** case by pasting a short student resume with
+     only coursework: project suggestions and internship platforms move above the formatting
+     notes, because at that stage they matter more.
+   - Switch to **Review against a job** and paste a job description. It leads with what a
+     recruiter sees in fifteen seconds, then walks the requirements one by one. Try a Greenhouse,
+     Lever or Ashby link too; a LinkedIn link will fail on purpose, straight into the paste box.
+9. **Inspect the Architecture**:
+   - Click the **About the Logic** link in the header. Review the assumptions, the full step-by-step flow, the conversation state-machine diagram, and the section on how the resume review decides what to hold you to — all written for non-technical reviewers.

@@ -7,6 +7,7 @@ import {
   Compass,
   ArrowRight,
   FileInput,
+  FileSearch,
   Sparkles,
   FlaskConical,
   Fingerprint,
@@ -72,6 +73,37 @@ export default function AboutPage() {
       title: '9. Stay and keep talking',
       desc: 'The conversation does not end once you have a roadmap. Keep chatting and the coach treats it as an open conversation, not a restart. Ask for adjustments (too fast, too slow, swap a topic, or just type what you need, like "I can only commit five hours a week") and it will honestly rework the plan around it.',
     },
+  ];
+
+  const reviewPersonas = [
+    {
+      persona: 'Student',
+      who: 'Studying, or graduated within the last year, with no full-time job yet',
+      bar: 'Are the sections that matter actually there, and is there any evidence of what you can do? A bullet without a number is barely worth mentioning at this stage — nobody expects one yet.',
+    },
+    {
+      persona: 'Early career',
+      who: '0–2 years in your first full-time role',
+      bar: 'You have real work to point at now. The bar is moving from describing duties to describing what changed because you were there.',
+    },
+    {
+      persona: 'Mid level',
+      who: '2–6 years',
+      bar: 'Critical. A bullet with no outcome at all is the single most common reason a mid-level resume reads as junior, so here it counts as serious.',
+    },
+    {
+      persona: 'Senior',
+      who: '6+ years',
+      bar: 'Hardest. Beyond the lines themselves, the roles have to add up to one story with visible growth in scope. A senior resume that is merely tidy is not a good senior resume, and it gets told so.',
+    },
+  ];
+
+  const reviewRefusals = [
+    'No score out of 100. A single number implies a precision this cannot honestly offer.',
+    'No ranking against other candidates. It has never seen another candidate.',
+    'No prediction of whether you will get the job. That depends on the team, the other applicants, and the interview — none of which it can see.',
+    'No rewriting your whole resume in its own voice. You get targeted edits you can accept or reject, line by line.',
+    'On the against-a-job path, no verdict on whether you are a good fit. It reports which requirements your resume already evidences, which is a different and much smaller claim.',
   ];
 
   const stateFlow = [
@@ -323,6 +355,122 @@ export default function AboutPage() {
       </section>
 
       {/* Under the hood */}
+      {/* Resume review */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-2">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-rose-500 to-orange-500 shadow-sm flex-shrink-0">
+            <FileSearch className="w-4 h-4 text-white" />
+          </span>
+          <span>The resume review, and why it works this way</span>
+        </h2>
+        <p className="text-sm text-slate-600 leading-relaxed mb-6">
+          Separate from the coaching conversation, and deliberately so: being coached toward a direction and having a
+          document marked up are different jobs. You can do either without the other.
+        </p>
+
+        <h3 className="font-semibold text-slate-800 text-sm mb-3">Two ways to be reviewed</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h4 className="font-semibold text-slate-800 text-sm mb-1">On its own merits</h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              No job attached. The question is whether this resume is doing its job for someone at your stage — which
+              means the standard it is held to changes depending on who you are.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h4 className="font-semibold text-slate-800 text-sm mb-1">Against one specific job</h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Paste the description or give a link. It reads your resume the way a recruiter would in the ten or fifteen
+              seconds they actually spend, then walks the job&apos;s stated requirements one by one. Pasting always
+              works; links often will not, because most large job sites block automated reading.
+            </p>
+          </div>
+        </div>
+
+        <h3 className="font-semibold text-slate-800 text-sm mb-1">The bar moves with your experience</h3>
+        <p className="text-xs text-slate-600 leading-relaxed mb-4">
+          The same bullet can be fine for one person and a serious problem for another. A student writing &ldquo;helped
+          maintain the reporting pipeline&rdquo; is doing about what anyone expects; someone eight years in writing the
+          same sentence has failed to say what they actually did. So the review works out roughly where you are first,
+          and judges everything against that. A harsher bar means <em>more things count</em>, never that the writing
+          gets meaner.
+        </p>
+        <div className="space-y-2 mb-4">
+          {reviewPersonas.map((row) => (
+            <div key={row.persona} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-1">
+                <h4 className="font-semibold text-slate-800 text-sm">{row.persona}</h4>
+                <span className="text-xs text-slate-500">{row.who}</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">{row.bar}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-600 leading-relaxed mb-8">
+          It shows you which one it picked and why, and you can change it in one click — the review re-runs at the new
+          bar. Getting this wrong is the worst thing it could do: telling an experienced engineer to go find an
+          internship would be both wrong and insulting, so it is never decided silently. If the call is close, it says
+          so and asks you to confirm before you read anything. Someone changing career gets treated as two things at
+          once: judged on writing and structure at the level their years earn, but on domain evidence against the field
+          they are moving into.
+        </p>
+
+        <div className="p-5 rounded-xl bg-amber-50 border border-amber-200 mb-8">
+          <h3 className="font-semibold text-amber-900 text-sm mb-1 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+            It will not invent a number for you
+          </h3>
+          <p className="text-xs text-amber-900 leading-relaxed">
+            This is the rule everything else bends around. It would be trivial to turn &ldquo;worked on the billing
+            service&rdquo; into &ldquo;drove a 40% reduction in billing latency&rdquo; — it reads better, and it is a
+            lie you would have to defend in an interview you would then fail. So where a line needs a number you have
+            not given, you get a blank instead:{' '}
+            <span className="font-mono bg-amber-100 px-1 rounded-sm ring-1 ring-amber-300">[X%]</span>, for you to fill
+            in with something true.
+          </p>
+          <p className="text-xs text-amber-900 leading-relaxed mt-2">
+            And this is not left to the model&apos;s good intentions. Every suggested rewrite is checked in code before
+            you see it: any number that is not already in your own words, and not inside a blank, means the whole
+            suggestion is thrown away rather than shown to you. The same check runs automatically against a set of test
+            resumes every time the project is built, so it cannot quietly stop working.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h4 className="font-semibold text-slate-800 text-sm mb-1">Where the links come from</h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              If you are a student, the review suggests places to look for internships. Those links are not written by
+              the model — it chooses from a short list kept in the code, and the actual web address is looked up
+              afterwards. A model asked for a URL will happily produce one that has never existed, and the one thing
+              worse than no suggestion is a dead link presented confidently. The list is also filtered to your region,
+              because pointing someone in Ohio at an India-only jobs board wastes their afternoon.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h4 className="font-semibold text-slate-800 text-sm mb-1">A good resume is allowed to come back quiet</h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              If there is nothing serious wrong, it says so and stops. A tool that always finds ten problems is not
+              being thorough, it is being decorative — and after the second invented complaint you would stop believing
+              any of them.
+            </p>
+          </div>
+        </div>
+
+        <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
+          <MessageSquareOff className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          What it deliberately will not do
+        </h3>
+        <ul className="space-y-2">
+          {reviewRefusals.map((item, idx) => (
+            <li key={idx} className="flex gap-2 text-xs text-slate-600 leading-relaxed">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-emerald-600 to-teal-600 shadow-sm flex-shrink-0">

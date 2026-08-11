@@ -27,6 +27,9 @@ export type PreparedReview = {
   rawResumeText: string;
   segment: ResumeSegment;
   classification: PersonaClassification;
+  /** Spend from the prepare phase (segmentation + classification). Carried so the review
+   * phase can report a true cost-per-review instead of only the half it paid for itself. */
+  prepareCostUsd?: number;
 };
 
 /** Long enough to read the detected persona, reconsider it, and start a review; short enough

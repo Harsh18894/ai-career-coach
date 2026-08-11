@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { enforceLimits } from '@/lib/rate-limit';
-import { withTelemetryContext, telemetryContextFromRequest, updateTelemetryContext } from '@/lib/telemetry';
+import {
+  withTelemetryContext,
+  telemetryContextFromRequest,
+  updateTelemetryContext,
+  currentContextCostUsd,
+} from '@/lib/telemetry';
 import { errorResponse, failWith } from '@/lib/api-response';
 import { prepareReview } from '@/lib/resume-review';
 import { storePreparedReview } from '@/lib/resume-review/prepared-cache';
@@ -47,6 +52,7 @@ export async function POST(request: NextRequest) {
         rawResumeText: parsed.data.resumeText,
         segment: prepared.segment,
         classification: prepared.classification,
+        prepareCostUsd: currentContextCostUsd(),
       });
 
       return NextResponse.json({

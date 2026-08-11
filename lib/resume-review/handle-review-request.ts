@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enforceLimits } from '../rate-limit';
-import { withTelemetryContext, telemetryContextFromRequest } from '../telemetry';
+import { withTelemetryContext, telemetryContextFromRequest, currentContextCostUsd } from '../telemetry';
 import { errorResponse, failWith } from '../api-response';
 import { prepareReview, reviewPrepared } from './index';
 import { loadPreparedReview } from './prepared-cache';
@@ -21,6 +21,7 @@ export type ReviewRouteOptions = {
 };
 
 export async function handleReviewRequest(request: NextRequest, options: ReviewRouteOptions) {
+  const startedAt = Date.now();
   try {
     const limited = await enforceLimits(request);
     if (limited) return limited;
@@ -54,9 +55,11 @@ export async function handleReviewRequest(request: NextRequest, options: ReviewR
       let rawResumeText: string;
       let segment;
       let classification;
+      let priorCostUsd = 0;
 
       if (cached) {
         ({ rawResumeText, segment, classification } = cached);
+        priorCostUsd = cached.prepareCostUsd ?? 0;
       } else {
         // Fallback: no cache configured, or the prepared entry expired. Re-derive rather than
         // accepting a client-supplied segment — post-validation checks findings against this
@@ -71,6 +74,7 @@ export async function handleReviewRequest(request: NextRequest, options: ReviewR
         rawResumeText = parsed.data.resumeText;
         segment = prepared.segment;
         classification = prepared.classification;
+        // Re-derived in this request, so its cost is already in this scope's accumulator.
       }
 
       const outcome = await reviewPrepared({
@@ -81,6 +85,27 @@ export async function handleReviewRequest(request: NextRequest, options: ReviewR
         personaOverride: parsed.data.personaOverride ?? undefined,
         jobDescription,
       });
+
+      // One line per completed review, so cost per review can be reported separately from
+      // cost per coaching session and split by the two things that actually move it.
+      console.log(
+        JSON.stringify({
+          event: 'review_completed',
+          timestamp: new Date().toISOString(),
+          sessionId: context.sessionId,
+          isSample: context.isSample,
+          path: outcome.result.path,
+          persona: outcome.result.persona,
+          careerSwitcher: outcome.result.careerSwitcher,
+          personaOverridden: Boolean(parsed.data.personaOverride),
+          findings: outcome.result.findings.length,
+          dropped: outcome.dropped.length,
+          // prepare + review, whichever request each half was paid for in.
+          estimatedCostUsd: priorCostUsd + currentContextCostUsd(),
+          prepareCostUsd: priorCostUsd,
+          durationMs: Date.now() - startedAt,
+        })
+      );
 
       return NextResponse.json(serializeOutcome(outcome));
     });

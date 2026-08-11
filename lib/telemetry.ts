@@ -83,6 +83,10 @@ export type TelemetryContext = {
    * review be reported separately from cost per coaching session, and split by both. */
   persona?: string;
   reviewPath?: string;
+  /** Running total of estimated spend for THIS request, accumulated by `finish`. A coaching
+   * session is one long-lived id, but a review is a bounded unit of work spanning two
+   * requests, so its cost needs its own accumulator rather than a session-wide read. */
+  accumulatedCostUsd?: number;
 };
 
 /**
@@ -116,6 +120,11 @@ export function updateTelemetryContext(patch: Partial<TelemetryContext>): void {
  * rather than throwing. */
 function currentContext(): TelemetryContext {
   return contextStore.getStore() ?? { sessionId: 'unattributed', route: 'unknown', isSample: false };
+}
+
+/** Estimated spend accrued so far in the current request's telemetry scope. */
+export function currentContextCostUsd(): number {
+  return contextStore.getStore()?.accumulatedCostUsd ?? 0;
 }
 
 /** Reads session identity off the request headers set by lib/session.ts. */
@@ -297,6 +306,8 @@ async function finish(
     ...(context.persona ? { persona: context.persona } : {}),
     ...(context.reviewPath ? { reviewPath: context.reviewPath } : {}),
   });
+
+  context.accumulatedCostUsd = (context.accumulatedCostUsd ?? 0) + estimatedCostUsd;
 
   await recordSpend(context.sessionId, estimatedCostUsd);
 }
