@@ -22,6 +22,7 @@ import { extractProfile, generatePaths, generateRoadmap } from '../lib/ai/coach'
 import { withTelemetryContext, readSessionCost } from '../lib/telemetry';
 import { INITIAL_STATE, type UserSignals } from '../lib/state/conversation';
 import { CareerPathSchema, type Profile, type CareerPath } from '../lib/ai/schemas';
+import { checkUrls, type LinkStatus } from '../lib/link-check';
 
 /* =====================================================================================
  * Config
@@ -181,8 +182,6 @@ function youtubeVerdict(url: string): { isYoutubeWatch: boolean; certainlyFabric
  * Validation
  * ===================================================================================== */
 
-type LinkStatus = 'ok' | 'dead' | 'timeout' | 'blocked';
-
 type LinkResult = {
   url: string;
   domain: string;
@@ -194,66 +193,34 @@ type LinkResult = {
   occurrences: number;
 };
 
-function classify(httpStatus: number): LinkStatus {
-  if (httpStatus < 400) return 'ok';
-  // Bot-blocking and auth walls are not evidence the resource is missing.
-  if (httpStatus === 401 || httpStatus === 403 || httpStatus === 429) return 'blocked';
-  return 'dead';
-}
+type ValidatedLink = Omit<LinkResult, 'occurrences' | 'domain'>;
 
-async function validateUrl(url: string): Promise<Omit<LinkResult, 'occurrences' | 'domain'>> {
-  const youtube = youtubeVerdict(url);
-  const base = { url, isYoutubeWatch: youtube.isYoutubeWatch, certainlyFabricated: youtube.certainlyFabricated };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
-
-  try {
-    let response = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: { 'user-agent': 'aria-baseline-links/1.0 (link validation)' },
-    });
-
-    // Plenty of hosts reject HEAD outright; fall back before calling the link dead.
-    if (response.status === 405 || response.status === 501) {
-      response = await fetch(url, {
-        method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: { 'user-agent': 'aria-baseline-links/1.0 (link validation)' },
-      });
-    }
-
-    return { ...base, status: classify(response.status), httpStatus: response.status, finalUrl: response.url };
-  } catch (error) {
-    const aborted = error instanceof Error && error.name === 'AbortError';
-    return { ...base, status: aborted ? 'timeout' : 'dead' };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Fixed-size worker pool — politeness as much as performance. */
-async function validateAll(urls: string[]): Promise<Map<string, Omit<LinkResult, 'occurrences' | 'domain'>>> {
-  const results = new Map<string, Omit<LinkResult, 'occurrences' | 'domain'>>();
-  let cursor = 0;
-  let completed = 0;
-
-  async function worker(): Promise<void> {
-    for (;;) {
-      const index = cursor++;
-      if (index >= urls.length) return;
-      const url = urls[index];
-      results.set(url, await validateUrl(url));
-      completed++;
-      process.stdout.write(`\r[baseline] validated ${completed}/${urls.length} URLs`);
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(CONFIG.concurrency, urls.length) }, worker));
+/** Fetch/timeout/classification live in lib/link-check.ts, shared with
+ * scripts/check-platform-links.ts. This adds only the YouTube verdict, which is specific to
+ * measuring fabricated links rather than to checking liveness. */
+async function validateAll(urls: string[]): Promise<Map<string, ValidatedLink>> {
+  const checked = await checkUrls(urls, {
+    timeoutMs: CONFIG.requestTimeoutMs,
+    concurrency: CONFIG.concurrency,
+    userAgent: 'aria-baseline-links/1.0 (link validation)',
+    onProgress: (completed, total) => {
+      process.stdout.write(`\r[baseline] validated ${completed}/${total} URLs`);
+    },
+  });
   if (urls.length) process.stdout.write('\n');
+
+  const results = new Map<string, ValidatedLink>();
+  for (const [url, result] of checked) {
+    const youtube = youtubeVerdict(url);
+    results.set(url, {
+      url,
+      status: result.status,
+      httpStatus: result.httpStatus,
+      finalUrl: result.finalUrl,
+      isYoutubeWatch: youtube.isYoutubeWatch,
+      certainlyFabricated: youtube.certainlyFabricated,
+    });
+  }
   return results;
 }
 

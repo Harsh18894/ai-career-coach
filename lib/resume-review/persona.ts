@@ -291,26 +291,31 @@ Output a single JSON object with exactly:
 
 type CountryHint = { country: string; locationPattern: RegExp; phonePattern?: RegExp };
 
+/* Phone patterns match a dialling code followed by another DIGIT, deliberately not `\b`:
+ * `/^\+?91\b/` never matches "+919000000000", because the boundary it asks for sits between
+ * two word characters and so does not exist. That bug silently disabled the entire phone
+ * fallback until a unit test caught it. */
+
 const COUNTRY_HINTS: CountryHint[] = [
   {
     country: 'India',
     locationPattern: /\bindia\b|bengaluru|bangalore|mumbai|delhi|hyderabad|\bpune\b|chennai|kolkata/i,
-    phonePattern: /^\+?91\b/,
+    phonePattern: /^\+?91\d/,
   },
   {
     country: 'United States',
     locationPattern: /\b(usa|united states)\b/i,
-    phonePattern: /^\+?1\b/,
+    phonePattern: /^\+?1\d/,
   },
   {
     country: 'United Kingdom',
     locationPattern: /\b(uk|united kingdom|england|scotland|wales)\b|manchester|london|birmingham/i,
-    phonePattern: /^\+?44\b/,
+    phonePattern: /^\+?44\d/,
   },
   {
     country: 'Australia',
     locationPattern: /\baustralia\b|melbourne|sydney|brisbane|perth/i,
-    phonePattern: /^\+?61\b/,
+    phonePattern: /^\+?61\d/,
   },
   {
     country: 'Canada',
@@ -320,7 +325,7 @@ const COUNTRY_HINTS: CountryHint[] = [
   {
     country: 'Singapore',
     locationPattern: /\bsingapore\b/i,
-    phonePattern: /^\+?65\b/,
+    phonePattern: /^\+?65\d/,
   },
 ];
 

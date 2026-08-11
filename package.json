@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "check:platform-links": "tsx scripts/check-platform-links.ts",
     "eval": "tsx evals/run.ts",
     "eval:cheap": "EVAL_CHEAP=1 tsx evals/run.ts",
     "eval:report": "tsx evals/run.ts",
