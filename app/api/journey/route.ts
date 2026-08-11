@@ -13,6 +13,11 @@ const BodySchema = z.object({
   // Upper bound matches the client's own sanity check. A span longer than 30 minutes is a
   // suspended laptop, not a wait.
   durationMs: z.number().int().min(0).max(30 * 60 * 1000),
+  /* Where the clock ran. A browser span includes render; a harness span (scripts/
+   * latency-baseline.ts) covers network + server + model and stops at the response.
+   * Recorded rather than assumed, so a baseline built from scripted runs is never quietly
+   * compared against numbers that include paint time. */
+  source: z.enum(['browser', 'harness']).default('browser'),
 });
 
 /**
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
         ...(context.sampleId ? { sampleId: context.sampleId } : {}),
         span: parsed.data.span,
         durationMs: parsed.data.durationMs,
+        source: parsed.data.source,
       })
     );
 

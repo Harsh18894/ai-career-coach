@@ -59,7 +59,7 @@ export function endSpan(name: JourneySpanName): void {
   void fetch('/api/journey', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
-    body: JSON.stringify({ span: name, durationMs }),
+    body: JSON.stringify({ span: name, durationMs, source: 'browser' }),
     // The user may be navigating away right as this fires; keepalive lets the browser finish
     // the request anyway.
     keepalive: true,

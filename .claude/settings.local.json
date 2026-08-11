@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(npx tsc *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 5)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 5)",
+      "Bash(git rev-list *)",
+      "Bash(grep -iE '\\\\.env|secret|credential|\\\\.pem|\\\\.key$')",
+      "Bash(grep -E '^COMMIT|sk-[A-Za-z0-9_-]{20,}')",
+      "Bash(grep -oE 'sk-[A-Za-z0-9_-]{8,}')"
     ]
   }
 }

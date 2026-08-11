@@ -55,6 +55,7 @@ type JourneyLine = {
   sessionId?: string;
   span: string;
   durationMs: number;
+  source?: string;
 };
 
 /* =====================================================================================
@@ -214,9 +215,12 @@ function ingest(report: Report, raw: string): void {
 
   if (line.event === 'journey_span' && typeof line.span === 'string' && typeof line.durationMs === 'number') {
     report.totalLines += 1;
-    const existing = report.spans.get(line.span) ?? [];
+    // Keyed by span AND source: a browser span includes render time and a harness span does
+    // not, so averaging them together would produce a number describing neither.
+    const key = `${line.span}|${line.source ?? 'browser'}`;
+    const existing = report.spans.get(key) ?? [];
     existing.push(line.durationMs);
-    report.spans.set(line.span, existing);
+    report.spans.set(key, existing);
     if (line.sessionId && line.sessionId !== 'unattributed') report.sessions.add(line.sessionId);
   }
 }
@@ -302,9 +306,10 @@ function render(report: Report): string {
     lock_to_roadmap: 'Path lock → roadmap rendered',
   };
 
-  const spanRows = [...report.spans.entries()].map(([span, values]) => {
+  const spanRows = [...report.spans.entries()].map(([key, values]) => {
+    const [span, source] = key.split('|');
     const s = statsOf(values);
-    return [spanLabels[span] ?? span, String(s.count), ms(s.p50), ms(s.p95), ms(s.max)];
+    return [spanLabels[span] ?? span, source, String(s.count), ms(s.p50), ms(s.p95), ms(s.max)];
   });
 
   if (spanRows.length === 0) {
@@ -314,7 +319,12 @@ function render(report: Report): string {
         'session in a browser. Per-call numbers above are still valid.'
     );
   } else {
-    out.push(table([['Span', 'n', 'P50', 'P95', 'Max'], ...spanRows]));
+    out.push(table([['Span', 'Measured', 'n', 'P50', 'P95', 'Max'], ...spanRows]));
+    out.push('');
+    out.push(
+      '`browser` spans end when React has committed the content. `harness` spans end when the ' +
+        'response arrived, so they exclude render and are systematically a little optimistic.'
+    );
   }
   out.push('');
 
