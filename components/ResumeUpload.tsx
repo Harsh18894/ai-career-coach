@@ -3,7 +3,13 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, AlertCircle, Link2, ChevronDown } from 'lucide-react';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
-import { errorMessageFrom } from '@/lib/api-error';
+import {
+  ClientApiError,
+  clientErrorFrom,
+  asClientError,
+  offersPasteFallback,
+  type ClientError,
+} from '@/lib/errors';
 import { sessionHeaders } from '@/lib/session';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
@@ -19,7 +25,7 @@ export default function ResumeUpload({
   onStartWithoutResume,
 }: ResumeUploadProps) {
   const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ClientError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTextFallback, setShowTextFallback] = useState(false);
   const [manualText, setManualText] = useState('');
@@ -59,13 +65,15 @@ export default function ResumeUpload({
     setShowTextFallback(false);
 
     if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-      setError('Please upload a PDF file only.');
+      setError({ code: 'RESUME_PARSE_FAILED', message: 'That file is not a PDF. Upload a PDF, or paste your resume text instead.' });
+      setShowTextFallback(true);
       return;
     }
 
     const MAX_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      setError('File is too large. Maximum allowed size is 5 MB.');
+      setError({ code: 'RESUME_PARSE_FAILED', message: 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.' });
+      setShowTextFallback(true);
       return;
     }
 
@@ -85,13 +93,10 @@ export default function ResumeUpload({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(errorMessageFrom(data) || 'Failed to parse resume.');
+        throw new ClientApiError(clientErrorFrom(data, 'RESUME_PARSE_FAILED'));
       }
 
-      if (data.textIsEmpty) {
-        setError(data.error);
-        setShowTextFallback(true);
-      } else if (data.insufficientInfo) {
+      if (data.insufficientInfo) {
         onStartWithoutResume();
       } else {
         const openerResponse = await fetch('/api/generate-opener', {
@@ -101,13 +106,17 @@ export default function ResumeUpload({
         });
         const openerData = await openerResponse.json();
         if (!openerResponse.ok) {
-          throw new Error(errorMessageFrom(openerData) || 'Failed to generate opener.');
+          throw new ClientApiError(clientErrorFrom(openerData));
         }
         onUploadSuccess(data.profile, openerData.opener);
       }
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      setError(err.message || 'Something went wrong during parsing. Please try again.');
+    } catch (err) {
+      const clientError = asClientError(err);
+      console.error(`[${clientError.code}]`, err);
+      setError(clientError);
+      // An unreadable PDF is the one failure with a genuine alternative route — reveal the
+      // paste-text form directly rather than telling the user about it and making them hunt.
+      if (offersPasteFallback(clientError.code)) setShowTextFallback(true);
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +129,7 @@ export default function ResumeUpload({
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualText.trim() || manualText.trim().length < 150) {
-      setError('Please paste a substantial summary of your resume (at least 150 characters).');
+      setError({ code: 'RESUME_PARSE_FAILED', message: 'That is too short to work with — paste at least 150 characters of your resume or career history.' });
       return;
     }
     onManualTextSubmit(manualText);
@@ -247,8 +256,7 @@ export default function ResumeUpload({
         <div role="alert" className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
           <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
           <div className="flex-1 text-sm">
-            <p className="font-semibold mb-1">Error</p>
-            <p>{error}</p>
+            <p>{error.message}</p>
           </div>
         </div>
       )}

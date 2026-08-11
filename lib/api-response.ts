@@ -34,7 +34,17 @@ export function errorResponse(error: unknown): NextResponse<ApiErrorBody> {
   });
 }
 
-/** For failures a route detects itself (bad input, an unreadable PDF) rather than catching. */
-export function failWith(code: ErrorCode, message?: string): NextResponse<ApiErrorBody> {
-  return errorResponse(new AppError(code, { message }));
+/**
+ * For failures a route detects itself (bad input, an unreadable PDF) rather than catching.
+ *
+ * Pass `message` only when the text is genuinely written for the visitor. For a malformed
+ * request — which means the client has a bug, not that the user did something — pass `detail`
+ * instead: it is logged, and the visitor sees the canonical copy for the code rather than
+ * something like "Missing messages or signals."
+ */
+export function failWith(
+  code: ErrorCode,
+  options: { message?: string; detail?: string } = {}
+): NextResponse<ApiErrorBody> {
+  return errorResponse(new AppError(code, options));
 }

@@ -5,7 +5,9 @@ import { defineConfig } from 'vitest/config';
 // the two never collide.
 export default defineConfig({
   test: {
-    include: ['components/**/*.test.tsx'],
+    // Component tests run in jsdom; lib tests are plain Node modules but are cheap enough to
+    // run in the same environment rather than maintaining a second project config.
+    include: ['components/**/*.test.tsx', 'lib/**/*.test.ts'],
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
   },

@@ -5,7 +5,13 @@ import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe } fro
 import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
-import { errorMessageFrom } from '@/lib/api-error';
+import {
+  ClientApiError,
+  clientErrorFrom,
+  asClientError,
+  isRetryable,
+  type ClientError,
+} from '@/lib/errors';
 import { sessionHeaders, startNewSession } from '@/lib/session';
 import MessageBubble from './MessageBubble';
 import ThinkingBubble from './ThinkingBubble';
@@ -109,17 +115,17 @@ function coachRequestInit(body: Record<string, unknown>): RequestInit {
   };
 }
 
-async function parseCoachResponse<T>(response: Response, fallbackErrorMessage: string): Promise<T> {
+async function parseCoachResponse<T>(response: Response): Promise<T> {
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(errorMessageFrom(data) || fallbackErrorMessage);
+    throw new ClientApiError(clientErrorFrom(data));
   }
   return data as T;
 }
 
-async function postCoach<T>(body: Record<string, unknown>, fallbackErrorMessage: string): Promise<T> {
+async function postCoach<T>(body: Record<string, unknown>): Promise<T> {
   const response = await fetch('/api/coach', coachRequestInit(body));
-  return parseCoachResponse<T>(response, fallbackErrorMessage);
+  return parseCoachResponse<T>(response);
 }
 
 interface ChatWindowProps {
@@ -185,7 +191,11 @@ export default function ChatWindow({
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [isRoadmapLoading, setIsRoadmapLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<ClientError | null>(null);
+  // The operation to re-run when the user clicks Retry. Held in a ref rather than state
+  // because it is a closure over the failed turn, not something the render depends on.
+  const retryRef = useRef<(() => Promise<void>) | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
   
   // For regeneration feedback — QuickOptions owns its own "Something else" text internally, so
   // this is just the gate for whether the reason panel is showing at all.
@@ -319,37 +329,39 @@ export default function ChatWindow({
         messages: updatedMessages,
       }));
 
+      const attempt = async () => {
+          const qaPairs = questionsAskedSoFar.map((question, i) => ({ question, answer: updatedAnswers[i] }));
+          const response = await fetch('/api/coach', coachRequestInit({ action: 'next-profile-question', answers: qaPairs }));
+          if (!response.ok) {
+            throw new ClientApiError(clientErrorFrom(await response.json()));
+          }
+
+          const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
+          await revealIntoNewMessage(updatedMessages, nextQuestion.message);
+
+          // Same hard boundary as postUnderstandingTurn below — the candidate tried to redirect
+          // the conversation away from career coaching entirely, nextQuestion.message is already
+          // the firm decline-and-close statement, so end the session instead of continuing the
+          // guided intake.
+          if (nextQuestion.offTopic) {
+            setState((prev) => ({ ...prev, stage: 'CLOSED', pendingTurnOptions: null }));
+            return;
+          }
+
+          setState((prev) => ({
+            ...prev,
+            profileBuildStep: nextStep,
+            profileBuildQuestions: [...prev.profileBuildQuestions, nextQuestion.message],
+            pendingTurnOptions: nextQuestion.options && nextQuestion.options.length > 0
+              ? { options: nextQuestion.options, allowMultiple: nextQuestion.allowMultiple }
+              : null,
+          }));
+      };
+
       try {
-        const qaPairs = questionsAskedSoFar.map((question, i) => ({ question, answer: updatedAnswers[i] }));
-        const response = await fetch('/api/coach', coachRequestInit({ action: 'next-profile-question', answers: qaPairs }));
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errorMessageFrom(errData) || 'Failed to generate the next question.');
-        }
-
-        const nextQuestion: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
-        await revealIntoNewMessage(updatedMessages, nextQuestion.message);
-
-        // Same hard boundary as postUnderstandingTurn below — the candidate tried to redirect
-        // the conversation away from career coaching entirely, nextQuestion.message is already
-        // the firm decline-and-close statement, so end the session instead of continuing the
-        // guided intake.
-        if (nextQuestion.offTopic) {
-          setState((prev) => ({ ...prev, stage: 'CLOSED', pendingTurnOptions: null }));
-          return;
-        }
-
-        setState((prev) => ({
-          ...prev,
-          profileBuildStep: nextStep,
-          profileBuildQuestions: [...prev.profileBuildQuestions, nextQuestion.message],
-          pendingTurnOptions: nextQuestion.options && nextQuestion.options.length > 0
-            ? { options: nextQuestion.options, allowMultiple: nextQuestion.allowMultiple }
-            : null,
-        }));
-      } catch (err: any) {
-        console.error('Next profile question error:', err);
-        setApiError(err.message || 'Something went wrong while building your profile.');
+        await attempt();
+      } catch (err) {
+        failTurn(err, attempt);
       } finally {
         setIsThinking(false);
       }
@@ -378,42 +390,43 @@ export default function ChatWindow({
       messages: updatedMessages,
     }));
 
+    const attempt = async () => {
+        const buildData = await postCoach<{ profile: Profile }>(
+          {
+            action: 'build-profile',
+            answers: questionsAskedSoFar.map((question, i) => ({
+              question,
+              answer: updatedAnswers[i],
+            })),
+          });
+
+        const builtProfile: Profile = buildData.profile;
+        const nextSignals: UserSignals = {
+          ...state.signals,
+          intentGuess: builtProfile.inferredPersona,
+        };
+        const transitionMessage: ChatMessage = makeMessage(
+          'assistant',
+          "Perfect — that gives me a real picture of where you're starting from. A few quick questions, then I'll map out some paths for you."
+        );
+        const messagesWithTransition = [...updatedMessages, transitionMessage];
+
+        setState((prev) => ({
+          ...prev,
+          stage: 'UNDERSTANDING',
+          profile: builtProfile,
+          signals: nextSignals,
+          understandingMessageCount: 0,
+          messages: messagesWithTransition,
+        }));
+
+        await streamCoachTurn(messagesWithTransition, { kind: 'understanding' }, nextSignals, builtProfile);
+    };
+
     try {
-      const buildData = await postCoach<{ profile: Profile }>(
-        {
-          action: 'build-profile',
-          answers: questionsAskedSoFar.map((question, i) => ({
-            question,
-            answer: updatedAnswers[i],
-          })),
-        },
-        'Failed to build your profile.'
-      );
-
-      const builtProfile: Profile = buildData.profile;
-      const nextSignals: UserSignals = {
-        ...state.signals,
-        intentGuess: builtProfile.inferredPersona,
-      };
-      const transitionMessage: ChatMessage = makeMessage(
-        'assistant',
-        "Perfect — that gives me a real picture of where you're starting from. A few quick questions, then I'll map out some paths for you."
-      );
-      const messagesWithTransition = [...updatedMessages, transitionMessage];
-
-      setState((prev) => ({
-        ...prev,
-        stage: 'UNDERSTANDING',
-        profile: builtProfile,
-        signals: nextSignals,
-        understandingMessageCount: 0,
-        messages: messagesWithTransition,
-      }));
-
-      await streamCoachTurn(messagesWithTransition, { kind: 'understanding' }, nextSignals, builtProfile);
-    } catch (err: any) {
-      console.error('Profile build error:', err);
-      setApiError(err.message || 'Something went wrong while building your profile.');
+      await attempt();
+    } catch (err) {
+      failTurn(err, attempt);
     } finally {
       setIsThinking(false);
     }
@@ -440,20 +453,63 @@ export default function ChatWindow({
     let accumulatedContent = '';
 
     if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulatedContent += decoder.decode(value);
-        setState((prev) => ({
-          ...prev,
-          messages: prev.messages.map((m) =>
-            m.id === messageId ? { ...m, content: accumulatedContent } : m
-          ),
-        }));
+      // A failure here is a stream that died after the headers were already sent, so the
+      // partial text is on screen. It is deliberately NOT cleared — the caller reports the
+      // failure and offers a retry, leaving what Aria managed to say visible.
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulatedContent += decoder.decode(value);
+          setState((prev) => ({
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === messageId ? { ...m, content: accumulatedContent } : m
+            ),
+          }));
+        }
+      } catch {
+        throw new ClientApiError({
+          code: 'UPSTREAM_ERROR',
+          message:
+            "Aria's reply was cut off partway through. What you can see above is what came through — you can retry to get a complete answer.",
+        });
       }
     }
 
     return accumulatedContent;
+  };
+
+  /**
+   * Single exit for every failed operation in this component. Sets the typed error (so the UI
+   * renders vetted copy for the code, never a raw message), records a retry closure when the
+   * failure is one a retry could plausibly fix, and always clears the spinner — no code path
+   * may leave it running.
+   */
+  const failTurn = (err: unknown, retry?: () => Promise<void>) => {
+    const clientError = asClientError(err);
+    console.error(`[${clientError.code}]`, err);
+    setApiError(clientError);
+    const retryable = isRetryable(clientError.code) && Boolean(retry);
+    retryRef.current = retryable ? retry! : null;
+    setCanRetry(retryable);
+    setIsThinking(false);
+    setIsRoadmapLoading(false);
+  };
+
+  const handleRetry = async () => {
+    const retry = retryRef.current;
+    if (!retry) return;
+    setApiError(null);
+    setCanRetry(false);
+    setIsThinking(true);
+    try {
+      await retry();
+    } catch (err) {
+      failTurn(err, retry);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   // Posts a `chat` turn and streams the reply via streamIntoNewMessage. Always sends an
@@ -476,8 +532,7 @@ export default function ChatWindow({
     }));
 
     if (!chatResponse.ok) {
-      const errData = await chatResponse.json();
-      throw new Error(errorMessageFrom(errData) || 'Streaming error.');
+      throw new ClientApiError(clientErrorFrom(await chatResponse.json()));
     }
 
     await streamIntoNewMessage(messagesForTurn, chatResponse);
@@ -530,8 +585,7 @@ export default function ChatWindow({
     }));
 
     if (!response.ok) {
-      const errData = await response.json();
-      throw new Error(errorMessageFrom(errData) || 'Failed to generate the next question.');
+      throw new ClientApiError(clientErrorFrom(await response.json()));
     }
 
     const turn: { message: string; options?: string[] | null; allowMultiple: boolean; offTopic?: boolean } = await response.json();
@@ -572,9 +626,7 @@ export default function ChatWindow({
         shownPaths: state.shownPaths,
         rejectedDirections: signalsForRecommend.rejectedDirections,
         changeRequests: options?.changeRequests,
-      },
-      'Failed to generate recommendations.'
-    );
+      });
 
     if (recommendData.needsCountry) {
       setDetectedCountries(recommendData.detectedCountries ?? []);
@@ -636,11 +688,14 @@ export default function ChatWindow({
       messages: updatedMessages,
     }));
 
+    const attempt = async () => {
+        await runRecommendFlow(updatedMessages, state.signals, { changeRequests: textToSend });
+    };
+
     try {
-      await runRecommendFlow(updatedMessages, state.signals, { changeRequests: textToSend });
-    } catch (err: any) {
-      console.error('Preferences-driven recommend error:', err);
-      setApiError(err.message || 'An error occurred. Please try again.');
+      await attempt();
+    } catch (err) {
+      failTurn(err, attempt);
     } finally {
       setIsThinking(false);
     }
@@ -671,94 +726,98 @@ export default function ChatWindow({
     setInputValue('');
     setIsThinking(true);
 
-    try {
-      // The branch decision below (decline / recommend / continue) depends on this result,
-      // so it's awaited before anything else.
-      const analyzeResponse = await fetch('/api/coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const attempt = async () => {
+        // The branch decision below (decline / recommend / continue) depends on this result,
+        // so it's awaited before anything else.
+        const analyzeData = await postCoach<{ signals: UserSignals }>({
           action: 'analyze',
           messages: updatedMessages,
           signals: state.signals,
-        }),
-      });
-
-      const analyzeData = await analyzeResponse.json();
-      const nextSignals = analyzeData.signals || state.signals;
-
-      // The candidate just answered "which country?" — re-attempt recommend with the
-      // (possibly now-populated) country; runRecommendFlow re-checks needsCountry server-side
-      // and either proceeds or re-asks, so there's no separate "still ambiguous" branch needed here.
-      if (state.stage === 'ASK_COUNTRY') {
-        setState((prev) => ({ ...prev, signals: nextSignals, messages: updatedMessages }));
-        await runRecommendFlow(updatedMessages, nextSignals);
-        setIsThinking(false);
-        return;
-      }
-
-      // Count user messages sent since entering the UNDERSTANDING phase
-      // (not the raw message array length, since guided profile-building turns precede it)
-      const understandingMessageCount = state.understandingMessageCount + 1;
-      const noUsefulInfoStreak = nextSignals.hasUsableInfo === false ? state.noUsefulInfoStreak + 1 : 0;
-
-      setState((prev) => ({
-        ...prev,
-        signals: nextSignals,
-        noUsefulInfoStreak,
-      }));
-
-      const shouldDecline = state.stage === 'UNDERSTANDING' && noUsefulInfoStreak >= NO_USABLE_INFO_DECLINE_STREAK;
-      const shouldRecommend =
-        state.stage === 'UNDERSTANDING' &&
-        !shouldDecline &&
-        ((understandingMessageCount >= MIN_UNDERSTANDING_TURNS && nextSignals.readyForRecommendation) ||
-          understandingMessageCount >= MAX_UNDERSTANDING_TURNS);
-
-      // The candidate has stonewalled every question — stop probing and decline honestly
-      // instead of fabricating a recommendation from nothing.
-      if (shouldDecline) {
-        setState((prev) => ({
-          ...prev,
-          stage: 'CLOSED',
-          understandingMessageCount,
-          messages: updatedMessages,
-        }));
-
-        await streamCoachTurn(updatedMessages, { kind: 'insufficient_info' }, nextSignals);
-        setIsThinking(false);
-      } else if (shouldRecommend) {
-        setState((prev) => ({
-          ...prev,
-          understandingMessageCount,
-          messages: updatedMessages,
-        }));
-
-        await runRecommendFlow(updatedMessages, nextSignals, {
-          transitionMessage: "Got it. Let me compile three career paths tailored specifically to what we've discussed...",
         });
-        setIsThinking(false);
-      } else {
-        // A roadmap follow-up gets its own non-onboarding instruction; it stays free-text/
-        // streamed (post-roadmap "stay and iterate" chat is open-ended by design). Every other
-        // ongoing UNDERSTANDING turn uses the structured, options-generating path instead.
-        setState((prev) => ({ ...prev, understandingMessageCount }));
+        const nextSignals = analyzeData.signals || state.signals;
 
-        if (state.stage === 'ROADMAP' && state.chosenPath && state.roadmap) {
-          await streamCoachTurn(
-            updatedMessages,
-            { kind: 'roadmap_followup', chosenPath: state.chosenPath, roadmap: state.roadmap },
-            nextSignals
-          );
-        } else {
-          await postUnderstandingTurn(updatedMessages, nextSignals);
+        // The candidate just answered "which country?" — re-attempt recommend with the
+        // (possibly now-populated) country; runRecommendFlow re-checks needsCountry server-side
+        // and either proceeds or re-asks, so there's no separate "still ambiguous" branch needed here.
+        if (state.stage === 'ASK_COUNTRY') {
+          setState((prev) => ({ ...prev, signals: nextSignals, messages: updatedMessages }));
+          await runRecommendFlow(updatedMessages, nextSignals);
+          setIsThinking(false);
+          return;
         }
-        setIsThinking(false);
-      }
-    } catch (err: any) {
-      console.error('Chat error:', err);
-      setApiError(err.message || 'An error occurred. Please try again.');
-      setIsThinking(false);
+
+        // Count user messages sent since entering the UNDERSTANDING phase
+        // (not the raw message array length, since guided profile-building turns precede it)
+        const understandingMessageCount = state.understandingMessageCount + 1;
+        const noUsefulInfoStreak = nextSignals.hasUsableInfo === false ? state.noUsefulInfoStreak + 1 : 0;
+
+        setState((prev) => ({
+          ...prev,
+          signals: nextSignals,
+          noUsefulInfoStreak,
+        }));
+
+        const shouldDecline = state.stage === 'UNDERSTANDING' && noUsefulInfoStreak >= NO_USABLE_INFO_DECLINE_STREAK;
+        const shouldRecommend =
+          state.stage === 'UNDERSTANDING' &&
+          !shouldDecline &&
+          ((understandingMessageCount >= MIN_UNDERSTANDING_TURNS && nextSignals.readyForRecommendation) ||
+            understandingMessageCount >= MAX_UNDERSTANDING_TURNS);
+
+        // The candidate has stonewalled every question — stop probing and decline honestly
+        // instead of fabricating a recommendation from nothing.
+        if (shouldDecline) {
+          setState((prev) => ({
+            ...prev,
+            stage: 'CLOSED',
+            understandingMessageCount,
+            messages: updatedMessages,
+          }));
+
+          await streamCoachTurn(updatedMessages, { kind: 'insufficient_info' }, nextSignals);
+          setIsThinking(false);
+        } else if (shouldRecommend) {
+          setState((prev) => ({
+            ...prev,
+            understandingMessageCount,
+            messages: updatedMessages,
+          }));
+
+          await runRecommendFlow(updatedMessages, nextSignals, {
+            transitionMessage: "Got it. Let me compile three career paths tailored specifically to what we've discussed...",
+          });
+          setIsThinking(false);
+        } else {
+          // A roadmap follow-up gets its own non-onboarding instruction; it stays free-text/
+          // streamed (post-roadmap "stay and iterate" chat is open-ended by design). Every other
+          // ongoing UNDERSTANDING turn uses the structured, options-generating path instead.
+          setState((prev) => ({ ...prev, understandingMessageCount }));
+
+          if (state.stage === 'ROADMAP' && state.chosenPath && state.roadmap) {
+            await streamCoachTurn(
+              updatedMessages,
+              { kind: 'roadmap_followup', chosenPath: state.chosenPath, roadmap: state.roadmap },
+              nextSignals
+            );
+          } else {
+            await postUnderstandingTurn(updatedMessages, nextSignals);
+          }
+          setIsThinking(false);
+        }
+    };
+
+    // Retrying re-runs the same turn from the user's message. Any assistant text the
+    // failed attempt produced is dropped first, so a cut-off reply is replaced rather
+    // than left sitting above its own replacement.
+    const retryTurn = async () => {
+      setState((prev) => ({ ...prev, messages: prev.messages.slice(0, updatedMessages.length) }));
+      await attempt();
+    };
+
+    try {
+      await attempt();
+    } catch (err) {
+      failTurn(err, retryTurn);
     }
   };
 
@@ -792,11 +851,14 @@ export default function ChatWindow({
 
     const nextMessages = [...state.messages, userDeclineMessage];
 
+    const attempt = async () => {
+        await runRecommendFlow(nextMessages, updatedSignals);
+    };
+
     try {
-      await runRecommendFlow(nextMessages, updatedSignals);
-    } catch (err: any) {
-      console.error('Regenerate error:', err);
-      setApiError(err.message || 'Failed to regenerate paths.');
+      await attempt();
+    } catch (err) {
+      failTurn(err, attempt);
     } finally {
       setIsThinking(false);
     }
@@ -819,11 +881,14 @@ export default function ChatWindow({
       messages: nextMessages,
     }));
 
+    const attempt = async () => {
+        await streamCoachTurn(nextMessages, { kind: 'ask_preferences' }, state.signals);
+    };
+
     try {
-      await streamCoachTurn(nextMessages, { kind: 'ask_preferences' }, state.signals);
-    } catch (err: any) {
-      console.error('Ask-preferences stream error:', err);
-      setApiError(err.message || 'An error occurred. Please try again.');
+      await attempt();
+    } catch (err) {
+      failTurn(err, attempt);
     } finally {
       setIsThinking(false);
     }
@@ -865,10 +930,7 @@ export default function ChatWindow({
       setIsThinking(false);
       setIsRoadmapLoading(true);
 
-      const roadmapData = await parseCoachResponse<{ roadmap: Roadmap }>(
-        await roadmapPromise,
-        'Failed to generate roadmap.'
-      );
+      const roadmapData = await parseCoachResponse<{ roadmap: Roadmap }>(await roadmapPromise);
 
       setState((prev) => ({
         ...prev,
@@ -876,9 +938,8 @@ export default function ChatWindow({
         roadmapVersion: prev.roadmapVersion + 1,
         roadmapPanelOpen: false,
       }));
-    } catch (err: any) {
-      console.error('Close path stream error:', err);
-      setApiError(err.message || 'Failed to finalize session.');
+    } catch (err) {
+      failTurn(err);
     } finally {
       setIsThinking(false);
       setIsRoadmapLoading(false);
@@ -907,18 +968,15 @@ export default function ChatWindow({
           chosenPath: state.chosenPath,
           signals: state.signals,
           feedback: submittedFeedback,
-        },
-        'Failed to update roadmap.'
-      );
+        });
 
       setState((prev) => ({
         ...prev,
         roadmap: roadmapData.roadmap,
         roadmapVersion: prev.roadmapVersion + 1,
       }));
-    } catch (err: unknown) {
-      console.error('Roadmap update error:', err);
-      setApiError(err instanceof Error ? err.message : 'Failed to update the roadmap.');
+    } catch (err) {
+      failTurn(err, () => handleUpdateRoadmap(submittedFeedback));
     } finally {
       setIsRoadmapLoading(false);
     }
@@ -947,9 +1005,8 @@ export default function ChatWindow({
 
     try {
       await streamCoachTurn(nextMessages, { kind: 'rejected_all_final' }, state.signals);
-    } catch (err: any) {
-      console.error('Decline session stream error:', err);
-      setApiError(err.message || 'Failed to finalize session.');
+    } catch (err) {
+      failTurn(err);
     } finally {
       setIsThinking(false);
     }
@@ -1127,9 +1184,22 @@ export default function ChatWindow({
         {isThinking && <ThinkingBubble />}
 
         {apiError && (
-          <div role="alert" className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">{apiError}</span>
+          <div role="alert" className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{apiError.message}</p>
+              {canRetry && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={isThinking}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-50 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retry
+                </button>
+              )}
+            </div>
           </div>
         )}
 

@@ -26,16 +26,16 @@ export async function POST(request: NextRequest) {
       const file = formData.get('file') as File | null;
 
       if (!file) {
-        return failWith('RESUME_PARSE_FAILED', 'No file was uploaded. Choose a PDF, or paste your resume text instead.');
+        return failWith('RESUME_PARSE_FAILED', { message: 'No file was uploaded. Choose a PDF, or paste your resume text instead.' });
       }
 
       if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-        return failWith('RESUME_PARSE_FAILED', 'Only PDF files are accepted. You can also paste your resume text instead.');
+        return failWith('RESUME_PARSE_FAILED', { message: 'Only PDF files are accepted. You can also paste your resume text instead.' });
       }
 
       const MAX_SIZE = 5 * 1024 * 1024;
       if (file.size > MAX_SIZE) {
-        return failWith('RESUME_PARSE_FAILED', 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.');
+        return failWith('RESUME_PARSE_FAILED', { message: 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.' });
       }
 
       const arrayBuffer = await file.arrayBuffer();
@@ -46,10 +46,9 @@ export async function POST(request: NextRequest) {
         await parser.destroy();
       } catch (parseError) {
         console.error('PDF parsing library error:', parseError);
-        return failWith(
-          'RESUME_PARSE_FAILED',
-          "We couldn't open that PDF — it may be corrupt or password-protected. Paste your resume text instead."
-        );
+        return failWith('RESUME_PARSE_FAILED', {
+          message: "We couldn't open that PDF — it may be corrupt or password-protected. Paste your resume text instead.",
+        });
       }
     }
 
@@ -59,10 +58,10 @@ export async function POST(request: NextRequest) {
     // Returned as a typed RESUME_PARSE_FAILED so the client shows the paste-text fallback as
     // an explicit next action rather than inferring it from a 200 with a flag.
     if (cleanText.length < 150) {
-      return failWith(
-        'RESUME_PARSE_FAILED',
-        'This PDF has no readable text layer — it looks like a scan or an image. Paste your resume text instead and we can carry on.'
-      );
+      return failWith('RESUME_PARSE_FAILED', {
+        message:
+          'This PDF has no readable text layer — it looks like a scan or an image. Paste your resume text instead and we can carry on.',
+      });
     }
 
     const profile = await withTelemetryContext(

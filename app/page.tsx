@@ -6,7 +6,7 @@ import ResumeUpload from '@/components/ResumeUpload';
 import ChatWindow from '@/components/ChatWindow';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from '@/components/AnalyzingProgress';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
-import { errorMessageFrom } from '@/lib/api-error';
+import { ClientApiError, clientErrorFrom, asClientError, type ClientError } from '@/lib/errors';
 import { sessionHeaders } from '@/lib/session';
 
 export default function Home() {
@@ -15,7 +15,7 @@ export default function Home() {
   const [noResumeMode, setNoResumeMode] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSubmitTextLoading, setIsSubmitTextLoading] = useState(false);
-  const [manualTextError, setManualTextError] = useState<string | null>(null);
+  const [manualTextError, setManualTextError] = useState<ClientError | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('career_coach_session');
@@ -61,7 +61,7 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(errorMessageFrom(data) || 'Failed to analyze text.');
+        throw new ClientApiError(clientErrorFrom(data, 'RESUME_PARSE_FAILED'));
       }
 
       if (data.insufficientInfo) {
@@ -76,14 +76,15 @@ export default function Home() {
       });
       const openerData = await openerResponse.json();
       if (!openerResponse.ok) {
-        throw new Error(errorMessageFrom(openerData) || 'Failed to generate opener.');
+        throw new ClientApiError(clientErrorFrom(openerData));
       }
 
       setProfile(data.profile);
       setOpener(openerData.opener);
-    } catch (err: any) {
-      console.error('Manual submission error:', err);
-      setManualTextError(err.message || 'An error occurred while analyzing the text.');
+    } catch (err) {
+      const clientError = asClientError(err);
+      console.error(`[${clientError.code}]`, err);
+      setManualTextError(clientError);
     } finally {
       setIsSubmitTextLoading(false);
     }
@@ -133,7 +134,7 @@ export default function Home() {
       />
       {manualTextError && (
         <div role="alert" className="mt-4 p-4 max-w-2xl w-full bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          {manualTextError}
+          {manualTextError.message}
         </div>
       )}
     </div>
