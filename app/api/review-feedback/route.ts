@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
     const parsed = BodySchema.safeParse(await readJsonBody(request, { maxBytes: 8 * 1024 }));
     if (!parsed.success) {
       // A malformed feedback ping is not worth an error envelope; drop it quietly.
-      return NextResponse.json({ ok: false }, { status: 204 });
+      // Must be a bodiless response: NextResponse.json(..., { status: 204 }) throws, because
+      // 204 means "no content". That turned every malformed ping into a 500 instead.
+      return new NextResponse(null, { status: 204 });
     }
 
     const context = telemetryContextFromRequest(request, '/api/review-feedback');

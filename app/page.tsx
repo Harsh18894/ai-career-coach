@@ -10,6 +10,7 @@ import { ClientApiError, clientErrorFrom, asClientError, type ClientError } from
 import { sessionHeaders } from '@/lib/session';
 import { stashResumeText } from '@/lib/resume-stash';
 import { humanTokenHeaders, primeBotProtection } from '@/lib/turnstile';
+import { startSpan } from '@/lib/journey';
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -50,12 +51,16 @@ export default function Home() {
 
   const handleStartWithoutResume = () => {
     setManualTextError(null);
+    // The no-resume flow reaches paths through the guided intake instead of an upload, but it
+    // is the same span: "from committing to this, how long until I see recommendations".
+    startSpan('intake_to_first_paths');
     setNoResumeMode(true);
   };
 
   const handleManualTextSubmit = async (text: string) => {
     setIsSubmitTextLoading(true);
     setManualTextError(null);
+    startSpan('intake_to_first_paths');
 
     try {
       const response = await fetch('/api/parse-resume', {

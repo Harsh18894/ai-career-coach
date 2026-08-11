@@ -24,6 +24,7 @@ import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
 import QuickOptions, { type QuickOption } from './QuickOptions';
 import { clearStashedResumeText } from '@/lib/resume-stash';
+import { startSpan, endSpan } from '@/lib/journey';
 
 // Readiness gating for the UNDERSTANDING phase: ask at least this many questions before
 // recommending, recommend regardless after the cap so the conversation can't stall forever,
@@ -333,6 +334,25 @@ export default function ChatWindow({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
+
+  /* -----------------------------------------------------------------------------------
+   * Session-level latency (lib/journey.ts).
+   *
+   * Ended in an effect rather than where the response is parsed, because the number worth
+   * having is "until the user could see it" and an effect runs after React has committed the
+   * DOM. Ending it at the fetch would systematically under-report by however long rendering a
+   * three-card deck or a full roadmap takes.
+   *
+   * endSpan is a no-op when the span never started, so a restored session — where the clock
+   * belongs to a page load that no longer exists — reports nothing rather than a fiction.
+   * --------------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (state.currentPaths && state.currentPaths.length > 0) endSpan('intake_to_first_paths');
+  }, [state.currentPaths]);
+
+  useEffect(() => {
+    if (state.roadmap) endSpan('lock_to_roadmap');
+  }, [state.roadmap]);
 
   const handleProfileBuildAnswer = async (textToSend: string) => {
     const userMessage: ChatMessage = makeMessage('user', textToSend);
@@ -927,6 +947,7 @@ export default function ChatWindow({
   const handleSelectPath = async (path: CareerPath) => {
     setApiError(null);
     setIsThinking(true);
+    startSpan('lock_to_roadmap');
 
     const selectMessage: ChatMessage = makeMessage('user', `I've chosen: ${path.title}`);
 

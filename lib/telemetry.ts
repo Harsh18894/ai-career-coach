@@ -163,6 +163,27 @@ export type LlmCallRecord = {
   promptTokens: number;
   completionTokens: number;
   cachedTokens: number;
+  /** Streamed calls only: milliseconds from issuing the request to the first chunk carrying
+   * visible content. This is the number a user feels — `durationMs` on a streamed call is how
+   * long the whole answer took to finish arriving, which nobody sits and watches.
+   *
+   * On a reasoning model this deliberately INCLUDES reasoning time: the model thinks before it
+   * emits its first visible token, so reasoning is dead air for the reader and belongs inside
+   * the measurement rather than beside it. */
+  ttftMs?: number;
+  /** completionTokens minus reasoningTokens — the part of the output that was actually text.
+   * Logged separately because on gpt-5 extraction calls the two differ by an order of
+   * magnitude, and "the model wrote 40 tokens" and "the model was billed for 7,000" are both
+   * true and answer different questions. */
+  outputTokens: number;
+  /** What was actually in force on THIS request, read from the params rather than from a
+   * config file — so the log answers "what did we send" and not "what did we intend to send".
+   * Undefined means the parameter was not set and the API default applied. */
+  reasoningEffort?: string;
+  maxOutputTokens?: number;
+  /** 'stop' | 'length' | 'content_filter' | … . `length` means the response was cut off, which
+   * is the failure Task B4's cap has to avoid producing. */
+  finishReason?: string;
   /** Subset of completionTokens spent on reasoning. The gpt-5 family bills these as output
    * tokens, so they are already inside completionTokens and inside estimatedCostUsd — broken
    * out because on structured-extraction calls they dominate the bill. */
@@ -292,12 +313,40 @@ function tokensFrom(usage: Usage): {
   };
 }
 
+/**
+ * The request-shape fields worth logging, extracted from the params the call actually sent.
+ *
+ * Read from `params` rather than accepted as arguments so a call site cannot report an effort
+ * level it did not use. If someone changes reasoning_effort at a call site and forgets the
+ * telemetry, the telemetry still tells the truth.
+ */
+type RequestShape = {
+  reasoningEffort?: string;
+  maxOutputTokens?: number;
+};
+
+function requestShapeOf(params: {
+  reasoning_effort?: unknown;
+  max_completion_tokens?: number | null;
+  max_tokens?: number | null;
+}): RequestShape {
+  const effort = typeof params.reasoning_effort === 'string' ? params.reasoning_effort : undefined;
+  // gpt-5 uses max_completion_tokens; max_tokens is the older name and is read as a fallback so
+  // the field is populated whichever one a call site sets.
+  const max = params.max_completion_tokens ?? params.max_tokens ?? undefined;
+  return {
+    ...(effort ? { reasoningEffort: effort } : {}),
+    ...(typeof max === 'number' ? { maxOutputTokens: max } : {}),
+  };
+}
+
 async function finish(
   call: string,
   model: string,
   usage: Usage,
   startedAt: number,
-  streamed: boolean
+  streamed: boolean,
+  extra: RequestShape & { ttftMs?: number; finishReason?: string } = {}
 ): Promise<void> {
   const context = currentContext();
   const { promptTokens, completionTokens, cachedTokens, reasoningTokens } = tokensFrom(usage);
@@ -319,9 +368,16 @@ async function finish(
     completionTokens,
     cachedTokens,
     reasoningTokens,
+    // Clamped at zero: the two counts come from the same usage block, but a malformed or
+    // partial usage payload should not produce a negative token count in a report.
+    outputTokens: Math.max(0, completionTokens - reasoningTokens),
     estimatedCostUsd,
     pricingKnown,
     durationMs: Date.now() - startedAt,
+    ...(extra.ttftMs !== undefined ? { ttftMs: extra.ttftMs } : {}),
+    ...(extra.reasoningEffort ? { reasoningEffort: extra.reasoningEffort } : {}),
+    ...(extra.maxOutputTokens !== undefined ? { maxOutputTokens: extra.maxOutputTokens } : {}),
+    ...(extra.finishReason ? { finishReason: extra.finishReason } : {}),
     streamed,
     ok: true,
     isSample: context.isSample,
@@ -335,7 +391,14 @@ async function finish(
   await recordSpend(context.sessionId, estimatedCostUsd, promptTokens + completionTokens);
 }
 
-function finishWithError(call: string, model: string, startedAt: number, streamed: boolean, error: unknown): void {
+function finishWithError(
+  call: string,
+  model: string,
+  startedAt: number,
+  streamed: boolean,
+  error: unknown,
+  extra: RequestShape & { ttftMs?: number } = {}
+): void {
   const context = currentContext();
   emit({
     event: 'llm_call',
@@ -348,9 +411,15 @@ function finishWithError(call: string, model: string, startedAt: number, streame
     completionTokens: 0,
     cachedTokens: 0,
     reasoningTokens: 0,
+    outputTokens: 0,
     estimatedCostUsd: 0,
     pricingKnown: model in MODEL_PRICING,
     durationMs: Date.now() - startedAt,
+    // A stream that produced tokens and THEN failed still has a real TTFT, and losing it
+    // would bias the percentiles toward the calls that happened to succeed.
+    ...(extra.ttftMs !== undefined ? { ttftMs: extra.ttftMs } : {}),
+    ...(extra.reasoningEffort ? { reasoningEffort: extra.reasoningEffort } : {}),
+    ...(extra.maxOutputTokens !== undefined ? { maxOutputTokens: extra.maxOutputTokens } : {}),
     streamed,
     ok: false,
     errorCode: classifyError(error),
@@ -372,12 +441,16 @@ export async function trackedCompletion(
   requestOptions?: { timeout?: number; maxRetries?: number }
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
   const startedAt = Date.now();
+  const shape = requestShapeOf(params);
   try {
     const response = await openai.chat.completions.create(params, requestOptions);
-    await finish(call, params.model, response.usage, startedAt, false);
+    await finish(call, params.model, response.usage, startedAt, false, {
+      ...shape,
+      finishReason: response.choices[0]?.finish_reason,
+    });
     return response;
   } catch (error) {
-    finishWithError(call, params.model, startedAt, false, error);
+    finishWithError(call, params.model, startedAt, false, error, shape);
     throw error;
   }
 }
@@ -404,6 +477,7 @@ export async function trackedStream(
 ): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
   const startedAt = Date.now();
   const capturedContext = currentContext();
+  const shape = requestShapeOf(params);
 
   let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
   try {
@@ -412,11 +486,11 @@ export async function trackedStream(
       requestOptions
     );
   } catch (error) {
-    finishWithError(call, params.model, startedAt, true, error);
+    finishWithError(call, params.model, startedAt, true, error, shape);
     throw error;
   }
 
-  return wrapStream(stream, call, params.model, startedAt, capturedContext);
+  return wrapStream(stream, call, params.model, startedAt, capturedContext, shape);
 }
 
 async function* wrapStream(
@@ -424,16 +498,32 @@ async function* wrapStream(
   call: string,
   model: string,
   startedAt: number,
-  context: TelemetryContext
+  context: TelemetryContext,
+  shape: RequestShape
 ): AsyncGenerator<OpenAI.Chat.Completions.ChatCompletionChunk> {
   let usage: Usage;
   let failed = false;
   let failure: unknown;
+  let ttftMs: number | undefined;
+  let finishReason: string | undefined;
 
   try {
     for await (const chunk of stream) {
       // With include_usage the final chunk carries usage and an empty choices array.
       if (chunk.usage) usage = chunk.usage;
+
+      // TTFT is measured at the first chunk carrying VISIBLE content, not the first chunk of
+      // any kind: the opening chunk typically carries only `role: 'assistant'` with an empty
+      // delta, and counting that would report a TTFT of a few hundred milliseconds for a call
+      // whose first readable word arrives seconds later. On a reasoning model that gap is the
+      // whole story.
+      if (ttftMs === undefined && chunk.choices[0]?.delta?.content) {
+        ttftMs = Date.now() - startedAt;
+      }
+
+      const reason = chunk.choices[0]?.finish_reason;
+      if (reason) finishReason = reason;
+
       yield chunk;
     }
   } catch (error) {
@@ -444,8 +534,8 @@ async function* wrapStream(
     // `finally` rather than after the loop so an aborted or errored stream still emits a
     // record — a half-finished stream cost real tokens.
     await contextStore.run(context, async () => {
-      if (failed) finishWithError(call, model, startedAt, true, failure);
-      else await finish(call, model, usage, startedAt, true);
+      if (failed) finishWithError(call, model, startedAt, true, failure, { ...shape, ttftMs });
+      else await finish(call, model, usage, startedAt, true, { ...shape, ttftMs, finishReason });
     });
   }
 }

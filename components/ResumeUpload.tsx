@@ -17,6 +17,7 @@ import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 import { LIMITS } from '@/lib/limits';
 import { humanTokenHeaders } from '@/lib/turnstile';
+import { startSpan } from '@/lib/journey';
 
 interface ResumeUploadProps {
   onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
@@ -84,6 +85,9 @@ export default function ResumeUpload({
     }
 
     setIsLoading(true);
+    // Span starts here, not at the fetch: the wait a user perceives begins when they hand over
+    // the file, and PDF parsing happens before any model call.
+    startSpan('intake_to_first_paths');
 
     try {
       const formData = new FormData();
