@@ -27,6 +27,15 @@ import {
  * arrive would put unvalidated — possibly fabricated — rewrites in front of the candidate,
  * which is precisely what docs/resume-review-rubric.md §8 forbids. The rubric's load-bearing
  * rule wins over the nicer loading experience.
+ *
+ * The pipeline is exposed in two halves so it can span two HTTP requests:
+ *
+ *   prepareReview()  stages 1-2   ~18s   also gives the UI the persona to confirm or override
+ *   reviewPrepared() stages 3-4   ~40-50s
+ *
+ * Run back to back in one request they total 60-68s against a 60s serverless ceiling, so the
+ * split is what keeps the heavy call inside its budget. runResumeReview() still composes both
+ * for scripts and evals, where no such ceiling applies.
  * ===================================================================================== */
 
 export type ReviewRequest = {
@@ -42,13 +51,32 @@ export type ReviewOutcome =
   | { ok: true; result: ReviewResult; classification: PersonaClassification; segment: ResumeSegment; dropped: DroppedItem[] }
   | { ok: false; reason: 'not_a_resume' };
 
-export async function runResumeReview(request: ReviewRequest): Promise<ReviewOutcome> {
-  const { resumeText, path, personaOverride, jobDescription } = request;
-
+/** Stages 1-2. Cheap enough to run in its own request, and its output is what the UI needs to
+ * show the detected persona before committing to a review. */
+export async function prepareReview(
+  resumeText: string
+): Promise<{ ok: true; segment: ResumeSegment; classification: PersonaClassification } | { ok: false; reason: 'not_a_resume' }> {
   const segment = await segmentResume(resumeText);
   if (!segment) return { ok: false, reason: 'not_a_resume' };
-
   const classification = await classifyPersona(segment);
+  return { ok: true, segment, classification };
+}
+
+export type PreparedReviewInput = {
+  rawResumeText: string;
+  segment: ResumeSegment;
+  classification: PersonaClassification;
+  path: ReviewPath;
+  personaOverride?: ReviewPersona;
+  jobDescription?: JobDescription | null;
+};
+
+/** Stages 3-4, against an already-segmented resume. */
+export async function reviewPrepared(
+  input: PreparedReviewInput
+): Promise<Extract<ReviewOutcome, { ok: true }>> {
+  const { rawResumeText, segment, classification, path, personaOverride, jobDescription } = input;
+  const resumeText = rawResumeText;
 
   // An explicit override is the user telling us we got it wrong. Trust it completely for the
   // bar, but keep the derived signals and region — those are observations about the document,
@@ -108,6 +136,22 @@ export async function runResumeReview(request: ReviewRequest): Promise<ReviewOut
   });
 
   return { ok: true, result, classification: effective, segment, dropped };
+}
+
+/** Both halves in one call. Used by scripts and evals, which have no request timeout to fit
+ * inside; the API routes use the two halves separately. */
+export async function runResumeReview(request: ReviewRequest): Promise<ReviewOutcome> {
+  const prepared = await prepareReview(request.resumeText);
+  if (!prepared.ok) return prepared;
+
+  return reviewPrepared({
+    rawResumeText: request.resumeText,
+    segment: prepared.segment,
+    classification: prepared.classification,
+    path: request.path,
+    personaOverride: request.personaOverride,
+    jobDescription: request.jobDescription,
+  });
 }
 
 export { segmentResume } from './segment';

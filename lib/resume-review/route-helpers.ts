@@ -11,8 +11,15 @@ import type { ReviewOutcome } from './index';
  * both places rather than producing a confidently empty review. */
 export const MIN_RESUME_CHARS = 150;
 
+/**
+ * A review request identifies the resume EITHER by a preparedId from /api/resume-review/prepare
+ * (the normal path — the segment is already server-side) OR by resumeText, which is the
+ * fallback when no cache is configured. At least one must be present; the route checks that,
+ * since Zod cannot express "either-or" as cleanly as a readable error message can.
+ */
 export const ReviewRequestBodySchema = z.object({
-  resumeText: z.string().min(MIN_RESUME_CHARS),
+  preparedId: z.string().nullish(),
+  resumeText: z.string().min(MIN_RESUME_CHARS).nullish(),
   personaOverride: z.enum(REVIEW_PERSONAS).nullish(),
 });
 
