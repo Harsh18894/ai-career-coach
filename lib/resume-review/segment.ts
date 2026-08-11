@@ -69,7 +69,9 @@ const RawContactSchema = z.object({
 
 const RawOtherSectionSchema = z.object({
   heading: z.string(),
-  content: z.string(),
+  // Same repair-cost class as contact.links: a section that is naturally a list (certifications,
+  // awards) comes back as an array often enough to cost a repair round-trip. Accept both.
+  content: z.union([z.string(), z.array(z.string())]).transform((v) => (Array.isArray(v) ? v.join('\n') : v)),
 });
 
 /** Mirrors extractProfile's hasSufficientInfo escape hatch — a genuine "this isn't a resume"
@@ -94,7 +96,12 @@ const RawSegmentSchema = z.object({
  * a bullet keeps the same id across two runs even if segmentation orders surrounding entries
  * slightly differently. Genuine duplicates within one list are disambiguated by dedupeIds. */
 function makeStableId(prefix: string, parts: (string | null | undefined)[]): string {
-  const normalized = parts.map((p) => (p ?? '').trim().toLowerCase()).join(' ');
+  // Internal whitespace is collapsed, not just trimmed. Segmentation joins a wrapped bullet
+  // with whatever spacing it chooses, and that varies run to run — hashing the raw text made
+  // every id change when only the spacing had, which showed up as two reviews of the same
+  // resume appearing to share no findings at all. Ids must survive cosmetic differences, both
+  // for the stability eval and for feedback that is keyed on them.
+  const normalized = parts.map((p) => (p ?? '').replace(/\s+/g, ' ').trim().toLowerCase()).join(' ');
   const hash = createHash('sha1').update(normalized).digest('hex').slice(0, 10);
   return `${prefix}-${hash}`;
 }
@@ -121,6 +128,9 @@ function attachIds<T extends { id: string }>(items: Omit<T, 'id'>[], ids: string
 
 /* ---- the call -------------------------------------------------------------------------------- */
 
+/** Arbitrary but fixed — see the note at the call site. */
+const SEGMENTATION_SEED = 20260811;
+
 const SYSTEM_PROMPT =
   'You are a resume segmentation extractor. You extract structure and facts from resume text; ' +
   'you never evaluate, critique, or improve it. Output JSON matching the requested schema.';
@@ -138,11 +148,13 @@ Otherwise, extract the following, exactly as written wherever the field says "ve
   - "title", "company", "location", "startDate", "endDate" (verbatim as written, e.g. "August 2019", "Present").
   - "durationMonths": your best numeric estimate of the role's length in months, computed from the dates as written (treat "Present" as today). Null only if the dates genuinely can't support an estimate.
   - "isInternship": true if this role is explicitly labeled an internship, or is clearly structured as one (a fixed short academic-calendar-aligned term, an internship-typical title) — false for any regular full-time or part-time professional role.
-  - "bullets": each bullet's text, verbatim, one array entry per bullet — do not merge, split, or reorder bullets within a role.
+  - "bullets": each bullet's text, one array entry per bullet — do not merge distinct bullets, do not reorder them. CRITICAL: a single bullet that WRAPS across several lines in the source is ONE bullet, not several. Join its continuation lines into one string separated by single spaces, and preserve the wording exactly. A bullet entry must never end mid-sentence or begin as the tail of a previous sentence — if an entry would read as a fragment, it belongs joined to the entry above it. Only start a new bullet where the source starts a new bullet marker.
 - "education": every entry, each with "institution", "degree", "fieldOfStudy", "location", "startDate", "endDate" (verbatim), and "isOngoing": true if the candidate is still enrolled (an explicit "Expected <date>", present tense, or the resume's own context makes this clear) — false if they have already completed/graduated.
 - "projects": every named project, each with "title", "description" (verbatim, or null), "bullets" (verbatim, array), "technologies" (array of named tools/languages/frameworks mentioned for that project).
 - "skills": every individually listed skill/tool/language, as its own array entry.
 - "other": any other real, labeled section that doesn't fit above (certifications, activities, publications, awards) as { "heading", "content" } pairs, content kept close to verbatim.
+
+The text you are given comes from a PDF or a paste and is hard-wrapped at an arbitrary column. Line breaks inside a sentence are an artifact of that wrapping and carry no meaning — never treat one as a boundary between items.
 
 Preserve the resume's own ordering within each array (roles and education are conventionally most-recent-first; keep whatever order the source uses).
 
@@ -165,6 +177,11 @@ export async function segmentResume(resumeText: string): Promise<ResumeSegment |
       // bill. 'low' keeps the judgement calls (isInternship, isOngoing) without paying for
       // deliberation the task does not need.
       reasoning_effort: 'low',
+      // Same argument as the review call's seed: a resume should parse the same way twice.
+      // Segmentation variance is not cosmetic — bullet ids are derived from bullet text, so a
+      // different split re-keys every finding and makes two reviews of one resume look
+      // unrelated. Best-effort, and measured by the R10 eval rather than assumed.
+      seed: SEGMENTATION_SEED,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildPrompt(resumeText) },

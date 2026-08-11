@@ -30,7 +30,7 @@ export const DIMENSION_DEFINITIONS: Record<ReviewDimension, string> = {
   quantified_impact:
     'Whether bullets state an outcome (what changed, by how much) rather than a duty (what the person was assigned to do). A number present for another reason — a headcount, a date — does not by itself make a bullet outcome-framed.',
   ats_parse_safety:
-    'Artifacts visible in the EXTRACTED TEXT that indicate the document may not survive automated parsing: sentence fragments interleaved from adjacent columns, tab/pipe pseudo-tables, icon or private-use-area glyphs, unrecognisable section headings, or a body far shorter than the stated experience implies. You are reading text already extracted from the original file, so you cannot see visual layout — never claim to have assessed layout, columns, or fonts directly, and say what was actually observed in the text.',
+    'Artifacts visible in the EXTRACTED TEXT that indicate the document may not survive automated parsing: sentence fragments INTERLEAVED FROM ADJACENT COLUMNS (text from two different bullets alternating), tab/pipe pseudo-tables, icon or private-use-area glyphs, unrecognisable section headings, or a body far shorter than the stated experience implies. You are reading text already extracted from the original file, so you cannot see visual layout — never claim to have assessed layout, columns, or fonts directly, and say what was actually observed in the text. IMPORTANT: ordinary line wrapping is NOT a defect and must never be reported as one. Every resume is hard-wrapped at some column; a bullet continuing onto the next line is normal text, not evidence of a parsing problem. Only flag this dimension when the text is genuinely scrambled, not merely wrapped.',
   action_verb_strength:
     'Whether bullets lead with a strong, specific verb rather than a passive construction or a filler opener ("Responsible for", "Helped with", "Worked on", "Assisted in"). Readers skim first words.',
   signal_to_length:
@@ -153,6 +153,16 @@ export const STRONG_RESUME_RULE = `If this resume is genuinely strong at this pe
 
 /** Rubric §7. */
 export const OUT_OF_SCOPE_RULE = `This tool deliberately does NOT: give a score out of 100 or any numeric rating; rank the candidate against others; predict a hire/no-hire outcome; rewrite the whole document; or deliver a fit verdict on the against-job path. Do not produce any of these, and do not imply them in prose.`;
+
+/*
+ * NOTE — an approach that was tried and reverted, recorded so it is not retried blindly:
+ * forcing every `quantified_impact` finding to the persona's escalation severity in code.
+ * The motivation was run-to-run variance in the critical count. Measured across three runs it
+ * did NOT reduce that variance (the delta stayed at 4, because the spread comes from which
+ * dimensions fire at all, not from how this one is graded), and it made every outcome-less
+ * bullet on a senior resume critical — which pushed a genuinely strong senior resume to 2
+ * critical findings and broke the strong-resume rule (§5). Severity stayed a model judgement.
+ */
 
 export function personaRubric(persona: ReviewPersona): PersonaRubric {
   return PERSONA_RUBRIC[persona];

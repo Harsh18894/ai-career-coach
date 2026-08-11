@@ -1,0 +1,95 @@
+{
+  "result": {
+    "persona": "senior",
+    "careerSwitcher": false,
+    "path": "independent",
+    "overallRead": "This resume mostly does what a senior engineering-leader resume must: clear progression from individual contributor to platform owner, measurable outcomes on several high-impact projects, and leadership signals (chairing a board, mentoring). It needs one critical fix: at least one bullet that reads like a duty (no outcome). A couple of small clarity/polish items would raise the level to fully senior-ready.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "Contact, Experience, and Education sections are present as expected for this persona."
+      },
+      {
+        "dimension": "quantified_impact",
+        "note": "Most bullets include measurable outcomes, but at least one senior-role bullet states an activity without an outcome and should be quantified."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text is clean with no scrambled or interleaved lines that indicate parsing problems."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Bullets generally begin with strong verbs; tense is mixed but not harmful. A minor tense-consistency polish would help."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Recent senior roles receive appropriate space and detail; earlier roles are compact but proportional to recency."
+      },
+      {
+        "dimension": "narrative_coherence",
+        "note": "The role sequence reads as a deliberate progression from Data Engineer to Principal Engineer with growing scope and cross-team influence."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-75d93d3108-b-d268361ad6",
+        "targetSection": null,
+        "originalText": "Wrote the design doc adopted as the company standard for pipeline observability.",
+        "suggestedText": "Wrote the design doc adopted as the company standard for pipeline observability, adopted by [N] teams and resulting in [X%] fewer observability gaps or incidents.",
+        "reason": "At senior level, a bullet that describes creating a standard needs a measurable outcome (adoption, impact) to prove influence and ROI.",
+        "addedPlaceholders": [
+          "[N]",
+          "[X%]"
+        ],
+        "id": "find-214dfc9067"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "polish",
+        "targetBulletId": "role-1780869eda-b-f720003a3b",
+        "targetSection": null,
+        "originalText": "Mentor 4 senior engineers; 2 have since been promoted to staff level.",
+        "suggestedText": "Mentored 4 senior engineers; 2 have since been promoted to staff level.",
+        "reason": "Using past tense keeps verb forms consistent across a role described in past accomplishments and improves scannability.",
+        "addedPlaceholders": [],
+        "id": "find-cd1aaf19bc"
+      },
+      {
+        "dimension": "signal_to_length",
+        "severity": "polish",
+        "targetBulletId": "role-010ca4427f-b-ca5d80c038",
+        "targetSection": null,
+        "originalText": "Reduced reconciliation breaks 43% by adding row-level lineage tracking.",
+        "suggestedText": "Reduced reconciliation breaks 43% by adding row-level lineage tracking.",
+        "reason": "This bullet is strong; consider adding the business impact (time or cost saved) if available to reinforce the achievement.",
+        "addedPlaceholders": [],
+        "id": "find-08449718b5"
+      }
+    ],
+    "projectSuggestions": null,
+    "internshipGuidance": null,
+    "resolvedPlatforms": null,
+    "narrativeAssessment": {
+      "progression": "Clear. The candidate advances logically from Data Engineer to Senior to Staff to Principal at the same company, showing increasing ownership.",
+      "scopeGrowth": "Visible. Scope expands from building ETL and specific pipelines to owning the platform for multiple product teams and chairing an architecture review board.",
+      "spaceAllocation": "Appropriate. The most recent and highest-impact role has the most bullets and metrics; older roles are concise but include outcomes.",
+      "influenceBeyondDelivery": "Evident. Mentoring, chairing the architecture review board, and authoring a company standard demonstrate influence beyond individual execution.",
+      "overall": "Strong narrative with one notable hole: at least one senior-level bullet reads as activity-only and needs a concrete outcome or adoption metric to support the leadership claim."
+    },
+    "recruiterScan": null,
+    "requirementCoverage": null
+  },
+  "classification": {
+    "persona": "senior",
+    "confidence": 0.95,
+    "signals": [
+      "144 full-time month(s) (~12.0 years) across 4 role(s), excluding 0 internship(s).",
+      "No career switch; all roles are within data engineering and data platform domains (health analytics and financial services), with progression in data platform leadership.",
+      "Region inferred as Canada from contact/education/role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": "Canada"
+  }
+}

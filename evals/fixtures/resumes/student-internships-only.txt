@@ -1,0 +1,27 @@
+Daniel Ferreira
+Lisbon, Portugal | daniel.ferreira@example.com | +351 900 000 000
+
+EDUCATION
+Licenciatura in Information Systems, Instituto Superior do Tejo
+Expected 2026
+
+EXPERIENCE
+
+Data Operations Intern
+Vela Logistics — Lisbon, Portugal
+June 2025 – September 2025 (4 months)
+- Cleaned and reconciled shipment tracking data across three warehouse systems.
+- Wrote SQL queries used by the operations team for their weekly exception report.
+- Documented the reconciliation process so the next intern could run it unaided.
+
+Business Analyst Intern
+Corvo Retail Group — Lisbon, Portugal
+July 2024 – August 2024 (2 months)
+- Supported the pricing team with spreadsheet analysis of promotional performance.
+- Sat in on supplier negotiation calls and wrote up the notes.
+
+SKILLS
+SQL, Excel (advanced), Power BI, Python (basic), Portuguese (native), English (fluent)
+
+ACTIVITIES
+Treasurer of the student business society.

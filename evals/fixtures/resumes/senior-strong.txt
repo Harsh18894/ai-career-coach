@@ -1,0 +1,49 @@
+Rebecca Osei-Tutu
+Toronto, Canada | rebecca.oseitutu@example.com | +1 647 555 0142
+
+SUMMARY
+Engineering leader, 11 years, building and running data platforms at scale. Went from writing
+the pipelines to owning the platform three teams depend on.
+
+EXPERIENCE
+
+Principal Engineer, Data Platform
+Marlowe Health (health analytics, 900 staff) — Toronto, Canada
+March 2021 – Present (4 years)
+- Own the data platform used by 3 product teams and 40+ analysts; the 3-year deprecation plan
+  I set retired the legacy warehouse a year early and freed $310k of annual spend.
+- Led the migration off a monolithic Redshift warehouse to a lakehouse architecture, cutting
+  median query cost 62% and nightly batch runtime from 7 hours to 90 minutes.
+- Introduced data contracts between producer services and the warehouse, reducing
+  schema-change incidents from 14 in 2022 to 2 in 2024.
+- Mentor 4 senior engineers; 2 have since been promoted to staff level.
+- Proposed and now chair the internal architecture review board; design rework after
+  implementation fell from 9 projects in 2022 to 2 in 2024.
+
+Staff Engineer, Data Infrastructure
+Marlowe Health — Toronto, Canada
+January 2019 – March 2021 (2 years)
+- Rebuilt the ingestion layer to handle 4x volume growth without adding headcount.
+- Cut pipeline on-call pages by 71% by replacing cron orchestration with Airflow and adding
+  SLA alerting on the 20 highest-value tables.
+- Wrote the design doc adopted as the company standard for pipeline observability.
+
+Senior Data Engineer
+Ashgrove Financial — Toronto, Canada
+August 2016 – December 2018 (2 years 5 months)
+- Built the regulatory reporting pipeline covering 11 jurisdictions, delivered 6 weeks ahead
+  of the compliance deadline.
+- Reduced reconciliation breaks 43% by adding row-level lineage tracking.
+
+Data Engineer
+Ashgrove Financial — Toronto, Canada
+July 2014 – August 2016 (2 years 1 month)
+- Built ETL for the risk data mart, replacing a manual process that took 3 days per month and
+  cutting month-end close from 6 days to 2.
+
+EDUCATION
+BASc Computer Engineering, University of Toronto — 2014
+
+SKILLS
+Python, Scala, SQL, Spark, Airflow, dbt, Kafka, AWS, Terraform, data modelling, technical
+leadership, mentoring

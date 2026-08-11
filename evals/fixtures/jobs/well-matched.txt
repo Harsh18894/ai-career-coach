@@ -1,0 +1,18 @@
+Backend Engineer, Billing Platform
+Shannon Ledger — Dublin, Ireland (hybrid)
+
+About the role
+We are hiring a Backend Engineer to work on our billing and invoicing platform. You will own
+services end to end, from design through to production support.
+
+Requirements
+- 3+ years of professional backend engineering experience.
+- Strong Java or Python, and comfort reading code in the other.
+- Production experience with PostgreSQL, including query tuning and schema migrations.
+- Experience with an event streaming platform such as Kafka.
+- Willingness to take part in an on-call rotation.
+
+Nice to have
+- Experience in payments, billing, or another domain with strict correctness requirements.
+- Kubernetes and container orchestration.
+- Experience migrating a production database with minimal downtime.

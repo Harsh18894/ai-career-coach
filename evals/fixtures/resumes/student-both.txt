@@ -1,0 +1,37 @@
+Aisha Rahman
+Birmingham, United Kingdom | aisha.rahman@example.com | +44 7700 900456
+github.com/example-aisha
+
+EDUCATION
+BSc Computer Science, University of the West Midlands
+Expected July 2026
+Relevant coursework: distributed systems, databases, software engineering, cryptography
+
+EXPERIENCE
+
+Software Engineering Intern
+Halcyon Payments — Birmingham, United Kingdom
+June 2025 – September 2025 (4 months)
+- Added idempotency-key handling to two internal payment endpoints, in Go.
+- Wrote integration tests covering the retry path, which had none before.
+- Took part in on-call shadowing for four weeks.
+
+Junior Developer Intern
+Kestrel Web Studio — remote
+July 2024 – August 2024 (2 months)
+- Built three marketing pages from designs, in React.
+- Fixed accessibility issues flagged by an automated audit.
+
+PROJECTS
+
+Distributed Key-Value Store
+Implemented a Raft-based key-value store from the paper, with leader election and log
+replication. Wrote a test harness that kills nodes at random to verify consistency.
+Go, gRPC
+
+Exam Timetable Solver
+Constraint solver assigning exam slots without clashes for a synthetic 4,000-student dataset.
+Python, OR-Tools
+
+SKILLS
+Go, Python, JavaScript, React, PostgreSQL, gRPC, Docker, Git, Linux

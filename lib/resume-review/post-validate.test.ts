@@ -475,6 +475,45 @@ describe('persona gating', () => {
     expect(result.internshipGuidance).not.toBeNull();
   });
 
+  it('strips evidence guidance for a student who already has both projects and internships', () => {
+    // Rubric §3.2 branch 4: no manufactured gap. Observed live handing internship guidance to
+    // a student with two internships, which is why this is enforced here and not by prompt.
+    const segment = makeSegment({
+      roles: [
+        {
+          id: 'role-intern',
+          title: 'Intern',
+          company: 'Acme',
+          location: null,
+          startDate: '2025',
+          endDate: '2025',
+          durationMonths: 3,
+          isInternship: true,
+          bullets: [{ id: 'intern-b1', text: 'Did internship work.' }],
+        },
+      ],
+      projects: [{ id: 'p1', title: 'A project', description: null, bullets: [], technologies: [] }],
+    });
+
+    const { result, dropped } = run(evidenceOutput, { persona: 'student', segment });
+
+    expect(result.projectSuggestions).toBeNull();
+    expect(result.internshipGuidance).toBeNull();
+    expect(dropped.some((d) => d.detail.includes('already has both'))).toBe(true);
+  });
+
+  it('keeps evidence guidance for a student who has projects but no internships', () => {
+    const segment = makeSegment({
+      roles: [],
+      projects: [{ id: 'p1', title: 'A project', description: null, bullets: [], technologies: [] }],
+    });
+
+    const { result } = run(evidenceOutput, { persona: 'student', segment, region: 'India' });
+
+    expect(result.projectSuggestions).toHaveLength(1);
+    expect(result.internshipGuidance).not.toBeNull();
+  });
+
   it('caps project suggestions at three', () => {
     const many = makeOutput({
       projectSuggestions: Array.from({ length: 5 }, (_, i) => ({

@@ -1,0 +1,17 @@
+Nikhil Bansal
+Bengaluru, India | nikhil.bansal@example.com | +91 90000 22222
+
+EDUCATION
+B.Tech Computer Science, Karnataka Institute of Engineering
+Expected 2027
+Relevant coursework: data structures, database systems, operating systems, statistics,
+discrete mathematics
+
+SKILLS
+Java, Python, SQL (coursework level), HTML/CSS, Git, Linux basics
+
+ACTIVITIES
+Member, college coding club since first year.
+Attended two intra-college hackathons.
+Volunteered at the annual technical festival helping with event registration and scheduling.
+Class representative for one semester.

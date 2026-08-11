@@ -7,12 +7,14 @@
  * runs never silently drift the committed snapshots.
  *
  * Requires OPENAI_API_KEY (both the coach-under-test and the judge use it in this repo —
- * see README "Architecture note"). Makes ~14 real coach calls.
+ * see README "Architecture note"). Makes ~14 real coach calls plus 7 full resume-review runs
+ * (segment + classify + review each), roughly $0.10-0.15 in total.
  */
 import { getCoach } from '../adapter/coach';
 import { warmSnapshot } from '../lib/cache';
 import { loadResume } from '../lib/fixtures';
 import { C3_SIGNALS, E1_SIGNALS_A, E1_SIGNALS_B, F6_NEUTRAL_SIGNALS, G1_OVERREACH_SIGNALS } from '../lib/signals';
+import { SNAPSHOT_RUNS, runReviewSpec } from '../lib/review-runs';
 
 async function main() {
   const coach = await getCoach();
@@ -103,6 +105,15 @@ async function main() {
       },
     ])
   );
+
+  // ---- Resume review -----------------------------------------------------------------
+  // These are what R1-R6 read under eval:cheap. Each is a full pipeline run (segment ->
+  // classify -> review), so this section is the bulk of the warm script's cost.
+  console.log('\n--- resume review snapshots ---');
+  for (const spec of SNAPSHOT_RUNS) {
+    console.log(spec.key);
+    await warmSnapshot(spec.key, () => runReviewSpec(spec));
+  }
 
   console.log('\nDone. evals/.cache/snapshots/ is now populated for eval:cheap.');
 }

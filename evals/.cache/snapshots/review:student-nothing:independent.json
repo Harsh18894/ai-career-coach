@@ -1,0 +1,147 @@
+{
+  "result": {
+    "persona": "student",
+    "careerSwitcher": false,
+    "path": "independent",
+    "overallRead": "This resume is extremely thin for a student candidate: contact and education are present, skills and some activities exist, but there are no projects or internships — the primary evidence a hiring reader expects. Fixing the missing evidence (projects/internships) and strengthening the activity bullets will materially improve interview chances.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "Projects and any Internship/Experience section are missing; expected for a student and critical to demonstrate applied work."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text appears clean with no interleaved fragments, odd glyphs, or pseudo-tables."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Activities are written as noun phrases and weak statements rather than action-led bullets that start with verbs."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Resume is very short and unspecific; recent/most-relevant items (projects, internships) are absent so space allocation doesn't surface priorities."
+      },
+      {
+        "dimension": "evidence_portfolio",
+        "note": "No projects or internships listed — this is the single biggest gap for a student candidate."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "section_completeness",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Projects",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "A student resume needs at least one project or internship to show applied skills; without it a reader has nothing to evaluate beyond coursework.",
+        "addedPlaceholders": [],
+        "id": "find-dd8b297e4f"
+      },
+      {
+        "dimension": "evidence_portfolio",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Internships/Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "No internships or relevant practical experience are listed; internships are the primary lever for early-career hiring decisions.",
+        "addedPlaceholders": [],
+        "id": "find-a4c6d23ec4"
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "severity": "improvement",
+        "targetBulletId": null,
+        "targetSection": "Contact",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "The extracted text looks parse-safe, but keep contact fields as plain text (no icons or inline links) to preserve ATS parsing.",
+        "addedPlaceholders": [],
+        "id": "find-1f6437be42"
+      },
+      {
+        "dimension": "evidence_portfolio",
+        "severity": "polish",
+        "targetBulletId": null,
+        "targetSection": "Skills",
+        "originalText": "Java, Python, SQL (coursework level), HTML/CSS, Git, Linux basics",
+        "suggestedText": "Java, Python, SQL (coursework level), HTML/CSS, Git, Linux basics",
+        "reason": "Skills line is fine but will be more persuasive when paired with at least one project that exercises several of these skills.",
+        "addedPlaceholders": [],
+        "id": "find-360592bb55"
+      }
+    ],
+    "projectSuggestions": [
+      {
+        "title": "College Event Registration System",
+        "scope": "Build a web app to register participants for college events with attendee database, simple admin dashboard to view schedules and export CSVs, and a small authentication flow.",
+        "skillDemonstrated": "HTML/CSS, Python (Flask/Django) or Java (Spring Boot), SQL, Git, Linux basics",
+        "groundedIn": "OTHER SECTIONS: volunteered at the annual technical festival helping with event registration and scheduling",
+        "estimatedEffort": "2–4 weeks"
+      },
+      {
+        "title": "Hackathon Project: Team Collaboration Tool",
+        "scope": "Create a lightweight collaboration tool for hackathon teams: task list, shared notes, and a simple real-time chat or activity feed; deploy to a free hosting tier.",
+        "skillDemonstrated": "Java or Python backend, HTML/CSS frontend, Git, basic deployment on Linux",
+        "groundedIn": "SKILLS: Java, Python, HTML/CSS, Git and OTHER SECTIONS: attended two intra-college hackathons",
+        "estimatedEffort": "1–3 weeks"
+      },
+      {
+        "title": "SQL-powered Dataset Explorer",
+        "scope": "Publish a small data explorer that ingests an open dataset, creates an SQL schema, and offers filter/search interfaces and a sample analysis (e.g., summary stats, simple charts).",
+        "skillDemonstrated": "SQL (coursework level), Python for ETL/analysis, HTML/CSS for UI, Git",
+        "groundedIn": "EDUCATION: B.Tech in Computer Science and SKILLS: SQL (coursework level), Python",
+        "estimatedEffort": "1–3 weeks"
+      }
+    ],
+    "internshipGuidance": {
+      "platformIds": [
+        "internshala",
+        "unstop",
+        "linkedin"
+      ],
+      "approach": [
+        "Create one polished project (pick one from the projectSuggestions) and host code on GitHub with a README describing your role, architecture, and setup steps.",
+        "Use project README and hackathon participation as application evidence; in applications, link GitHub and a one-page project summary.",
+        "Apply to 15–30 internships with tailored 2-line intros mentioning your project and relevant coursework; prioritize roles that list required skills you have (Java/Python/SQL).",
+        "Network: message alumni or college seniors on LinkedIn who interned at target companies and ask for a 5–10 minute informational chat, mentioning your project as a discussion point."
+      ],
+      "leverageExisting": "Use your coding club membership and hackathon attendance as talking points and evidence; include the event registration work (volunteer) as a transferable task to internships and as the basis for the suggested web app project."
+    },
+    "resolvedPlatforms": [
+      {
+        "id": "internshala",
+        "name": "Internshala",
+        "url": "https://internshala.com",
+        "notes": "India-specific. The default starting point for student internships in India, including remote and part-time listings aimed at people still studying."
+      },
+      {
+        "id": "unstop",
+        "name": "Unstop",
+        "url": "https://unstop.com",
+        "notes": "India-specific. Competitions and case challenges alongside internships — useful when a student needs portfolio evidence as much as a placement."
+      },
+      {
+        "id": "linkedin",
+        "name": "LinkedIn",
+        "url": "https://www.linkedin.com/jobs",
+        "notes": "Global. Worth using for the networking and referral path as much as the listings — cold applications through it are competitive."
+      }
+    ],
+    "narrativeAssessment": null,
+    "recruiterScan": null,
+    "requirementCoverage": null
+  },
+  "classification": {
+    "persona": "student",
+    "confidence": 0.92,
+    "signals": [
+      "No full-time role found; most recent education entry is marked ongoing (currently enrolled).",
+      "Not enough full-time history to assess a domain switch.",
+      "Region inferred as India from contact/education/role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": "India"
+  }
+}

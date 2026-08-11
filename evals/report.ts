@@ -3,7 +3,15 @@ import { join } from 'node:path';
 import { config } from './config';
 import type { EvalResult } from './lib/report-collector';
 
-const REQUIRED_EVAL_IDS = ['B1', 'B3', 'C3', 'E1', 'F6', 'G1', 'H1', 'I1'] as const;
+const REQUIRED_EVAL_IDS = [
+  // Coaching evals.
+  'B1', 'B3', 'C3', 'E1', 'F6', 'G1', 'H1', 'I1',
+  // Resume-review output invariants — pure code, so these must actually PASS in cheap mode,
+  // not skip. They are the build gate for the no-fabrication rule.
+  'R1', 'R2', 'R3', 'R4', 'R5', 'R6',
+  // Resume-review behaviour — live only, skipped under eval:cheap like the judged evals.
+  'R7', 'R8', 'R9', 'R10', 'R11', 'R12', 'R13',
+] as const;
 const resultsDir = new URL('.results/', import.meta.url).pathname;
 const reportPath = new URL('report.json', import.meta.url).pathname;
 
@@ -72,7 +80,7 @@ export function buildAndPrintReport(): number {
   });
 
   const hardGatePassed = gateFailures.length === 0;
-  console.log(`\nHard gate (all eight must pass): ${hardGatePassed ? 'PASSED' : 'FAILED'}`);
+  console.log(`\nHard gate (${REQUIRED_EVAL_IDS.length} evals): ${hardGatePassed ? 'PASSED' : 'FAILED'}`);
   if (!hardGatePassed) {
     console.log(`Failing: ${gateFailures.join(', ')}`);
   }

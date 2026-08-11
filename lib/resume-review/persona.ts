@@ -84,11 +84,50 @@ export type DerivedSignals = {
   /** Null when no education entry has a determinable end date — "can't tell", never treated as
    * "long ago" or "recent" by the caller. */
   monthsSinceMostRecentEducationEnd: number | null;
+  /** Full-time roles whose length could not be established at all. Treating these as zero is
+   * what produced a confidently-wrong classification in testing (see bucketFromSignals). */
+  rolesWithUnknownDuration: number;
 };
+
+/**
+ * A role's length in months.
+ *
+ * Prefers the value segmentation normalised, but falls back to computing it from the written
+ * dates. That fallback is not defensive padding: segmentation was observed returning
+ * durationMonths on one run of a resume and omitting it on the next, and without a fallback
+ * the same document classified as early_career one time and senior another.
+ *
+ * Returns null when the length genuinely cannot be established, so the caller can lower
+ * confidence rather than silently counting the role as zero.
+ */
+export function roleMonths(
+  role: { durationMonths?: number | null; startDate?: string | null; endDate?: string | null },
+  now: Date = new Date()
+): number | null {
+  if (typeof role.durationMonths === 'number' && role.durationMonths > 0) return role.durationMonths;
+
+  const start = parseResumeDate(role.startDate);
+  if (!start) return null;
+
+  // "Present", "Current", "Now" — an ongoing role ends today.
+  const end = parseResumeDate(role.endDate);
+  const endIndex = end
+    ? end.year * 12 + (end.month ? end.month - 1 : 0)
+    : /present|current|now|ongoing/i.test(role.endDate ?? '')
+      ? now.getFullYear() * 12 + now.getMonth()
+      : null;
+  if (endIndex === null) return null;
+
+  const startIndex = start.year * 12 + (start.month ? start.month - 1 : 0);
+  const months = endIndex - startIndex;
+  return months >= 0 ? months : null;
+}
 
 export function deriveSignals(segment: ResumeSegment, now: Date = new Date()): DerivedSignals {
   const fullTimeRoles = segment.roles.filter((r) => !r.isInternship);
-  const totalFullTimeMonths = fullTimeRoles.reduce((sum, r) => sum + (r.durationMonths ?? 0), 0);
+  const durations = fullTimeRoles.map((role) => roleMonths(role, now));
+  const totalFullTimeMonths = durations.reduce((sum: number, months) => sum + (months ?? 0), 0);
+  const rolesWithUnknownDuration = durations.filter((months) => months === null).length;
 
   const mostRecentEducationIsOngoing = segment.education.some((e) => e.isOngoing);
 
@@ -111,6 +150,7 @@ export function deriveSignals(segment: ResumeSegment, now: Date = new Date()): D
     projectCount: segment.projects.length,
     mostRecentEducationIsOngoing,
     monthsSinceMostRecentEducationEnd,
+    rolesWithUnknownDuration,
   };
 }
 
@@ -170,17 +210,30 @@ function bucketFromSignals(derived: DerivedSignals): BucketResult {
   const years = (derived.totalFullTimeMonths / 12).toFixed(1);
   const baseSignal = `${derived.totalFullTimeMonths} full-time month(s) (~${years} years) across ${derived.fullTimeRoleCount} role(s), excluding ${derived.internshipCount} internship(s).`;
 
+  // A role whose length could not be established counts as zero in the sum above, which drags
+  // the total toward a more junior bucket. Observed live: a five-year engineer classified
+  // early_career at 0.90 confidence because both roles came back without a duration. The
+  // number is still the best guess available, but presenting it confidently is the failure —
+  // capping confidence routes it to the UI's "worth confirming" prompt instead.
+  const unknownPenalty = derived.rolesWithUnknownDuration > 0;
+  const unknownSignal = unknownPenalty
+    ? [
+        `${derived.rolesWithUnknownDuration} of ${derived.fullTimeRoleCount} role(s) had no determinable length, so the total above is a lower bound and this classification is uncertain.`,
+      ]
+    : [];
+  const cap = (confidence: number) => (unknownPenalty ? Math.min(confidence, 0.45) : confidence);
+
   if (derived.totalFullTimeMonths < MID_LEVEL_FLOOR_MONTHS) {
     const nearBoundary = derived.totalFullTimeMonths >= MID_LEVEL_FLOOR_MONTHS - BOUNDARY_FUZZ_MONTHS;
-    return { persona: 'early_career', confidence: nearBoundary ? 0.7 : 0.9, signals: [baseSignal] };
+    return { persona: 'early_career', confidence: cap(nearBoundary ? 0.7 : 0.9), signals: [baseSignal, ...unknownSignal] };
   }
   if (derived.totalFullTimeMonths < SENIOR_FLOOR_MONTHS) {
     const nearLow = derived.totalFullTimeMonths < MID_LEVEL_FLOOR_MONTHS + BOUNDARY_FUZZ_MONTHS;
     const nearHigh = derived.totalFullTimeMonths >= SENIOR_FLOOR_MONTHS - BOUNDARY_FUZZ_MONTHS;
-    return { persona: 'mid_level', confidence: nearLow || nearHigh ? 0.7 : 0.9, signals: [baseSignal] };
+    return { persona: 'mid_level', confidence: cap(nearLow || nearHigh ? 0.7 : 0.9), signals: [baseSignal, ...unknownSignal] };
   }
   const nearBoundary = derived.totalFullTimeMonths < SENIOR_FLOOR_MONTHS + BOUNDARY_FUZZ_MONTHS;
-  return { persona: 'senior', confidence: nearBoundary ? 0.75 : 0.95, signals: [baseSignal] };
+  return { persona: 'senior', confidence: cap(nearBoundary ? 0.75 : 0.95), signals: [baseSignal, ...unknownSignal] };
 }
 
 /* =====================================================================================

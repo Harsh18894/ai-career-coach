@@ -38,6 +38,9 @@ import {
  * for scripts and evals, where no such ceiling applies.
  * ===================================================================================== */
 
+/** Arbitrary but fixed. The value does not matter; holding it constant does. */
+const REVIEW_SEED = 20260811;
+
 export type ReviewRequest = {
   resumeText: string;
   path: ReviewPath;
@@ -115,6 +118,12 @@ export async function reviewPrepared(
       // effort this call timed out twice at 60s without returning a token. The structure is
       // supplied; the model's job is to apply it, not to rediscover it.
       reasoning_effort: 'low',
+      // A fixed seed is a product decision before it is an eval one: a candidate who re-runs a
+      // review on an unchanged resume should not be told something different the second time,
+      // and "the tool contradicted itself" destroys trust faster than any single weak finding.
+      // Best-effort on OpenAI's side rather than a guarantee — measured stability is reported
+      // by the R10 eval rather than assumed here.
+      seed: REVIEW_SEED,
       messages: [
         { role: 'system', content: buildSystemPrompt(promptInput) },
         { role: 'user', content: buildUserPrompt(promptInput) },

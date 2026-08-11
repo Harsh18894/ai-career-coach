@@ -1,0 +1,32 @@
+Meera Kulkarni
+Pune, India | meera.kulkarni@example.com | +91 90000 33333
+github.com/example-meera
+
+EDUCATION
+B.Sc. Computer Science, Deccan Institute of Science
+Expected June 2026
+Relevant coursework: machine learning, databases, web systems, linear algebra
+
+PROJECTS
+
+Transit Delay Predictor
+Built a model predicting bus arrival delays from a public city transit dataset. Cleaned two
+years of GPS ping data, engineered route-and-hour features, and compared a gradient-boosted
+baseline against a simple moving average. Wrote the evaluation harness and a short write-up
+explaining where the model fails.
+Python, pandas, scikit-learn, matplotlib
+
+Campus Marketplace
+Full-stack listing site for second-hand textbooks within the college. Handled auth, image
+upload, and search. Deployed and used by roughly 60 students over one semester.
+React, Node.js, Express, PostgreSQL
+
+Recipe Tagger (coursework)
+Multi-label classifier tagging recipes by cuisine and dietary category from ingredient lists.
+Python, scikit-learn
+
+SKILLS
+Python, JavaScript, SQL, React, Node.js, pandas, scikit-learn, Git, Docker (basic)
+
+ACTIVITIES
+Runs a small reading group on applied ML papers within the department.

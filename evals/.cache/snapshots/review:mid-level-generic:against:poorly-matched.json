@@ -1,0 +1,231 @@
+{
+  "result": {
+    "persona": "mid_level",
+    "careerSwitcher": false,
+    "path": "against_job",
+    "overallRead": "The resume shows a mid-level product marketing professional with consistent roles but is underspecified for impact and for the clinical research role you're asking about. It has the expected sections, but bullets are duties-only, lack measurable outcomes, and do not match the clinical monitoring requirements in the job description.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "All expected sections (Contact, Experience, Education, Skills) are present."
+      },
+      {
+        "dimension": "quantified_impact",
+        "note": "Most bullets list responsibilities without measurable outcomes; mid-level candidates must quantify impact."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text appears coherent and not scrambled; no parsing artifacts observed."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Many bullets open with weak or passive phrases ('Responsible for', 'Worked on', 'Helped'); stronger verbs would improve skim readability."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Recent role has several short, undifferentiated bullets; space does not communicate ownership or scope clearly."
+      },
+      {
+        "dimension": "requirement_coverage",
+        "note": "Resume does not surface the clinical-monitoring skills or credentials the job requires; most job requirements are absent."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-12e787636e-b-b6ea56edda",
+        "targetSection": null,
+        "originalText": "Responsible for product launch communications across the EMEA region.",
+        "suggestedText": "Led product launch communications across the EMEA region, achieving [X outcome or metric].",
+        "reason": "Mid-level candidates must show what their work changed; a responsibility-only bullet reads junior and costs interviews.",
+        "addedPlaceholders": [
+          "[X outcome or metric]"
+        ],
+        "id": "find-1010f02b50"
+      },
+      {
+        "dimension": "requirement_coverage",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Job requires 5+ years of clinical monitoring experience; resume shows 4 years in product marketing and no clinical monitoring — this is a hard mismatch that will prevent a pass on surface review.",
+        "addedPlaceholders": [],
+        "id": "find-23f8a7e3de"
+      },
+      {
+        "dimension": "requirement_coverage",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Education",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Job requires a degree in life sciences, nursing, or related discipline; the candidate's degrees are in Marketing Management and Economics, so the educational requirement is unmet.",
+        "addedPlaceholders": [],
+        "id": "find-2f7b2a2e4f"
+      },
+      {
+        "dimension": "requirement_coverage",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Job asks for detailed working knowledge of ICH-GCP and regulatory frameworks; resume contains no mention of ICH-GCP training or regulatory experience.",
+        "addedPlaceholders": [],
+        "id": "find-23f8a7e3de"
+      },
+      {
+        "dimension": "requirement_coverage",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Job expects experience authoring monitoring visit reports and managing site escalations; resume has no monitoring/reporting or escalation management evidence.",
+        "addedPlaceholders": [],
+        "id": "find-23f8a7e3de"
+      },
+      {
+        "dimension": "requirement_coverage",
+        "severity": "critical",
+        "targetBulletId": null,
+        "targetSection": "Contact",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Job requires willingness to travel up to 60% and a valid driving licence; the resume does not state travel availability or licence status.",
+        "addedPlaceholders": [],
+        "id": "find-ecdbf94209"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "improvement",
+        "targetBulletId": "role-12e787636e-b-2d435f7127",
+        "targetSection": null,
+        "originalText": "Worked on positioning and messaging for two product lines.",
+        "suggestedText": "Developed positioning and messaging for two product lines to support [target audience or objective].",
+        "reason": "Opening with 'Worked on' is weak; a specific active verb shows ownership and reads stronger to a quick scanner.",
+        "addedPlaceholders": [
+          "[target audience or objective]"
+        ],
+        "id": "find-b3bb59c689"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "improvement",
+        "targetBulletId": "role-12e787636e-b-51924f6173",
+        "targetSection": null,
+        "originalText": "Helped with sales enablement materials and competitive briefs.",
+        "suggestedText": "Created sales enablement materials and competitive briefs used by [team size or audience].",
+        "reason": "'Helped with' understates contribution; use a precise verb that says what you actually did.",
+        "addedPlaceholders": [
+          "[team size or audience]"
+        ],
+        "id": "find-6380a301a6"
+      },
+      {
+        "dimension": "signal_to_length",
+        "severity": "improvement",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Recent role bullets are short and duty-focused; expand 2–3 bullets with scope (projects owned), stakeholders, and measurable outcomes to signal seniority.",
+        "addedPlaceholders": [],
+        "id": "find-869286c208"
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "severity": "polish",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "No parsing errors seen in the extracted text, but keep formatting simple (no tables or icons) to ensure ATS safety.",
+        "addedPlaceholders": [],
+        "id": "find-a0d679dd23"
+      }
+    ],
+    "projectSuggestions": null,
+    "internshipGuidance": null,
+    "resolvedPlatforms": null,
+    "narrativeAssessment": null,
+    "recruiterScan": {
+      "whatLandsFirst": "Name, location (Milan), summary 'Product marketing professional with 4 years of experience in B2B software.'",
+      "whatIsMissingUpTop": "Any clinical or life-sciences signals (GCP, monitoring, oncology), and quantified impact or ownership statements.",
+      "fifteenSecondVerdict": "This is a mid-level product marketer; not a match for a Senior Clinical Research Associate role — lacks clinical experience, relevant degree, regulatory/GCP evidence, and monitoring experience.",
+      "worksWell": [
+        "Clear job titles and dates for two consecutive roles at the same company.",
+        "Skills section lists relevant marketing tools and languages."
+      ],
+      "worksAgainst": [
+        "Bullets are duty-focused and lack outcomes.",
+        "No clinical, regulatory, or monitoring keywords evident for the applied role.",
+        "Education is unrelated to life sciences requirement."
+      ]
+    },
+    "requirementCoverage": [
+      {
+        "requirement": "5+ years of clinical monitoring experience within a CRO or pharmaceutical sponsor.",
+        "status": "absent",
+        "evidenceInResume": "No clinical monitoring or CRO/pharma monitoring roles listed; experience is in product marketing ('Product Marketing Manager', 'Marketing Associate').",
+        "howToAddress": "If you have relevant clinical monitoring experience, add exact role(s), employer, dates, and  quantified examples; if not, do not claim this experience — consider applying to roles aligned with product marketing."
+      },
+      {
+        "requirement": "Degree in life sciences, nursing, or a related discipline.",
+        "status": "absent",
+        "evidenceInResume": "Degrees listed: MSc Marketing Management; BA Economics.",
+        "howToAddress": "If you hold any relevant certifications or coursework in life sciences, list them clearly; otherwise this requirement is unmet and will block candidacy for this job."
+      },
+      {
+        "requirement": "Detailed working knowledge of ICH-GCP guidelines and applicable regulatory frameworks.",
+        "status": "absent",
+        "evidenceInResume": "No mention of ICH-GCP, GCP training, or regulatory experience in skills or bullets.",
+        "howToAddress": "If trained or certified in ICH-GCP, add the certificate name and date; if you have applied regulatory frameworks, add a bullet describing the work and context."
+      },
+      {
+        "requirement": "Experience authoring monitoring visit reports and managing site escalations.",
+        "status": "absent",
+        "evidenceInResume": "No monitoring visit report, site escalation, or similar terminology appears in the resume.",
+        "howToAddress": "Add specific bullets showing report authorship, examples of escalations handled, and who you coordinated with, including any metrics (number of sites, time to resolution)."
+      },
+      {
+        "requirement": "Willingness to travel to investigator sites up to 60% of the time.",
+        "status": "absent",
+        "evidenceInResume": "No travel availability or preferences stated.",
+        "howToAddress": "If willing to travel, state 'willing to travel up to 60%' in summary or contact section; include driving licence status if required."
+      },
+      {
+        "requirement": "Valid driving licence.",
+        "status": "absent",
+        "evidenceInResume": "No driving licence mentioned.",
+        "howToAddress": "Add 'Valid driving licence' to Contact or Skills if you have one."
+      },
+      {
+        "requirement": "Nice to have: Oncology therapeutic area experience.",
+        "status": "absent",
+        "evidenceInResume": "No therapeutic area or oncology experience noted.",
+        "howToAddress": "If you have oncology or related experience, add it with details; otherwise accept this as not met."
+      },
+      {
+        "requirement": "Nice to have: Experience with electronic data capture systems such as Medidata Rave.",
+        "status": "absent",
+        "evidenceInResume": "Skills list includes HubSpot, Salesforce, Google Analytics — no EDC systems listed.",
+        "howToAddress": "If you have EDC experience, add tool names and context; do not claim tools you haven't used."
+      }
+    ]
+  },
+  "classification": {
+    "persona": "mid_level",
+    "confidence": 0.9,
+    "signals": [
+      "62 full-time month(s) (~5.2 years) across 2 role(s), excluding 0 internship(s).",
+      "Both roles are in product marketing for B2B software; there is no evidence of a domain switch outside marketing.",
+      "Region could not be inferred from contact, education, or role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": null
+  }
+}

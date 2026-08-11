@@ -1,0 +1,223 @@
+{
+  "result": {
+    "persona": "senior",
+    "careerSwitcher": false,
+    "path": "independent",
+    "overallRead": "The resume lists appropriate sections and shows a steady chronology from junior to senior backend roles, but at a senior (6+ years) bar most bullets are duty statements with no outcomes or scope, so the document reads like a job list rather than a career trajectory. To pass a senior-screen it needs outcome quantification, clearer signals of scope/leadership, and stronger first‑words on key bullets.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "Contact, Experience, and Education are present; Projects and Other sections are intentionally empty but that's acceptable."
+      },
+      {
+        "dimension": "quantified_impact",
+        "note": "Most bullets are responsibilities (no outcomes or metrics). At senior level absence of quantified impact is a critical weakness."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text is plain and sequential with no interleaving or odd glyphs, so no parsing artifacts were observed."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Many bullets open with generic verbs (Develop, Write, Participate, Fix) rather than stronger, specific impact verbs or leadership phrasing."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Recent role has only five generic bullets—insufficient space for a senior 4-year role; older roles are appropriately shorter but overall the resume underweights the most recent, most senior experience."
+      },
+      {
+        "dimension": "narrative_coherence",
+        "note": "Chronology shows progression from Junior to Backend Developer, but lack of quantification or scope makes it hard to see increased responsibility, technical leadership, or cross-team influence."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-84c7a0e8ba-b-51c0fcf6b1",
+        "targetSection": null,
+        "originalText": "Develop and maintain REST APIs using Java and Spring Boot.",
+        "suggestedText": "Develop and maintain REST APIs using Java and Spring Boot, improving [response time/throughput/availability] by [X%] or supporting [N] downstream clients/users.",
+        "reason": "A senior role's API work should state measurable outcomes (performance, reliability, usage) so readers can assess impact and scale.",
+        "addedPlaceholders": [
+          "[response time/throughput/availability]",
+          "[X%]",
+          "[N]"
+        ],
+        "id": "find-36b38478d9"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-84c7a0e8ba-b-a90d14ff76",
+        "targetSection": null,
+        "originalText": "Write unit and integration tests for new features.",
+        "suggestedText": "Write unit and integration tests for new features, increasing test coverage to [X%] and reducing regressions/bugs by [Y%].",
+        "reason": "Testing work at senior level should show the result (coverage, defect reduction) not just the activity.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y%]"
+        ],
+        "id": "find-d0541afdfd"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-84c7a0e8ba-b-fd43c358a1",
+        "targetSection": null,
+        "originalText": "Fix defects reported by QA and support teams.",
+        "suggestedText": "Fix defects reported by QA and support teams, reducing mean time to resolution (MTTR) to [X hours/days] and decreasing ticket backlog by [Y%].",
+        "reason": "Bug-fixing should be framed as operational impact (MTTR, backlog, customer satisfaction) at senior level.",
+        "addedPlaceholders": [
+          "[X hours/days]",
+          "[Y%]"
+        ],
+        "id": "find-ea2eda11e4"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-84c7a0e8ba-b-f8986c13ad",
+        "targetSection": null,
+        "originalText": "Work with PostgreSQL, including writing queries and stored procedures.",
+        "suggestedText": "Work with PostgreSQL, including writing queries and stored procedures that improved query performance by [X%] or supported [N] concurrent users/transactions.",
+        "reason": "Database work needs outcomes (performance, scale, cost) to demonstrate senior-level impact.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[N]"
+        ],
+        "id": "find-bbab03abe3"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-cbb3430445-b-e0be56821d",
+        "targetSection": null,
+        "originalText": "Developed REST APIs using Java and Spring.",
+        "suggestedText": "Developed REST APIs using Java and Spring to support [N] users or [X] requests/day, improving [latency/throughput/feature delivery] by [Y%].",
+        "reason": "Past API work without scale or outcome metrics doesn't demonstrate impact for a senior candidate.",
+        "addedPlaceholders": [
+          "[N]",
+          "[X]",
+          "[latency/throughput/feature delivery]",
+          "[Y%]"
+        ],
+        "id": "find-f8b229aa43"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "improvement",
+        "targetBulletId": "role-84c7a0e8ba-b-233e6b056d",
+        "targetSection": null,
+        "originalText": "Participate in code reviews and sprint planning.",
+        "suggestedText": "Lead code reviews and sprint planning for the [team/component], driving [X] quality improvements and ensuring delivery of [Y] features per sprint.",
+        "reason": "‘Participate’ reads junior; at senior level show leadership or influence in these rituals and the outcomes they produced.",
+        "addedPlaceholders": [
+          "[team/component]",
+          "[X]",
+          "[Y]"
+        ],
+        "id": "find-2728a2b041"
+      },
+      {
+        "dimension": "signal_to_length",
+        "severity": "improvement",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "The most recent, senior role has only five short, generic bullets; expand this section with quantified accomplishments, scope (team size, systems), and examples of leadership to properly signal priority.",
+        "addedPlaceholders": [],
+        "id": "find-869286c208"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "improvement",
+        "targetBulletId": "role-cbb3430445-b-214fe88b46",
+        "targetSection": null,
+        "originalText": "Wrote unit tests and participated in code reviews.",
+        "suggestedText": "Authored unit tests and drove code-review standards that led to [X%] fewer post-release defects or faster code review cycles.",
+        "reason": "Swap the passive 'participated' for a statement of ownership and the result to show senior influence.",
+        "addedPlaceholders": [
+          "[X%]"
+        ],
+        "id": "find-c034ab0f66"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "improvement",
+        "targetBulletId": "role-cbb3430445-b-8e727aa738",
+        "targetSection": null,
+        "originalText": "Maintained PostgreSQL databases and wrote queries.",
+        "suggestedText": "Maintained PostgreSQL databases and wrote queries that improved reporting speed or reduced maintenance time by [X%].",
+        "reason": "State how database maintenance improved operations or performance rather than just listing tasks.",
+        "addedPlaceholders": [
+          "[X%]"
+        ],
+        "id": "find-b974da5507"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "improvement",
+        "targetBulletId": "role-ed5907682b-b-d82c50883b",
+        "targetSection": null,
+        "originalText": "Developed backend services in Java.",
+        "suggestedText": "Developed backend services in Java that supported [X] features or handled [Y] transactions/day.",
+        "reason": "Even older technical bullets should include scale or outcome to be meaningful.",
+        "addedPlaceholders": [
+          "[X]",
+          "[Y]"
+        ],
+        "id": "find-8155cbe2f0"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "polish",
+        "targetBulletId": "role-ed5907682b-b-7f88b0ee27",
+        "targetSection": null,
+        "originalText": "Wrote tests and participated in code reviews.",
+        "suggestedText": "Wrote tests and led code-review efforts to improve quality and reduce regressions.",
+        "reason": "'Participated' is weaker than 'led' or 'drove' when the candidate had ownership; use stronger verbs where true.",
+        "addedPlaceholders": [],
+        "id": "find-15744d39b0"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "polish",
+        "targetBulletId": "role-bad49d1e93-b-c5ad332af8",
+        "targetSection": null,
+        "originalText": "Assisted with development of backend components in Java.",
+        "suggestedText": "Assisted with development of backend components in Java, contributing to delivery of [X] features/release or reducing [Y] defects.",
+        "reason": "Junior-role assistance is fine, but even here a small outcome helps show contribution.",
+        "addedPlaceholders": [
+          "[X]",
+          "[Y]"
+        ],
+        "id": "find-cdaca3fdc2"
+      }
+    ],
+    "projectSuggestions": null,
+    "internshipGuidance": null,
+    "resolvedPlatforms": null,
+    "narrativeAssessment": {
+      "progression": "The chronology cleanly progresses from Junior Java Developer to Backend Developer at multiple companies over 12 years, which reads as a standard career ladder.",
+      "scopeGrowth": "Explicit scope growth (team size, ownership, architecture decisions, cross-team impact) is not shown — bullets lack evidence of increasing responsibility beyond job titles.",
+      "spaceAllocation": "The resume underweights the most recent 4-year role (only five short, generic bullets) instead of expanding it with senior-level accomplishments; older roles are appropriately shorter.",
+      "influenceBeyondDelivery": "There is little explicit evidence of influence beyond individual delivery (mentorship, technical direction, process improvements) in the bullets.",
+      "overall": "The role sequence is plausible, but without quantified impact or clearer signals of leadership the resume fails to tell a coherent senior-level story; adding metrics, scope, and outcomes in the recent role will materially improve it."
+    },
+    "recruiterScan": null,
+    "requirementCoverage": null
+  },
+  "classification": {
+    "persona": "senior",
+    "confidence": 0.95,
+    "signals": [
+      "166 full-time month(s) (~13.8 years) across 4 role(s), excluding 0 internship(s).",
+      "Domain consistency: all roles are in backend software development (Java, Spring) with relational databases, showing no switch to a different field.",
+      "Region could not be inferred from contact, education, or role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": null
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "result": {
+    "persona": "mid_level",
+    "careerSwitcher": false,
+    "path": "independent",
+    "overallRead": "The resume communicates relevant product-marketing experience but reads junior for a mid-level (2–6 yr) candidate because almost every role-line is duty-focused and lacks measurable outcomes. Sections expected at this stage are present, but bullets need stronger action verbs and quantified impact; tightening those will materially improve interview chances. Next step: pick a target role and replace duty statements with outcome-framed bullets that include concrete metrics.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "All expected sections (Contact, Experience, Education, Skills) are present."
+      },
+      {
+        "dimension": "quantified_impact",
+        "note": "Most bullets are duty statements with no outcome metrics; for a mid-level candidate this is the primary barrier to appearing senior."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text appears clean with no interleaved columns, pseudo-tables, or unusual glyphs that would break ATS parsing."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Many bullets start with weak/passive openers (Responsible for, Worked on, Helped, Involved, Assisted); stronger leading verbs would improve skim/read."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Recent role has reasonable bullet count but lacks depth; overall resume is short and should reallocate space to quantified, high-impact accomplishments."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-d49c1dfc5b-b-b6ea56edda",
+        "targetSection": null,
+        "originalText": "Responsible for product launch communications across the EMEA region.",
+        "suggestedText": "Led product launch communications across the EMEA region, resulting in [X% increase in awareness] and generating [Y] qualified leads.",
+        "reason": "A duty statement; hiring managers need the measurable outcome of your communications work to judge scope and impact.",
+        "addedPlaceholders": [
+          "[X% increase in awareness]",
+          "[Y]"
+        ],
+        "id": "find-6a095c4574"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-d49c1dfc5b-b-2d435f7127",
+        "targetSection": null,
+        "originalText": "Worked on positioning and messaging for two product lines.",
+        "suggestedText": "Owned positioning and messaging for two product lines, improving win rate by [X%] in target accounts and shortening sales cycle by [Y] days.",
+        "reason": "Doesn't state ownership or outcomes; quantify how messaging changed buyer behavior or sales results.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y]"
+        ],
+        "id": "find-fdef338dbc"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-d49c1dfc5b-b-51924f6173",
+        "targetSection": null,
+        "originalText": "Helped with sales enablement materials and competitive briefs.",
+        "suggestedText": "Created sales enablement materials and competitive briefs that enabled sellers to close [X%] more deals in competitive situations and reduced ramp time by [Y] weeks.",
+        "reason": "‘Helped with’ is a duty and lacks impact; buyers need evidence of effectiveness and ownership.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y]"
+        ],
+        "id": "find-a7a41fb62b"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-d49c1dfc5b-b-aa3a0ee92a",
+        "targetSection": null,
+        "originalText": "Involved in customer research interviews.",
+        "suggestedText": "Designed and conducted customer research interviews that informed [X] product decisions and increased feature adoption by [Y%].",
+        "reason": "Vague participation claim; quantify findings and the product or business changes they enabled.",
+        "addedPlaceholders": [
+          "[X]",
+          "[Y%]"
+        ],
+        "id": "find-aa78bb58a7"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-d49c1dfc5b-b-4ecd9e5320",
+        "targetSection": null,
+        "originalText": "Assisted the demand generation team with campaign copy.",
+        "suggestedText": "Wrote campaign copy for demand generation that improved click-through rate by [X%] and contributed to [Y] MQLs.",
+        "reason": "‘Assisted’ and no metric; tie copy work to concrete campaign performance.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y]"
+        ],
+        "id": "find-bf2f11a3a3"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-09d815047e-b-9ed3267f51",
+        "targetSection": null,
+        "originalText": "Supported the marketing team with content production.",
+        "suggestedText": "Produced content (blog, whitepapers) that drove [X%] more organic traffic and contributed to [Y] leads per month.",
+        "reason": "Generic support statement; quantify reach and lead generation impact of content work.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y]"
+        ],
+        "id": "find-82f75ad78c"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-09d815047e-b-290db9cacc",
+        "targetSection": null,
+        "originalText": "Managed the company blog and social media calendar.",
+        "suggestedText": "Managed company blog and social calendar, increasing blog sessions by [X%] and social engagement by [Y%].",
+        "reason": "Management duties need outcome metrics showing audience growth or engagement.",
+        "addedPlaceholders": [
+          "[X%]",
+          "[Y%]"
+        ],
+        "id": "find-f39d223ef5"
+      },
+      {
+        "dimension": "quantified_impact",
+        "severity": "critical",
+        "targetBulletId": "role-09d815047e-b-7abdf57396",
+        "targetSection": null,
+        "originalText": "Helped organise webinars and trade show presence.",
+        "suggestedText": "Organised webinars and trade show presence that generated [X] leads and supported [Y] sales opportunities.",
+        "reason": "‘Helped organise’ is vague; tie event work to lead/sales outcomes and your role in driving them.",
+        "addedPlaceholders": [
+          "[X]",
+          "[Y]"
+        ],
+        "id": "find-2d4343a254"
+      },
+      {
+        "dimension": "signal_to_length",
+        "severity": "improvement",
+        "targetBulletId": null,
+        "targetSection": "Experience",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "The resume is short and under-leverages the candidate's 4 years; expand Experience with 1–2 quantified achievements per role instead of duties to signal scope.",
+        "addedPlaceholders": [],
+        "id": "find-869286c208"
+      }
+    ],
+    "projectSuggestions": null,
+    "internshipGuidance": null,
+    "resolvedPlatforms": null,
+    "narrativeAssessment": null,
+    "recruiterScan": null,
+    "requirementCoverage": null
+  },
+  "classification": {
+    "persona": "mid_level",
+    "confidence": 0.9,
+    "signals": [
+      "62 full-time month(s) (~5.2 years) across 2 role(s), excluding 0 internship(s).",
+      "Domains are consistent: all roles listed are in product marketing/marketing within the software/B2B domain; no switch to a different domain is evident.",
+      "Region could not be inferred from contact, education, or role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": null
+  }
+}

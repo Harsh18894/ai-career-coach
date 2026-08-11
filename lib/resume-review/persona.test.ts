@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveSignals, inferRegion, parseResumeDate, needsPersonaConfirmation } from './persona';
+import { deriveSignals, inferRegion, parseResumeDate, needsPersonaConfirmation, roleMonths } from './persona';
 import { platformsForRegion } from './opportunity-platforms';
 import type { ResumeSegment, Role, Education } from './schemas';
 
@@ -70,6 +70,39 @@ describe('parseResumeDate', () => {
   });
 });
 
+describe('roleMonths', () => {
+  const now = new Date('2026-08-01T00:00:00Z');
+
+  it('prefers the normalised duration when segmentation supplied one', () => {
+    expect(roleMonths({ durationMonths: 30, startDate: '2020', endDate: '2021' }, now)).toBe(30);
+  });
+
+  it('falls back to the written dates when the duration is missing', () => {
+    // Segmentation was observed returning durationMonths on one run of a resume and omitting
+    // it on the next; without this fallback the same document classified two different ways.
+    expect(roleMonths({ durationMonths: null, startDate: 'June 2020', endDate: 'April 2022' }, now)).toBe(22);
+  });
+
+  it('treats an ongoing role as running to today', () => {
+    expect(roleMonths({ durationMonths: null, startDate: 'May 2022', endDate: 'Present' }, now)).toBe(51);
+  });
+
+  it('handles the messy combined form segmentation sometimes emits', () => {
+    expect(
+      roleMonths({ durationMonths: null, startDate: 'May 2022 – Present (3 years)', endDate: 'Present (3 years)' }, now)
+    ).toBe(51);
+  });
+
+  it('returns null when the length genuinely cannot be established', () => {
+    expect(roleMonths({ durationMonths: null, startDate: null, endDate: null }, now)).toBeNull();
+    expect(roleMonths({ durationMonths: null, startDate: 'June 2020', endDate: 'later' }, now)).toBeNull();
+  });
+
+  it('ignores a nonsensical negative span rather than subtracting from the total', () => {
+    expect(roleMonths({ durationMonths: null, startDate: '2024', endDate: '2020' }, now)).toBeNull();
+  });
+});
+
 describe('deriveSignals', () => {
   const now = new Date('2026-01-01T00:00:00Z');
 
@@ -103,9 +136,22 @@ describe('deriveSignals', () => {
     expect(derived.projectCount).toBe(1);
   });
 
-  it('treats a missing durationMonths as zero rather than crashing', () => {
-    const segment = makeSegment({ roles: [makeRole({ durationMonths: null })] });
-    expect(deriveSignals(segment, now).totalFullTimeMonths).toBe(0);
+  it('recovers a missing durationMonths from the written dates', () => {
+    const segment = makeSegment({
+      roles: [makeRole({ durationMonths: null, startDate: 'January 2024', endDate: 'January 2025' })],
+    });
+    const derived = deriveSignals(segment, now);
+    expect(derived.totalFullTimeMonths).toBe(12);
+    expect(derived.rolesWithUnknownDuration).toBe(0);
+  });
+
+  it('counts a role whose length cannot be established, instead of silently scoring it zero', () => {
+    const segment = makeSegment({
+      roles: [makeRole({ durationMonths: null, startDate: null, endDate: null })],
+    });
+    const derived = deriveSignals(segment, now);
+    expect(derived.totalFullTimeMonths).toBe(0);
+    expect(derived.rolesWithUnknownDuration).toBe(1);
   });
 
   it('measures recency from the most recent completed education', () => {

@@ -13,7 +13,10 @@ if (isCheap()) {
   console.log('=== Career Coach Evals: CHEAP mode ===');
   console.log('Zero API calls. B1 + the programmatic pre-checks of C3/E1/F6/G1/I1, plus H1\'s always-on');
   console.log('canRecommend hard-gate unit test, run with no snapshot dependency at all; B3 and the');
-  console.log('judged portions of C3/E1/F6/G1/H1/I1 are skipped by design.\n');
+  console.log('judged portions of C3/E1/F6/G1/H1/I1 are skipped by design.');
+  console.log('Resume review: R1-R6 run FULLY here against committed snapshots — they are pure code,');
+  console.log('so the no-fabrication gate is enforced on every cheap run. R7-R13 need live behaviour');
+  console.log('and are skipped.\n');
 } else {
   // Static estimate of the call graph (coach calls dedupe across evals via the run cache,
   // judge calls run config.voteCount times each):
@@ -30,13 +33,21 @@ if (isCheap()) {
   //           L1 uses a hand-built fixture (no resume) — 1 nextGuidedProfileQuestionFull (1).
   //           -> ~19 coach calls.
   //   judge:  B3 + C3 + E1 + F6 + G1 + H1 + I1 + J1 + K1 + L1 each run 1 judged check x voteCount -> 10 * voteCount.
+  //   review: R1-R6 share 7 pipeline runs; R7 adds ~9 classify-only runs (prepare, no review);
+  //           R8/R9/R11/R13 reuse those 7 via the run cache; R10 adds 2 more full runs (the
+  //           same resume twice, deliberately not deduped); R12 is one prepare that refuses;
+  //           R13 adds 1 against-job run. Each full run is segment + classify + review.
   const coachCallEstimate = 19;
   const judgeCallEstimate = 10 * config.voteCount;
+  const reviewRunEstimate = 12; // full pipeline runs (3 model calls each)
+  const reviewClassifyEstimate = 10; // prepare-only runs (2 model calls each)
   console.log('=== Career Coach Evals: FULL mode ===');
   console.log(`Estimated calls this run: ~${coachCallEstimate} coach (OpenAI, model in lib/ai/coach.ts) `);
   console.log(`                          + ~${judgeCallEstimate} judge (OpenAI, ${config.judgeModel}, ${config.voteCount}x majority vote)`);
-  console.log(`                          = ~${coachCallEstimate + judgeCallEstimate} total API calls.`);
-  console.log('gpt-5-nano is very cheap per call; the larger cost driver is call count, not price/call.\n');
+  console.log(`                          + ~${reviewRunEstimate} resume-review pipeline runs and ~${reviewClassifyEstimate} classify-only runs`);
+  console.log(`                            (~${reviewRunEstimate * 3 + reviewClassifyEstimate * 2} further model calls, and the main cost driver of a full run)`);
+  console.log('gpt-5-nano is very cheap per call; the review calls use gpt-5-mini and cost more.');
+  console.log('Expect roughly $0.20-0.30 for a full run.\n');
 }
 
 const vitestResult = spawnSync(

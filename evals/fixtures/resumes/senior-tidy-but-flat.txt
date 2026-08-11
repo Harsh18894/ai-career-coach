@@ -1,0 +1,44 @@
+Martin Vogel
+Hamburg, Germany | martin.vogel@example.com | +49 170 0000000
+
+SUMMARY
+Backend developer with 12 years of experience across several companies, working with Java,
+Spring, and relational databases.
+
+EXPERIENCE
+
+Backend Developer
+Nordwind Systems — Hamburg, Germany
+April 2021 – Present (4 years)
+- Develop and maintain REST APIs using Java and Spring Boot.
+- Write unit and integration tests for new features.
+- Participate in code reviews and sprint planning.
+- Fix defects reported by QA and support teams.
+- Work with PostgreSQL, including writing queries and stored procedures.
+
+Backend Developer
+Elbe Software GmbH — Hamburg, Germany
+February 2017 – March 2021 (4 years 1 month)
+- Developed REST APIs using Java and Spring.
+- Wrote unit tests and participated in code reviews.
+- Maintained PostgreSQL databases and wrote queries.
+- Fixed bugs and handled support tickets.
+
+Java Developer
+Rheinbach IT Services — Cologne, Germany
+September 2013 – January 2017 (3 years 4 months)
+- Developed backend services in Java.
+- Wrote tests and participated in code reviews.
+- Worked with MySQL databases.
+
+Junior Java Developer
+Rheinbach IT Services — Cologne, Germany
+August 2012 – September 2013 (1 year 1 month)
+- Assisted with development of backend components in Java.
+- Wrote unit tests under supervision.
+
+EDUCATION
+Diplom-Informatiker, Technische Universität Rheinland — 2012
+
+SKILLS
+Java, Spring, Spring Boot, Hibernate, PostgreSQL, MySQL, Maven, Git, Jenkins, REST, JUnit

@@ -1,0 +1,82 @@
+{
+  "result": {
+    "persona": "student",
+    "careerSwitcher": false,
+    "path": "independent",
+    "overallRead": "This is a solid early-career resume: clear contact, ongoing degree with expected graduation, two short internships and two projects that demonstrate relevant technical work. The file reads cleanly for automated systems and shows appropriate skills. Focus next on tightening verb strength, adding brief outcome/links for projects, and making a small wording polish to better lead with impact words.",
+    "dimensionNotes": [
+      {
+        "dimension": "section_completeness",
+        "note": "All expected sections for a student (Contact, Education with graduation date, Projects, Skills, and Internships/Experience) are present."
+      },
+      {
+        "dimension": "ats_parse_safety",
+        "note": "Extracted text is clean — no interleaved fragments, pseudo-tables, or private-use glyphs detected."
+      },
+      {
+        "dimension": "action_verb_strength",
+        "note": "Most bullets start with verbs, but a couple use weaker phrasing ('Took part in...') or passive phrasing that could be tightened."
+      },
+      {
+        "dimension": "signal_to_length",
+        "note": "Recent internship (Halcyon) and projects receive reasonable space; the Exam Timetable project is concise and could use a short outcome or link to balance emphasis."
+      },
+      {
+        "dimension": "evidence_portfolio",
+        "note": "There are both internships and projects, which is good evidence for this stage — adding repo links and one-line outcomes will strengthen credibility."
+      }
+    ],
+    "findings": [
+      {
+        "dimension": "action_verb_strength",
+        "severity": "improvement",
+        "targetBulletId": "role-1bb5cfb89f-b-71388128ff",
+        "targetSection": null,
+        "originalText": "Took part in on-call shadowing for four weeks.",
+        "suggestedText": "Shadowed on-call rotations for four weeks.",
+        "reason": "Leads with a stronger verb and reads as active participation rather than a passive phrase, which helps skim readers.",
+        "addedPlaceholders": [],
+        "id": "find-410410d6f5"
+      },
+      {
+        "dimension": "evidence_portfolio",
+        "severity": "improvement",
+        "targetBulletId": null,
+        "targetSection": "Projects",
+        "originalText": "",
+        "suggestedText": null,
+        "reason": "Projects are relevant and technical, but neither project lists a repository link or one-line result; add GitHub links and one-line outcomes to let reviewers verify and assess quality quickly.",
+        "addedPlaceholders": [],
+        "id": "find-f76060d7e6"
+      },
+      {
+        "dimension": "action_verb_strength",
+        "severity": "polish",
+        "targetBulletId": "role-55748f98c1-b-d4e5e0ea17",
+        "targetSection": null,
+        "originalText": "Fixed accessibility issues flagged by an automated audit.",
+        "suggestedText": "Remediated accessibility issues flagged by an automated audit.",
+        "reason": "A stronger, more specific verb ('Remediated') improves first-word impact and reads more technically precise.",
+        "addedPlaceholders": [],
+        "id": "find-fec1ea1847"
+      }
+    ],
+    "projectSuggestions": null,
+    "internshipGuidance": null,
+    "resolvedPlatforms": null,
+    "narrativeAssessment": null,
+    "recruiterScan": null,
+    "requirementCoverage": null
+  },
+  "classification": {
+    "persona": "student",
+    "confidence": 0.92,
+    "signals": [
+      "No full-time role found; most recent education entry is marked ongoing (currently enrolled).",
+      "Not enough full-time history to assess a domain switch.",
+      "Region inferred as United Kingdom from contact/education/role location."
+    ],
+    "careerSwitcher": false,
+    "inferredRegion": "United Kingdom"
+  }
+}

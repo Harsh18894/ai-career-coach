@@ -332,7 +332,23 @@ export function postValidateReview(input: PostValidateInput): PostValidationRepo
 
   /* -- persona gating, enforced in code, never by prompt -------------------------------- */
 
-  const evidenceAllowed = allowsEvidenceGuidance(persona);
+  // Rubric §3.2 branch 4: a candidate who already has BOTH projects and internships gets a
+  // normal review at their bar, not a manufactured gap. Enforced here rather than trusted to
+  // the prompt for the same reason as every other gating rule — observed live, the model
+  // handed internship guidance to a student who already had two internships.
+  const hasProjects = segment.projects.length > 0;
+  const hasInternships = segment.roles.some((role) => role.isInternship);
+  const evidenceGapExists = !(hasProjects && hasInternships);
+
+  const evidenceAllowed = allowsEvidenceGuidance(persona) && evidenceGapExists;
+
+  if (allowsEvidenceGuidance(persona) && !evidenceGapExists && (output.projectSuggestions?.length || output.internshipGuidance)) {
+    dropped.push({
+      kind: 'finding',
+      reason: 'dimension-not-active-for-persona',
+      detail: 'evidence guidance stripped: this candidate already has both projects and internships, so there is no gap to fill.',
+    });
+  }
 
   let projectSuggestions = evidenceAllowed ? output.projectSuggestions ?? null : null;
   if (projectSuggestions && projectSuggestions.length > 3) projectSuggestions = projectSuggestions.slice(0, 3);
