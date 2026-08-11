@@ -18,6 +18,8 @@ export const ERROR_CODES = [
   'INVALID_OUTPUT',
   'RESUME_PARSE_FAILED',
   'JOB_FETCH_FAILED',
+  'INVALID_REQUEST',
+  'SESSION_LIMIT_REACHED',
   'UNKNOWN',
 ] as const;
 
@@ -59,6 +61,13 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     "We couldn't read any text from that PDF. If it's a scan or an image, paste your resume text instead.",
   JOB_FETCH_FAILED:
     "We couldn't read that link. Many job sites block automated access — paste the job description text instead and everything else works the same.",
+  // Deliberately vague about WHICH rule was broken. A malformed request is almost always this
+  // app's own client having a bug, and the one case where a person caused it — pasting
+  // something enormous — is given specific copy at the call site via failWith's `message`.
+  INVALID_REQUEST:
+    "That request couldn't be processed as sent. If you were typing or pasting something very long, try trimming it; otherwise reloading the page usually clears it.",
+  SESSION_LIMIT_REACHED:
+    'This session has reached the usage ceiling for the demo. Everything so far is saved — start a new session to keep going.',
   UNKNOWN: 'Aria ran into an unexpected problem on that step. Your conversation is saved — try that again.',
 };
 
@@ -74,6 +83,11 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   // site simply cannot be read from. Treating it as an upstream error would imply something
   // is broken here, and would invite the client to retry rather than to paste.
   JOB_FETCH_FAILED: 422,
+  // 400 covers the lot — wrong content type, unparseable JSON, a body over the cap, a field
+  // over its cap. Splitting these into 415/413/422 would tell an abusive caller exactly which
+  // wall they hit and tells a legitimate client nothing it can act on differently.
+  INVALID_REQUEST: 400,
+  SESSION_LIMIT_REACHED: 429,
   UNKNOWN: 500,
 };
 

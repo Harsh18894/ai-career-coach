@@ -1,7 +1,14 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type OpenAI from 'openai';
 import { Redis } from '@upstash/redis';
-import { RATE_LIMIT_CONFIG, dailySpendKey } from './rate-limit';
+import {
+  RATE_LIMIT_CONFIG,
+  dailySpendKey,
+  sessionCallsKey,
+  sessionTokensKey,
+  SESSION_COUNTER_TTL_SECONDS,
+} from './rate-limit';
+import { sessionIdFromRequest } from './session-id';
 import { classifyUpstreamError } from './errors';
 
 /* =====================================================================================
@@ -129,10 +136,11 @@ export function currentContextCostUsd(): number {
 
 /** Reads session identity off the request headers set by lib/session.ts. */
 export function telemetryContextFromRequest(request: Request, route: string): TelemetryContext {
-  const sessionId = request.headers.get('x-aria-session-id')?.trim();
   const sampleId = request.headers.get('x-aria-sample-id')?.trim();
   return {
-    sessionId: sessionId && sessionId.length <= 64 ? sessionId : 'unattributed',
+    // Shared with lib/rate-limit.ts's session ceilings, so the id this attributes cost to and
+    // the id that gets limited are always the same one.
+    sessionId: sessionIdFromRequest(request),
     route,
     isSample: request.headers.get('x-aria-sample') === '1',
     ...(sampleId && sampleId.length <= 64 ? { sampleId } : {}),
@@ -217,8 +225,7 @@ export function sessionCostKey(sessionId: string): string {
  * model calls, and a dropped increment would understate the budget the cap depends on. Any
  * failure is logged and swallowed — telemetry must not break a request.
  */
-async function recordSpend(sessionId: string, costUsd: number): Promise<void> {
-  if (costUsd <= 0) return;
+async function recordSpend(sessionId: string, costUsd: number, tokens: number): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
@@ -227,12 +234,28 @@ async function recordSpend(sessionId: string, costUsd: number): Promise<void> {
     const dayKey = dailySpendKey();
 
     const pipeline = redis.pipeline();
-    pipeline.incrbyfloat(sessionKey, costUsd);
-    pipeline.expire(sessionKey, SESSION_COST_TTL_SECONDS);
-    // Sample sessions still count against the daily budget — they cost real money — even
-    // though they are excluded from usage metrics by the isSample flag on each log line.
-    pipeline.incrbyfloat(dayKey, costUsd);
-    pipeline.expire(dayKey, DAILY_SPEND_TTL_SECONDS);
+
+    if (costUsd > 0) {
+      pipeline.incrbyfloat(sessionKey, costUsd);
+      pipeline.expire(sessionKey, SESSION_COST_TTL_SECONDS);
+      // Sample sessions still count against the daily budget — they cost real money — even
+      // though they are excluded from usage metrics by the isSample flag on each log line.
+      pipeline.incrbyfloat(dayKey, costUsd);
+      pipeline.expire(dayKey, DAILY_SPEND_TTL_SECONDS);
+    }
+
+    // The per-session ceilings lib/rate-limit.ts enforces. Counted even for a zero-cost call
+    // (an unpriced model, a cached completion): the call count is a measure of activity, and a
+    // loop that costs nothing per iteration is still a loop.
+    const callsKey = sessionCallsKey(sessionId);
+    const tokensKey = sessionTokensKey(sessionId);
+    pipeline.incr(callsKey);
+    pipeline.expire(callsKey, SESSION_COUNTER_TTL_SECONDS);
+    if (tokens > 0) {
+      pipeline.incrby(tokensKey, tokens);
+      pipeline.expire(tokensKey, SESSION_COUNTER_TTL_SECONDS);
+    }
+
     await pipeline.exec();
   } catch (error) {
     console.error('[telemetry] failed to record spend:', error);
@@ -309,7 +332,7 @@ async function finish(
 
   context.accumulatedCostUsd = (context.accumulatedCostUsd ?? 0) + estimatedCostUsd;
 
-  await recordSpend(context.sessionId, estimatedCostUsd);
+  await recordSpend(context.sessionId, estimatedCostUsd, promptTokens + completionTokens);
 }
 
 function finishWithError(call: string, model: string, startedAt: number, streamed: boolean, error: unknown): void {

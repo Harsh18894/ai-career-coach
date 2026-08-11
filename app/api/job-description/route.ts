@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { enforceLimits } from '@/lib/rate-limit';
 import { errorResponse, failWith } from '@/lib/api-response';
+import { readJsonBody, summarizeZodError } from '@/lib/request-guard';
 import { ingestJobUrl } from '@/lib/job-ingest';
 
 // node:dns, used by the SSRF guard to resolve and inspect the target's addresses, is not
@@ -11,7 +12,9 @@ export const runtime = 'nodejs';
 // Bounded by the ingest timeout plus redirects, nowhere near the model routes' budget.
 export const maxDuration = 30;
 
-const BodySchema = z.object({ url: z.string().min(1) });
+// 2,048 is the practical ceiling browsers and servers agree on for a URL; anything longer is
+// not a job link, and the SSRF guard should not be handed unbounded strings to parse.
+const BodySchema = z.object({ url: z.string().min(1).max(2_048) });
 
 /**
  * Fetches a job posting from a user-supplied URL.
@@ -31,10 +34,11 @@ export async function POST(request: NextRequest) {
     const limited = await enforceLimits(request, { jobFetch: true, llm: false });
     if (limited) return limited;
 
-    const body = await request.json();
+    // A URL is tiny; there is no reason for this route to accept a body measured in kilobytes.
+    const body = await readJsonBody(request, { maxBytes: 8 * 1024 });
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
-      return failWith('UNKNOWN', { detail: `job-description: invalid body — ${parsed.error.message}` });
+      return failWith('INVALID_REQUEST', { detail: `job-description: ${summarizeZodError(parsed.error.message)}` });
     }
 
     const result = await ingestJobUrl(parsed.data.url);

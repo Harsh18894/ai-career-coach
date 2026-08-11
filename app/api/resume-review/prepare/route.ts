@@ -8,13 +8,17 @@ import {
   currentContextCostUsd,
 } from '@/lib/telemetry';
 import { errorResponse, failWith } from '@/lib/api-response';
+import { LIMITS } from '@/lib/limits';
+import { readJsonBody, summarizeZodError } from '@/lib/request-guard';
 import { prepareReview } from '@/lib/resume-review';
 import { storePreparedReview } from '@/lib/resume-review/prepared-cache';
 import { MIN_RESUME_CHARS } from '@/lib/resume-review/route-helpers';
 
 export const maxDuration = 60;
 
-const BodySchema = z.object({ resumeText: z.string().min(MIN_RESUME_CHARS) });
+const BodySchema = z.object({
+  resumeText: z.string().min(MIN_RESUME_CHARS).max(LIMITS.maxResumeChars),
+});
 
 /**
  * First half of the review: segment the resume and classify the persona.
@@ -29,10 +33,12 @@ export async function POST(request: NextRequest) {
     const limited = await enforceLimits(request);
     if (limited) return limited;
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
-      return failWith('UNKNOWN', { detail: `resume-review/prepare: invalid body — ${parsed.error.message}` });
+      return failWith('INVALID_REQUEST', {
+        detail: `resume-review/prepare: ${summarizeZodError(parsed.error.message)}`,
+      });
     }
 
     const context = telemetryContextFromRequest(request, '/api/resume-review/prepare');

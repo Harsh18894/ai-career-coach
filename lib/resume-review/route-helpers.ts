@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LIMITS } from '../limits';
 import { REVIEW_PERSONAS, JobDescriptionSchema } from './schemas';
 import type { ReviewOutcome } from './index';
 
@@ -18,13 +19,26 @@ export const MIN_RESUME_CHARS = 150;
  * since Zod cannot express "either-or" as cleanly as a readable error message can.
  */
 export const ReviewRequestBodySchema = z.object({
-  preparedId: z.string().nullish(),
-  resumeText: z.string().min(MIN_RESUME_CHARS).nullish(),
+  // A prepared id is a UUID this server minted. Bounding it stops a caller using the field as
+  // a way to put an arbitrary string into a Redis key lookup.
+  preparedId: z.string().max(64).nullish(),
+  resumeText: z.string().min(MIN_RESUME_CHARS).max(LIMITS.maxResumeChars).nullish(),
   personaOverride: z.enum(REVIEW_PERSONAS).nullish(),
 });
 
+/** The job description is the other half of the untrusted input this surface takes, so it is
+ * bounded on the same principle as the resume: long enough for any real posting, short enough
+ * that it cannot be used to buy a large model call cheaply. */
+export const BoundedJobDescriptionSchema = JobDescriptionSchema.extend({
+  descriptionText: z.string().max(LIMITS.maxJobDescriptionChars),
+  title: z.string().max(LIMITS.maxArrayItemChars).nullish(),
+  company: z.string().max(LIMITS.maxArrayItemChars).nullish(),
+  location: z.string().max(LIMITS.maxArrayItemChars).nullish(),
+  sourceUrl: z.string().max(2_048).nullish(),
+});
+
 export const AgainstJobRequestBodySchema = ReviewRequestBodySchema.extend({
-  jobDescription: JobDescriptionSchema,
+  jobDescription: BoundedJobDescriptionSchema,
 });
 
 /** Just enough of the segment for the UI to group findings under the role they belong to.

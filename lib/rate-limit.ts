@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { type ApiErrorBody, type ErrorCode, httpStatusFor } from './errors';
+import { type ApiErrorBody, type ErrorCode, ERROR_MESSAGES, httpStatusFor } from './errors';
+import { LIMITS } from './limits';
+import { sessionIdFromRequest, UNATTRIBUTED_SESSION_ID } from './session-id';
 
 /* =====================================================================================
  * Abuse + spend protection for a public, unauthenticated demo.
@@ -97,6 +99,55 @@ export function isRateLimitEnabled(): boolean {
 /** Exposed so telemetry writes its spend counter to the same key this module reads. */
 export function dailySpendKey(date: Date = new Date()): string {
   return `${RATE_LIMIT_CONFIG.keyPrefix}:spend:${date.toISOString().slice(0, 10)}`;
+}
+
+/* =====================================================================================
+ * Per-session ceilings
+ *
+ * A fourth layer, and the weakest of them by design: the session id comes from a client-set
+ * header, so a caller who wants past this only has to send a different one. It is here for the
+ * failure mode that actually happens without anybody meaning it — a client stuck in a retry
+ * loop, a tab left open, a script someone wrote to "just see what happens" and forgot about.
+ * Against deliberate evasion, the per-IP limiters and the daily budget are the real layers.
+ *
+ * Written by lib/telemetry.ts on every completed model call, read here before the next one.
+ * ===================================================================================== */
+
+export function sessionTokensKey(sessionId: string): string {
+  return `${RATE_LIMIT_CONFIG.keyPrefix}:session:${sessionId}:tokens`;
+}
+
+export function sessionCallsKey(sessionId: string): string {
+  return `${RATE_LIMIT_CONFIG.keyPrefix}:session:${sessionId}:calls`;
+}
+
+function toCount(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Whether this session has spent its allowance, and which ceiling it hit.
+ *
+ * The unattributed bucket is exempt: it is shared by every request that arrives without a
+ * usable id, so enforcing a per-session ceiling on it would let one such caller lock out all
+ * the others. Those requests are still covered by the per-IP limiters and the daily budget.
+ */
+async function sessionCeilingReached(
+  redis: Redis,
+  sessionId: string
+): Promise<'calls' | 'tokens' | null> {
+  if (sessionId === UNATTRIBUTED_SESSION_ID) return null;
+
+  const [calls, tokens] = await Promise.all([
+    redis.get<number | string>(sessionCallsKey(sessionId)),
+    redis.get<number | string>(sessionTokensKey(sessionId)),
+  ]);
+
+  if (toCount(calls) >= LIMITS.maxLlmCallsPerSession) return 'calls';
+  if (toCount(tokens) >= LIMITS.maxTokensPerSession) return 'tokens';
+  return null;
 }
 
 type LimiterKind = 'sessionStart' | 'llm' | 'jobFetch';
@@ -195,6 +246,11 @@ export async function enforceLimits(
     if (llm) {
       const exceeded = await isBudgetExceeded(redis);
       if (exceeded) return budgetExceededResponse();
+
+      // Session ceiling before the per-IP one: it is the more specific explanation, and its
+      // remedy (start a new session) is different from "wait an hour".
+      const ceiling = await sessionCeilingReached(redis, sessionIdFromRequest(request));
+      if (ceiling) return sessionLimitReachedResponse(ceiling);
     }
 
     if (sessionStart) {
@@ -264,7 +320,7 @@ function secondsUntilUtcMidnight(): number {
 }
 
 function errorResponse(
-  code: Extract<ErrorCode, 'RATE_LIMITED' | 'BUDGET_EXCEEDED'>,
+  code: Extract<ErrorCode, 'RATE_LIMITED' | 'BUDGET_EXCEEDED' | 'SESSION_LIMIT_REACHED'>,
   message: string,
   retryAfterSeconds: number
 ): NextResponse<ApiErrorBody> {
@@ -277,6 +333,29 @@ function errorResponse(
 function rateLimitedResponse(retryAfter: number, message: string): NextResponse<ApiErrorBody> {
   return errorResponse('RATE_LIMITED', message, retryAfter);
 }
+
+/**
+ * Ends a session that has run past its ceiling.
+ *
+ * `Retry-After` is the session's TTL rather than a short wait, because waiting is not the
+ * remedy — this counter does not decay in any useful sense, and the message says so. It is
+ * sent only because the envelope carries it for every 429 and omitting it here would make the
+ * shape inconsistent.
+ */
+function sessionLimitReachedResponse(reason: 'calls' | 'tokens'): NextResponse<ApiErrorBody> {
+  console.warn(
+    JSON.stringify({
+      event: 'session_ceiling_reached',
+      timestamp: new Date().toISOString(),
+      reason,
+    })
+  );
+  return errorResponse('SESSION_LIMIT_REACHED', ERROR_MESSAGES.SESSION_LIMIT_REACHED, SESSION_COUNTER_TTL_SECONDS);
+}
+
+/** Matches the TTL telemetry sets on the counters it writes. Declared here because this module
+ * owns the key names; telemetry imports it so the two cannot drift. */
+export const SESSION_COUNTER_TTL_SECONDS = 60 * 60 * 24;
 
 function budgetExceededResponse(): NextResponse<ApiErrorBody> {
   return errorResponse(

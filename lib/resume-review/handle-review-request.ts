@@ -4,6 +4,7 @@ import { withTelemetryContext, telemetryContextFromRequest, currentContextCostUs
 import { errorResponse, failWith } from '../api-response';
 import { prepareReview, reviewPrepared } from './index';
 import { loadPreparedReview } from './prepared-cache';
+import { readJsonBody, summarizeZodError } from '../request-guard';
 import { ReviewRequestBodySchema, serializeOutcome } from './route-helpers';
 import type { JobDescription, ReviewPath } from './schemas';
 
@@ -26,20 +27,24 @@ export async function handleReviewRequest(request: NextRequest, options: ReviewR
     const limited = await enforceLimits(request);
     if (limited) return limited;
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = ReviewRequestBodySchema.safeParse(body);
     if (!parsed.success) {
-      return failWith('UNKNOWN', { detail: `${options.routeName}: invalid body — ${parsed.error.message}` });
+      return failWith('INVALID_REQUEST', {
+        detail: `${options.routeName}: ${summarizeZodError(parsed.error.message)}`,
+      });
     }
     if (!parsed.data.preparedId && !parsed.data.resumeText) {
-      return failWith('UNKNOWN', { detail: `${options.routeName}: neither preparedId nor resumeText was supplied.` });
+      return failWith('INVALID_REQUEST', {
+        detail: `${options.routeName}: neither preparedId nor resumeText was supplied.`,
+      });
     }
 
     let jobDescription: JobDescription | null = null;
     if (options.extract) {
       const extracted = options.extract(body);
       if (typeof extracted === 'string') {
-        return failWith('UNKNOWN', { detail: `${options.routeName}: ${extracted}` });
+        return failWith('INVALID_REQUEST', { detail: `${options.routeName}: ${extracted}` });
       }
       jobDescription = extracted;
     }

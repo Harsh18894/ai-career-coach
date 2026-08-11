@@ -8,6 +8,7 @@ import { startNewSession } from '@/lib/session';
 import { readStashedResumeText } from '@/lib/resume-stash';
 import { extractResumeTextFromPdf, fetchJobFromUrl } from '@/lib/resume-review/client';
 import type { JobDescription, ReviewPath } from '@/lib/resume-review/schemas';
+import { LIMITS } from '@/lib/limits';
 
 /* =====================================================================================
  * Intake for the review surface: choose a path, supply a resume, and on the against-job path
@@ -246,6 +247,7 @@ export function ReviewIntake({ onStart, busy }: { onStart: (result: IntakeResult
                     setResumeText(event.target.value);
                     setResumeSource('paste');
                   }}
+                  maxLength={LIMITS.maxResumeChars}
                   rows={8}
                   placeholder="Paste your resume text here…"
                   className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-indigo-500"
@@ -348,6 +350,7 @@ export function ReviewIntake({ onStart, busy }: { onStart: (result: IntakeResult
                   ref={jobTextRef}
                   value={jobText}
                   onChange={(event) => setJobText(event.target.value)}
+                  maxLength={LIMITS.maxJobDescriptionChars}
                   rows={8}
                   placeholder="Paste the job description here…"
                   className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-indigo-500"

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { enforceLimits } from '@/lib/rate-limit';
 import { telemetryContextFromRequest } from '@/lib/telemetry';
 import { errorResponse } from '@/lib/api-response';
+import { readJsonBody } from '@/lib/request-guard';
 
 export const maxDuration = 10;
 
@@ -31,7 +32,9 @@ export async function POST(request: NextRequest) {
     const limited = await enforceLimits(request, { llm: false, jobFetch: false });
     if (limited) return limited;
 
-    const parsed = BodySchema.safeParse(await request.json());
+    // Every field here is already capped, so the body has a known small ceiling — enforced at
+    // the transport layer too, rather than only after the whole thing has been read.
+    const parsed = BodySchema.safeParse(await readJsonBody(request, { maxBytes: 8 * 1024 }));
     if (!parsed.success) {
       // A malformed feedback ping is not worth an error envelope; drop it quietly.
       return NextResponse.json({ ok: false }, { status: 204 });

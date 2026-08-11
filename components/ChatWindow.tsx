@@ -13,6 +13,7 @@ import {
   isRetryable,
   type ClientError,
 } from '@/lib/errors';
+import { LIMITS } from '@/lib/limits';
 import { sessionHeaders, startNewSession, currentSampleId } from '@/lib/session';
 import { findSampleProfile } from '@/lib/samples';
 import MessageBubble from './MessageBubble';
@@ -1280,6 +1281,10 @@ export default function ChatWindow({
                         : 'Type your response here...'
                   }
                   disabled={isThinking || isRoadmapLoading || state.currentPaths !== null || anyQuickOptionsShowing}
+                  // The same ceiling the server enforces (lib/limits.ts). Applied here so the
+                  // limit is felt as a text field that stops accepting characters rather than as
+                  // a rejected request after the user has written something long.
+                  maxLength={LIMITS.maxChatMessageChars}
                   rows={1}
                   className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-slate-100"
                 />

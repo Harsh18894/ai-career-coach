@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { handleReviewRequest } from '@/lib/resume-review/handle-review-request';
-import { JobDescriptionSchema } from '@/lib/resume-review/schemas';
+import { BoundedJobDescriptionSchema } from '@/lib/resume-review/route-helpers';
 
 export const maxDuration = 60;
 
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     path: 'against_job',
     routeName: '/api/resume-review/against-job',
     extract: (body) => {
-      const parsed = JobDescriptionSchema.safeParse((body as { jobDescription?: unknown })?.jobDescription);
+      const parsed = BoundedJobDescriptionSchema.safeParse((body as { jobDescription?: unknown })?.jobDescription);
       return parsed.success ? parsed.data : `invalid jobDescription — ${parsed.error.message}`;
     },
   });

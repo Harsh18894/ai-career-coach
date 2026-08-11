@@ -15,6 +15,7 @@ import { sessionHeaders, startNewSession } from '@/lib/session';
 import { stashResumeText } from '@/lib/resume-stash';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
+import { LIMITS } from '@/lib/limits';
 
 interface ResumeUploadProps {
   onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
@@ -334,6 +335,7 @@ export default function ResumeUpload({
             id="manual-resume-text"
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
+            maxLength={LIMITS.maxResumeChars}
             rows={6}
             placeholder="Paste your titles, duties, skills, and dates of employment here..."
             className="w-full p-4 rounded-xl border border-slate-200 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"

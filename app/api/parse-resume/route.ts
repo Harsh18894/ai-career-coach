@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { extractProfile } from '@/lib/ai/coach';
+import { LIMITS, formatBytes } from '@/lib/limits';
 import { enforceLimits } from '@/lib/rate-limit';
+import { guardMultipartRequest, readJsonBody } from '@/lib/request-guard';
 import { withTelemetryContext, telemetryContextFromRequest } from '@/lib/telemetry';
 import { errorResponse, failWith } from '@/lib/api-response';
 
@@ -24,9 +26,21 @@ export async function POST(request: NextRequest) {
     const textOnly = new URL(request.url).searchParams.get('mode') === 'text';
 
     if (contentType.includes('application/json')) {
-      const body = await request.json();
-      text = body.text || '';
+      // The paste path. Previously `body.text || ''` with no type check and no cap — the one
+      // branch of this route that bypassed every guard the upload branch enforces.
+      const body = await readJsonBody(request);
+      const value = (body as { text?: unknown }).text;
+      if (typeof value !== 'string') {
+        return failWith('INVALID_REQUEST', { detail: 'parse-resume: "text" was missing or not a string.' });
+      }
+      if (value.length > LIMITS.maxResumeChars) {
+        return failWith('RESUME_PARSE_FAILED', {
+          message: `That's longer than the ${LIMITS.maxResumeChars.toLocaleString()} characters this demo accepts — roughly ten pages. Paste the resume itself rather than a portfolio of documents.`,
+        });
+      }
+      text = value;
     } else {
+      guardMultipartRequest(request);
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
 
@@ -38,9 +52,10 @@ export async function POST(request: NextRequest) {
         return failWith('RESUME_PARSE_FAILED', { message: 'Only PDF files are accepted. You can also paste your resume text instead.' });
       }
 
-      const MAX_SIZE = 5 * 1024 * 1024;
-      if (file.size > MAX_SIZE) {
-        return failWith('RESUME_PARSE_FAILED', { message: 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.' });
+      if (file.size > LIMITS.maxUploadBytes) {
+        return failWith('RESUME_PARSE_FAILED', {
+          message: `That file is over the ${formatBytes(LIMITS.maxUploadBytes)} limit. Try a smaller PDF, or paste your resume text instead.`,
+        });
       }
 
       const arrayBuffer = await file.arrayBuffer();
@@ -57,7 +72,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const cleanText = text.trim();
+    // Truncate rather than reject. A PDF can extract to far more text than any resume contains
+    // (a 5 MB file with an embedded portfolio, a 40-page LinkedIn export), and refusing it would
+    // fail a user whose real resume is sitting in the first two pages. Everything past the cap
+    // is material no reviewer would reach anyway.
+    const rawText = text.trim();
+    const cleanText =
+      rawText.length > LIMITS.maxResumeChars ? rawText.slice(0, LIMITS.maxResumeChars) : rawText;
+
+    if (cleanText.length < rawText.length) {
+      console.warn(
+        JSON.stringify({
+          event: 'resume_text_truncated',
+          timestamp: new Date().toISOString(),
+          originalChars: rawText.length,
+          keptChars: cleanText.length,
+        })
+      );
+    }
 
     // Too short to be a real resume — most likely a scanned image with no OCR text layer.
     // Returned as a typed RESUME_PARSE_FAILED so the client shows the paste-text fallback as
