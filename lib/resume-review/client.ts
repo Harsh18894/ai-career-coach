@@ -1,5 +1,6 @@
 import { ClientApiError, clientErrorFrom } from '../errors';
 import { sessionHeaders } from '../session';
+import { humanTokenHeaders } from '../turnstile';
 import type { JobDescription, ReviewPersona, ReviewResult } from './schemas';
 import type { PersonaClassification } from './persona-types';
 
@@ -32,7 +33,8 @@ export async function extractResumeTextFromPdf(file: File): Promise<string> {
 
   const response = await fetch('/api/parse-resume?mode=text', {
     method: 'POST',
-    headers: sessionHeaders(), // no Content-Type: the browser sets the multipart boundary
+    // no Content-Type: the browser sets the multipart boundary
+    headers: { ...sessionHeaders(), ...(await humanTokenHeaders()) },
     body: formData,
   });
 
@@ -50,7 +52,12 @@ export type PrepareResponse = {
 /** Stage 1-2: segment and classify. Fast enough to run before the user commits to a review,
  * which is what lets them correct the persona first. */
 export async function prepareReview(resumeText: string): Promise<PrepareResponse> {
-  const response = await fetch('/api/resume-review/prepare', jsonInit({ resumeText }));
+  // The review surface's own session start — gated, unlike the two review calls that follow
+  // it, which reuse the prepared segment and are bounded by the per-session ceilings instead.
+  const response = await fetch('/api/resume-review/prepare', {
+    ...jsonInit({ resumeText }),
+    headers: { 'Content-Type': 'application/json', ...sessionHeaders(), ...(await humanTokenHeaders()) },
+  });
   return readJson<PrepareResponse>(response);
 }
 

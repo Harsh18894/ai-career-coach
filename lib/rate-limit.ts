@@ -4,6 +4,7 @@ import { Redis } from '@upstash/redis';
 import { type ApiErrorBody, type ErrorCode, ERROR_MESSAGES, httpStatusFor } from './errors';
 import { LIMITS } from './limits';
 import { sessionIdFromRequest, UNATTRIBUTED_SESSION_ID } from './session-id';
+import { TURNSTILE_HEADER, verifyHumanToken } from './bot-protection';
 
 /* =====================================================================================
  * Abuse + spend protection for a public, unauthenticated demo.
@@ -211,6 +212,11 @@ export type GuardOptions = {
   /** Charge this request against the per-IP new-session quota. Only the entry points that
    * genuinely begin a session should set this. */
   sessionStart?: boolean;
+  /** Require a verified Turnstile token. Defaults to whatever `sessionStart` is, so the two
+   * travel together by default and a new session-start route cannot quietly skip the bot check
+   * by forgetting a flag. Set explicitly for entry points that are not sessionStart — the
+   * resume review's prepare step is one. */
+  requireHumanToken?: boolean;
   /** Charge this request against the per-IP LLM-call quota and check the global budget.
    * Defaults to true — set false only for routes that reach no model. */
   llm?: boolean;
@@ -233,12 +239,20 @@ export async function enforceLimits(
   request: NextRequest,
   options: GuardOptions = {}
 ): Promise<NextResponse<ApiErrorBody> | null> {
-  const { sessionStart = false, llm = true, jobFetch = false } = options;
+  const { sessionStart = false, llm = true, jobFetch = false, requireHumanToken = sessionStart } = options;
+
+  const ip = getClientIp(request);
+
+  // Before the Redis checks, and deliberately outside the `if (!redis)` early return below:
+  // bot protection and rate limiting are configured independently, and an instance with a
+  // Turnstile key but no Upstash key should still turn scripts away.
+  if (requireHumanToken) {
+    const denied = await enforceHumanToken(request, ip);
+    if (denied) return denied;
+  }
 
   const redis = getRedis();
   if (!redis) return null;
-
-  const ip = getClientIp(request);
 
   try {
     // Budget first: when the demo is closed for the day, saying so is more useful than
@@ -288,6 +302,37 @@ export async function enforceLimits(
     console.error('[rate-limit] check failed, allowing request:', error);
     return null;
   }
+}
+
+/**
+ * Turnstile gate for session-creation entry points.
+ *
+ * Returns a response when the caller should be turned away, or null to continue. The fail-open
+ * / fail-closed split lives in lib/bot-protection.ts — this only translates the verdict into
+ * the app's error envelope.
+ */
+async function enforceHumanToken(
+  request: NextRequest,
+  ip: string
+): Promise<NextResponse<ApiErrorBody> | null> {
+  const result = await verifyHumanToken(request.headers.get(TURNSTILE_HEADER), ip);
+  if (result.ok) return null;
+
+  console.warn(
+    JSON.stringify({
+      event: 'bot_check_failed',
+      timestamp: new Date().toISOString(),
+      reason: result.reason,
+      ...(result.codes?.length ? { codes: result.codes } : {}),
+    })
+  );
+
+  // BOT_CHECK_FAILED rather than RATE_LIMITED: a person who has genuinely been misjudged needs
+  // to be told to reload, not to wait an hour for a limit that will never clear.
+  return NextResponse.json<ApiErrorBody>(
+    { error: { code: 'BOT_CHECK_FAILED', message: ERROR_MESSAGES.BOT_CHECK_FAILED } },
+    { status: httpStatusFor('BOT_CHECK_FAILED') }
+  );
 }
 
 /** Reads the running daily spend total written by lib/telemetry.ts. */

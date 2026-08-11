@@ -20,6 +20,7 @@ export const ERROR_CODES = [
   'JOB_FETCH_FAILED',
   'INVALID_REQUEST',
   'SESSION_LIMIT_REACHED',
+  'BOT_CHECK_FAILED',
   'UNKNOWN',
 ] as const;
 
@@ -68,6 +69,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     "That request couldn't be processed as sent. If you were typing or pasting something very long, try trimming it; otherwise reloading the page usually clears it.",
   SESSION_LIMIT_REACHED:
     'This session has reached the usage ceiling for the demo. Everything so far is saved — start a new session to keep going.',
+  // Written for the person this misjudges, not for the bots it is aimed at — so it says what
+  // to do (reload) rather than accusing them of being a script.
+  BOT_CHECK_FAILED:
+    "We couldn't verify that this is a regular browser session. Reload the page and try once more — if it keeps happening, a privacy extension or a strict network may be blocking the check.",
   UNKNOWN: 'Aria ran into an unexpected problem on that step. Your conversation is saved — try that again.',
 };
 
@@ -88,6 +93,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   // wall they hit and tells a legitimate client nothing it can act on differently.
   INVALID_REQUEST: 400,
   SESSION_LIMIT_REACHED: 429,
+  // 403, not 429: nothing about waiting changes this outcome.
+  BOT_CHECK_FAILED: 403,
   UNKNOWN: 500,
 };
 

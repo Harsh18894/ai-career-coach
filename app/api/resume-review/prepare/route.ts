@@ -30,7 +30,10 @@ const BodySchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const limited = await enforceLimits(request);
+    // requireHumanToken, but NOT sessionStart: this is the review surface's entry point, so
+    // it gets the bot check, while the session-start quota stays a coaching-session counter
+    // whose limit and copy are written about conversations.
+    const limited = await enforceLimits(request, { requireHumanToken: true });
     if (limited) return limited;
 
     const body = await readJsonBody(request);

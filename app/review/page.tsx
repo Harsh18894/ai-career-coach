@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Loader2, RotateCcw } from 'lucide-react';
 import { asClientError, isRetryable, type ClientError } from '@/lib/errors';
@@ -15,6 +15,7 @@ import type { JobDescription, ReviewPath, ReviewPersona } from '@/lib/resume-rev
 import { ReviewIntake, type IntakeResult } from '@/components/review/ReviewIntake';
 import { PersonaBanner } from '@/components/review/PersonaBanner';
 import { ReviewResults } from '@/components/review/ReviewResults';
+import { primeBotProtection } from '@/lib/turnstile';
 
 /* =====================================================================================
  * The resume-review surface.
@@ -48,6 +49,12 @@ export default function ReviewPage() {
   const [error, setError] = useState<ClientError | null>(null);
   const [retry, setRetry] = useState<(() => Promise<void>) | null>(null);
   const [notAResume, setNotAResume] = useState(false);
+
+  // Same warm-up as the landing page: mint the invisible token in the background so the
+  // review's first request does not wait on it.
+  useEffect(() => {
+    primeBotProtection();
+  }, []);
 
   const fail = (err: unknown, retryFn?: () => Promise<void>) => {
     const clientError = asClientError(err);

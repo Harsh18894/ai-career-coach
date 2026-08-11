@@ -14,6 +14,7 @@ import {
   type ClientError,
 } from '@/lib/errors';
 import { LIMITS } from '@/lib/limits';
+import { humanTokenHeaders } from '@/lib/turnstile';
 import { sessionHeaders, startNewSession, currentSampleId } from '@/lib/session';
 import { findSampleProfile } from '@/lib/samples';
 import MessageBubble from './MessageBubble';
@@ -114,6 +115,23 @@ function coachRequestInit(body: Record<string, unknown>): RequestInit {
   return {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
+    body: JSON.stringify(body),
+  };
+}
+
+/** As above, plus a Turnstile token. Used only for the request that STARTS the no-resume
+ * flow — the guided intake is that flow's session creation, and it is the one entry point
+ * that never touches /api/parse-resume. Ordinary chat turns deliberately do not mint a
+ * token: putting a challenge between someone and their next sentence would cost more than
+ * the abuse it prevents. */
+async function coachSessionStartInit(body: Record<string, unknown>): Promise<RequestInit> {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...sessionHeaders(),
+      ...(await humanTokenHeaders()),
+    },
     body: JSON.stringify(body),
   };
 }
@@ -338,7 +356,11 @@ export default function ChatWindow({
 
       const attempt = async () => {
           const qaPairs = questionsAskedSoFar.map((question, i) => ({ question, answer: updatedAnswers[i] }));
-          const response = await fetch('/api/coach', coachRequestInit({ action: 'next-profile-question', answers: qaPairs }));
+          const payload = { action: 'next-profile-question', answers: qaPairs };
+          // The first adaptive question is the session start for this flow (see the note in
+          // app/api/coach/route.ts on why the bound is one answer, not zero).
+          const init = qaPairs.length <= 1 ? await coachSessionStartInit(payload) : coachRequestInit(payload);
+          const response = await fetch('/api/coach', init);
           if (!response.ok) {
             throw new ClientApiError(clientErrorFrom(await response.json()));
           }

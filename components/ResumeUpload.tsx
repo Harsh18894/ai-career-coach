@@ -16,6 +16,7 @@ import { stashResumeText } from '@/lib/resume-stash';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 import { LIMITS } from '@/lib/limits';
+import { humanTokenHeaders } from '@/lib/turnstile';
 
 interface ResumeUploadProps {
   onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
@@ -91,7 +92,7 @@ export default function ResumeUpload({
       const response = await fetch('/api/parse-resume', {
         method: 'POST',
         // No Content-Type — the browser sets the multipart boundary itself.
-        headers: sessionHeaders(),
+        headers: { ...sessionHeaders(), ...(await humanTokenHeaders()) },
         body: formData,
       });
 

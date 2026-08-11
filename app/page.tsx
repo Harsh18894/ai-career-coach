@@ -9,6 +9,7 @@ import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import { ClientApiError, clientErrorFrom, asClientError, type ClientError } from '@/lib/errors';
 import { sessionHeaders } from '@/lib/session';
 import { stashResumeText } from '@/lib/resume-stash';
+import { humanTokenHeaders, primeBotProtection } from '@/lib/turnstile';
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -19,6 +20,10 @@ export default function Home() {
   const [manualTextError, setManualTextError] = useState<ClientError | null>(null);
 
   useEffect(() => {
+    // Warm the invisible bot check so a token exists before the user uploads anything. Costs
+    // nothing visible and keeps the challenge off the critical path of a session start.
+    primeBotProtection();
+
     const saved = localStorage.getItem('career_coach_session');
     if (saved) {
       try {
@@ -55,7 +60,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/parse-resume', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
+        headers: { 'Content-Type': 'application/json', ...sessionHeaders(), ...(await humanTokenHeaders()) },
         body: JSON.stringify({ text }),
       });
 

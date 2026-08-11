@@ -27,13 +27,12 @@ function jsonRequest(
 
   const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
 
-  return new NextRequest(`${ORIGIN}/api/test`, {
-    method: 'POST',
-    headers,
-    body: bytes,
-    // Required by undici whenever a body is present on a manually constructed Request.
-    duplex: 'half',
-  } as RequestInit & { duplex: 'half' });
+  // `duplex` is required by undici whenever a body is present on a manually constructed
+  // Request, but it is absent from the DOM RequestInit type — hence the assertion rather than
+  // an intersection type, which trips over RequestInit's stricter `signal`.
+  const requestInit = { method: 'POST', headers, body: bytes, duplex: 'half' } as unknown as
+    ConstructorParameters<typeof NextRequest>[1];
+  return new NextRequest(`${ORIGIN}/api/test`, requestInit);
 }
 
 async function codeOf(promise: Promise<unknown>): Promise<string> {

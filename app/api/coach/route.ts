@@ -65,13 +65,18 @@ export async function POST(request: NextRequest) {
       return failWith('INVALID_REQUEST', { detail: `coach: unrecognised action ${JSON.stringify(rawAction)}.` });
     }
 
-    // The no-resume path never touches /api/parse-resume, so its first adaptive question (the
-    // one asked with nothing answered yet) is that flow's real session start. Every other
-    // action is mid-session and only charges the LLM-call quota.
+    // The no-resume path never touches /api/parse-resume, so its first adaptive question is
+    // that flow's real session start. Every other action is mid-session and only charges the
+    // LLM-call quota.
+    //
+    // The bound is `<= 1`, not `=== 0`. Step 0's question is hardcoded client-side, so the
+    // first request this route ever sees from that flow already carries one answer — meaning
+    // the old `=== 0` check never fired for the real client, and no-resume sessions were
+    // starting without ever charging the session-start quota. Both values are treated as a
+    // start so the flow is covered however it is entered.
+    const answers = (body as { answers?: unknown }).answers;
     const isSessionStart =
-      action === 'next-profile-question' &&
-      Array.isArray((body as { answers?: unknown }).answers) &&
-      (body as { answers: unknown[] }).answers.length === 0;
+      action === 'next-profile-question' && Array.isArray(answers) && answers.length <= 1;
 
     const limited = await enforceLimits(request, { sessionStart: isSessionStart });
     if (limited) return limited;
