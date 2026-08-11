@@ -47,6 +47,11 @@ export const RATE_LIMIT_CONFIG = {
   sessionStart: { limit: 5, window: '1 h' },
   /** Total LLM-backed calls one IP may make. A full session is roughly 15-25 calls. */
   llm: { limit: 60, window: '1 h' },
+  /** Server-side fetches of a user-supplied job URL. Tighter than the LLM limit on purpose:
+   * this endpoint makes the server issue outbound requests to an address the caller chooses,
+   * so it is the most abusable surface in the app even with the SSRF guards in place. Nobody
+   * legitimately reviews against more than a handful of postings an hour. */
+  jobFetch: { limit: 10, window: '1 h' },
   /** Ceiling on total estimated spend across all users per UTC day, in USD. */
   dailyBudgetUsd: readDailyBudgetUsd(),
   /** Prefix for every Redis key this module and lib/telemetry.ts own. */
@@ -94,7 +99,7 @@ export function dailySpendKey(date: Date = new Date()): string {
   return `${RATE_LIMIT_CONFIG.keyPrefix}:spend:${date.toISOString().slice(0, 10)}`;
 }
 
-type LimiterKind = 'sessionStart' | 'llm';
+type LimiterKind = 'sessionStart' | 'llm' | 'jobFetch';
 
 const limiters = new Map<LimiterKind, Ratelimit>();
 
@@ -158,6 +163,8 @@ export type GuardOptions = {
   /** Charge this request against the per-IP LLM-call quota and check the global budget.
    * Defaults to true — set false only for routes that reach no model. */
   llm?: boolean;
+  /** Charge this request against the per-IP outbound-fetch quota. */
+  jobFetch?: boolean;
 };
 
 /**
@@ -175,7 +182,7 @@ export async function enforceLimits(
   request: NextRequest,
   options: GuardOptions = {}
 ): Promise<NextResponse<ApiErrorBody> | null> {
-  const { sessionStart = false, llm = true } = options;
+  const { sessionStart = false, llm = true, jobFetch = false } = options;
 
   const redis = getRedis();
   if (!redis) return null;
@@ -196,6 +203,16 @@ export async function enforceLimits(
         return rateLimitedResponse(
           retryAfterSeconds(result.reset),
           `You've started ${RATE_LIMIT_CONFIG.sessionStart.limit} sessions in the last hour, which is the limit for this demo. Your existing session still works — try again a little later for a new one.`
+        );
+      }
+    }
+
+    if (jobFetch) {
+      const result = await getLimiter('jobFetch')?.limit(`ip:${ip}`);
+      if (result && !result.success) {
+        return rateLimitedResponse(
+          retryAfterSeconds(result.reset),
+          `You've fetched ${RATE_LIMIT_CONFIG.jobFetch.limit} job links in the last hour, which is the limit for this demo. You can still paste a job description directly — that has no limit.`
         );
       }
     }

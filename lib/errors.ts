@@ -17,6 +17,7 @@ export const ERROR_CODES = [
   'UPSTREAM_ERROR',
   'INVALID_OUTPUT',
   'RESUME_PARSE_FAILED',
+  'JOB_FETCH_FAILED',
   'UNKNOWN',
 ] as const;
 
@@ -56,6 +57,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     "Aria's answer came back malformed twice in a row, so it was discarded rather than shown to you. Trying again usually works.",
   RESUME_PARSE_FAILED:
     "We couldn't read any text from that PDF. If it's a scan or an image, paste your resume text instead.",
+  JOB_FETCH_FAILED:
+    "We couldn't read that link. Many job sites block automated access — paste the job description text instead and everything else works the same.",
   UNKNOWN: 'Aria ran into an unexpected problem on that step. Your conversation is saved — try that again.',
 };
 
@@ -67,6 +70,10 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   UPSTREAM_ERROR: 502,
   INVALID_OUTPUT: 502,
   RESUME_PARSE_FAILED: 422,
+  // 422, not 502: the request was well-formed and the server worked correctly — the remote
+  // site simply cannot be read from. Treating it as an upstream error would imply something
+  // is broken here, and would invite the client to retry rather than to paste.
+  JOB_FETCH_FAILED: 422,
   UNKNOWN: 500,
 };
 
@@ -74,9 +81,10 @@ export function httpStatusFor(code: ErrorCode): number {
   return HTTP_STATUS[code];
 }
 
-/** Whether the UI should offer the paste-your-text fallback as the next action. */
+/** Whether the UI should offer the paste-your-text fallback as the next action. Both of these
+ * have the same shape: something could not be read, and typing it in always works. */
 export function offersPasteFallback(code: ErrorCode): boolean {
-  return code === 'RESUME_PARSE_FAILED';
+  return code === 'RESUME_PARSE_FAILED' || code === 'JOB_FETCH_FAILED';
 }
 
 /** Whether the UI should offer a Retry button. A budget or rate limit will not clear on a
