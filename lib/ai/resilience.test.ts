@@ -206,6 +206,26 @@ describe('structuredCompletion', () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it('resolves to null via bailIf even when the rest of the object is schema-valid', async () => {
+    // Regression test: extractProfile's prompt tells the model that when hasSufficientInfo is
+    // false, the remaining fields "will be ignored" and may be left as empty defaults (0,
+    // "unknown", []) — which are syntactically valid against ProfileSchema. bailIf must still
+    // fire in that case; checking it only after a validation failure would never catch this,
+    // since the object validates successfully on the first attempt.
+    const create = vi
+      .fn()
+      .mockResolvedValue(completionWith('{"hasSufficientInfo":false,"answer":"unknown","count":0}'));
+
+    const result = await structuredCompletion(mockClient(create), PARAMS, {
+      call: 'test',
+      schema: Schema,
+      bailIf: (raw) => (raw as { hasSufficientInfo?: unknown })?.hasSufficientInfo === false,
+    });
+
+    expect(result).toBeNull();
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it('retries the transport error first, then still repairs bad output', async () => {
     const create = vi
       .fn()

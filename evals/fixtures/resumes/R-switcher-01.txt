@@ -1,0 +1,48 @@
+Renata Okafor
+Leeds, United Kingdom | renata.okafor@email.com | +44 7700 900123
+
+SUMMARY
+Secondary school science teacher with 10 years in the classroom, now building toward a move
+into data analytics. Spent the last year teaching myself SQL and Python outside of work and
+shipping small data projects, and I'm ready to make this a full-time switch.
+
+EXPERIENCE
+
+Head of Science / Chemistry Teacher
+Ravensmoor Academy — Leeds, United Kingdom
+September 2014 – Present (10 years)
+- Teach chemistry and combined science to students aged 11-18, including exam-board syllabus
+  design for GCSE and A-Level cohorts.
+- Lead a department of 6 teachers as Head of Science since 2019: timetabling, budget for lab
+  equipment (~£40,000/year), and mentoring 2 newly qualified teachers each year.
+- Redesigned the department's assessment tracking from paper gradebooks to a shared spreadsheet
+  system, adopted school-wide by 3 other departments.
+- Run the school's after-hours coding club (voluntary, unpaid) for the last 18 months, teaching
+  Python basics to interested students.
+
+Chemistry Teacher (NQT)
+Marlow Grange School — Leeds, United Kingdom
+September 2013 – July 2014
+- First-year qualified teacher role; standard classroom teaching load across Key Stage 3 and 4.
+
+EDUCATION
+PGCE Secondary Science, University of Leeds — 2013
+BSc (Hons) Chemistry, University of Sheffield — 2012
+
+RECENT SELF-DIRECTED WORK (last 12 months)
+
+- Completed an online data analytics certificate covering SQL, Python (pandas), and data
+  visualization, self-funded, alongside full-time teaching.
+- Built a project analyzing 5 years of anonymized department exam results to identify which
+  intervention strategies correlated with the largest grade improvements — SQL for the queries,
+  Python for the analysis, a small dashboard for the write-up.
+- Built a second project scraping and cleaning public exam-board results data to compare GCSE
+  science outcomes across schools in the region, published as a write-up with charts.
+
+SKILLS
+SQL (intermediate, self-taught), Python (pandas, matplotlib), Excel (advanced), Google Sheets,
+data visualization, curriculum design, budget management, team leadership, public speaking
+
+NOTES
+No professional experience in a data or software role. All technical work above was done
+outside of and in addition to full-time teaching duties.

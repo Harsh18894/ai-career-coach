@@ -28,10 +28,15 @@ import { trackedCompletion, trackedStream } from '../telemetry';
  * intended degradation, not a fault — but it is why these values are not raised further.
  */
 export const TIMEOUTS = {
-  /** Every call except roadmap generation. */
+  /** Every call except the heavier extraction/generation calls below. */
   default: 45_000,
   /** Roadmap generation writes a phased, week-by-week plan and legitimately runs long. */
   roadmap: 60_000,
+  /** Resume segmentation (lib/resume-review/segment.ts) extracts a much larger structured
+   * shape than extractProfile — contact, every role's bullets, education, projects, skills,
+   * plus per-role/education judgement flags — and measurably needs more time than the 45s
+   * default; observed timing it out even after the one retry at that ceiling. */
+  segmentation: 60_000,
 } as const;
 
 const RETRY_BASE_DELAY_MS = 500;
@@ -129,10 +134,23 @@ export async function structuredCompletion<TSchema extends z.ZodType>(
     return response.choices[0]?.message?.content || '{}';
   }, call);
 
+  // bailIf is checked against the raw JSON BEFORE schema validation, not just on a validation
+  // failure: a legitimate "I have nothing to extract" response (e.g. extractProfile's
+  // hasSufficientInfo: false) is typically filled out with syntactically valid empty defaults
+  // (0, "unknown", []) precisely because the prompt tells the model those fields "will be
+  // ignored" — which means they satisfy the schema's types and would validate successfully.
+  // Checking bailIf only after a validation failure would then never fire for exactly the
+  // case it exists to catch.
+  let earlyRawJson: unknown;
+  try {
+    earlyRawJson = JSON.parse(rawText);
+  } catch {
+    earlyRawJson = undefined;
+  }
+  if (bailIf && earlyRawJson !== undefined && bailIf(earlyRawJson)) return null;
+
   const firstParse = parseAndValidate(rawText, schema);
   if (firstParse.ok) return firstParse.value;
-
-  if (bailIf && firstParse.rawJson !== undefined && bailIf(firstParse.rawJson)) return null;
 
   console.warn(
     `[resilience] ${call} returned output that failed validation; attempting one repair. Issues: ${firstParse.issues}`

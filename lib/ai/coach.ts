@@ -4,14 +4,7 @@ import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSch
 import { ChatMessage, UserSignals } from '../state/conversation';
 import { TIER_TIMELINE } from './tiers';
 import { structuredCompletion, resilientStream, TIMEOUTS } from './resilience';
-
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is not defined.');
-  }
-  return new OpenAI({ apiKey });
-};
+import { getOpenAIClient } from './client';
 
 export const MENTOR_SYSTEM_PROMPT = `Your name is Aria. You are a sharp, experienced career mentor and career advisor — direct, warm, and economical with words.
 You speak like a senior operator who has seen thousands of careers, not like a chatbot or a recruiter. 
