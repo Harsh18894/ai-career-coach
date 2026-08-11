@@ -8,6 +8,7 @@ import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from '@/components/Analyzing
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import { ClientApiError, clientErrorFrom, asClientError, type ClientError } from '@/lib/errors';
 import { sessionHeaders } from '@/lib/session';
+import { stashResumeText } from '@/lib/resume-stash';
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -79,6 +80,7 @@ export default function Home() {
         throw new ClientApiError(clientErrorFrom(openerData));
       }
 
+      stashResumeText(text);
       setProfile(data.profile);
       setOpener(openerData.opener);
     } catch (err) {

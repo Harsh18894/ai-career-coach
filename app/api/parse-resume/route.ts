@@ -18,6 +18,11 @@ export async function POST(request: NextRequest) {
     let text = '';
     const contentType = request.headers.get('content-type') || '';
 
+    // The resume-review surface needs the extracted TEXT, not a coaching Profile — segmentation
+    // works from raw text. Requested via ?mode=text, which returns after extraction and skips
+    // the extractProfile model call entirely rather than paying for a Profile nothing reads.
+    const textOnly = new URL(request.url).searchParams.get('mode') === 'text';
+
     if (contentType.includes('application/json')) {
       const body = await request.json();
       text = body.text || '';
@@ -64,6 +69,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (textOnly) return NextResponse.json({ text: cleanText });
+
     const profile = await withTelemetryContext(
       telemetryContextFromRequest(request, '/api/parse-resume'),
       () => extractProfile(cleanText)
@@ -78,6 +85,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       profile,
+      // Returned so the resume-review surface can carry the same document over without asking
+      // the user to upload it a second time. It is their own resume, already in this response's
+      // request cycle — re-extracting it later would mean a second PDF parse for no reason.
+      text: cleanText,
       textIsEmpty: false,
     });
   } catch (error) {

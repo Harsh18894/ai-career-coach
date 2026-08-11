@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe, FlaskConical } from 'lucide-react';
 import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
@@ -1046,6 +1047,12 @@ export default function ChatWindow({
               {state.signals.intentGuess.replace('_', ' ')}
             </span>
           )}
+          <Link
+            href="/review"
+            className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-slate-600 uppercase transition-colors hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            Review this resume
+          </Link>
           {/* Persistent for the whole session: nothing here is a real person's career, and a
               reviewer should never have to wonder whether it is. */}
           {sampleLabel && (

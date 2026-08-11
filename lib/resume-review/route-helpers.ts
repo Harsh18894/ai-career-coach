@@ -27,10 +27,34 @@ export const AgainstJobRequestBodySchema = ReviewRequestBodySchema.extend({
   jobDescription: JobDescriptionSchema,
 });
 
+/** Just enough of the segment for the UI to group findings under the role they belong to.
+ * The full segment stays server-side: it is a re-derivable intermediate several times the size
+ * of the review, and shipping the candidate's entire parsed resume back for a grouping label
+ * would be a poor trade. */
+export type FindingGroupIndex = {
+  id: string;
+  label: string;
+  bulletIds: string[];
+}[];
+
+function buildGroupIndex(outcome: Extract<ReviewOutcome, { ok: true }>): FindingGroupIndex {
+  const { segment } = outcome;
+  return [
+    ...segment.roles.map((role) => ({
+      id: role.id,
+      label: [role.title, role.company].filter(Boolean).join(' · '),
+      bulletIds: role.bullets.map((bullet) => bullet.id),
+    })),
+    ...segment.projects.map((project) => ({
+      id: project.id,
+      label: `Project: ${project.title}`,
+      bulletIds: project.bullets.map((bullet) => bullet.id),
+    })),
+  ];
+}
+
 /**
- * What the client receives. The full segment is deliberately NOT returned: it is a
- * re-derivable intermediate several times the size of the review, and shipping it would put
- * the candidate's entire parsed resume back over the wire for no use the UI has.
+ * What the client receives.
  *
  * `dropped` IS returned, in count form only. The UI does not show it, but it makes
  * post-validation observable in the network tab during development, which is how a silently
@@ -40,6 +64,7 @@ export function serializeOutcome(outcome: Extract<ReviewOutcome, { ok: true }>) 
   return {
     result: outcome.result,
     classification: outcome.classification,
+    groups: buildGroupIndex(outcome),
     droppedCount: outcome.dropped.length,
   };
 }

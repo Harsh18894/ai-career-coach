@@ -50,6 +50,12 @@ export default function RootLayout({
             </Link>
             <nav className="flex items-center gap-6">
               <Link
+                href="/review"
+                className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors duration-150"
+              >
+                Resume review
+              </Link>
+              <Link
                 href="/about"
                 className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors duration-150"
               >

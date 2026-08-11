@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getOpenAIClient } from '../ai/client';
 import { structuredCompletion } from '../ai/resilience';
 import { REVIEW_PERSONAS, type ReviewPersona, type ResumeSegment } from './schemas';
+import type { PersonaClassification } from './persona-types';
 
 /* =====================================================================================
  * Stage 2 of the review pipeline: persona classification.
@@ -22,25 +23,15 @@ import { REVIEW_PERSONAS, type ReviewPersona, type ResumeSegment } from './schem
  *     behavior built on top of this score, not something this module does itself.
  * ===================================================================================== */
 
-export type PersonaClassification = {
-  persona: ReviewPersona;
-  /** 0–1. See PERSONA_CONFIDENCE_THRESHOLD and needsPersonaConfirmation. */
-  confidence: number;
-  /** Plain-language reasons for the classification, meant to be shown verbatim next to the
-   * detected persona in the UI — not an internal debug log. */
-  signals: string[];
-  careerSwitcher: boolean;
-  inferredRegion: string | null;
-};
-
-/** Below this, the UI should treat the detected persona as a guess needing confirmation, not a
- * settled fact. Chosen, not measured — revisit once real classifications have been observed
- * across a wider set of resumes than the fixtures available at build time. */
-export const PERSONA_CONFIDENCE_THRESHOLD = 0.55;
-
-export function needsPersonaConfirmation(classification: PersonaClassification): boolean {
-  return classification.confidence < PERSONA_CONFIDENCE_THRESHOLD;
-}
+// The shape, the threshold and the confirmation check live in ./persona-types.ts so client
+// components can import them without pulling this module's server dependencies (OpenAI SDK,
+// Redis, node:async_hooks) into the browser bundle. Re-exported here so server-side callers
+// have one import site.
+export {
+  PERSONA_CONFIDENCE_THRESHOLD,
+  needsPersonaConfirmation,
+  type PersonaClassification,
+} from './persona-types';
 
 /* =====================================================================================
  * Deterministic date parsing — used only for RECENCY checks (how long ago did education end).

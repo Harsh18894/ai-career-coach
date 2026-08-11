@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Link from 'next/link';
 import { Upload, AlertCircle, Link2, ChevronDown, FlaskConical } from 'lucide-react';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import {
@@ -11,6 +12,7 @@ import {
   type ClientError,
 } from '@/lib/errors';
 import { sessionHeaders, startNewSession } from '@/lib/session';
+import { stashResumeText } from '@/lib/resume-stash';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
@@ -101,6 +103,7 @@ export default function ResumeUpload({
       if (data.insufficientInfo) {
         onStartWithoutResume();
       } else {
+        if (typeof data.text === 'string') stashResumeText(data.text);
         const openerResponse = await fetch('/api/generate-opener', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
@@ -138,6 +141,7 @@ export default function ResumeUpload({
     setError(null);
     setShowSamplePicker(false);
     startNewSession({ isSample: true, sampleId: sample.id });
+    stashResumeText(sample.resumeText);
     onManualTextSubmit(sample.resumeText);
   };
 
@@ -249,6 +253,16 @@ export default function ResumeUpload({
           )}
 
           <p className="mt-4 text-center text-sm text-slate-500">
+            Just want your resume checked?{' '}
+            <Link
+              href="/review"
+              className="font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+            >
+              Get a line-by-line review instead
+            </Link>
+          </p>
+
+          <p className="mt-2 text-center text-sm text-slate-500">
             Don&apos;t have a resume ready?{' '}
             <button
               type="button"
