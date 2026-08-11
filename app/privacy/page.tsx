@@ -1,0 +1,248 @@
+import React from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Clock, Database, Eye, HardDrive, Send, Trash2 } from 'lucide-react';
+
+export const metadata = {
+  title: 'What happens to your resume | Aria',
+  description:
+    'Plainly: what is sent to OpenAI, what is stored and for how long, what stays in your browser, and how to clear it.',
+};
+
+/* =====================================================================================
+ * Every claim on this page was checked against the code, not written from memory of how the
+ * app is supposed to work. Two of them came out differently than the first draft assumed:
+ *
+ *   - "nothing is stored server-side" is FALSE. The resume review holds a parsed resume in
+ *     Redis for up to 30 minutes so the pipeline can span two requests.
+ *   - IP addresses are used as rate-limit keys, so they exist server-side for an hour.
+ *
+ * Both are disclosed below. If this page and the code ever disagree, the code is right and
+ * this page is a bug — the specific files are named throughout so that is checkable.
+ * ===================================================================================== */
+
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="flex items-center gap-2.5 text-lg font-semibold text-slate-900">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+          <Icon className="h-4 w-4 text-indigo-600" />
+        </span>
+        {title}
+      </h2>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600">{children}</div>
+    </section>
+  );
+}
+
+function Row({ what, where, howLong }: { what: string; where: string; howLong: string }) {
+  return (
+    <tr className="border-b border-slate-100 last:border-0">
+      <td className="py-2.5 pr-4 align-top text-slate-800">{what}</td>
+      <td className="py-2.5 pr-4 align-top text-slate-600">{where}</td>
+      <td className="py-2.5 align-top whitespace-nowrap text-slate-600">{howLong}</td>
+    </tr>
+  );
+}
+
+export default function PrivacyPage() {
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Link>
+
+      <h1 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">
+        What happens to your resume
+      </h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
+        Aria is a personal portfolio project, not a company. There are no accounts, no analytics
+        trackers, no advertising, and nothing is ever sold or shared. This page is the specific
+        version of that, because &ldquo;we take your privacy seriously&rdquo; tells you nothing.
+      </p>
+
+      <div className="mt-8 space-y-4">
+        <Section icon={Send} title="What is sent to OpenAI">
+          <p>
+            Your resume text, the messages you write in the chat, and any job description you
+            paste are sent to the OpenAI API to generate what you see. That is the whole product
+            — there is no version of this that works without it.
+          </p>
+          <p>
+            The models are <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">gpt-5-nano</code>{' '}
+            for extraction and classification and{' '}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">gpt-5-mini</code> for the
+            text you read. Under OpenAI&rsquo;s API terms, data sent through the API is not used
+            to train their models, and they retain it for a limited period for abuse monitoring.
+            Their policy governs that, not this project —{' '}
+            <a
+              href="https://openai.com/policies/api-data-usage-policies"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+            >
+              read it here
+            </a>
+            .
+          </p>
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
+            The practical advice: this is a demo on the public internet. If part of your resume
+            is genuinely sensitive, edit it out before pasting. Nothing here needs your full
+            address or date of birth to be useful.
+          </p>
+        </Section>
+
+        <Section icon={Database} title="What is stored on the server">
+          <p>
+            There is no database and no user accounts. An uploaded PDF is parsed in memory and
+            never written to disk. But &ldquo;nothing is stored&rdquo; would not be true, so
+            here is everything that is:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="mt-1 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <th className="pb-2 pr-4 font-semibold">What</th>
+                  <th className="pb-2 pr-4 font-semibold">Where</th>
+                  <th className="pb-2 font-semibold">How long</th>
+                </tr>
+              </thead>
+              <tbody>
+                <Row
+                  what="Your parsed resume, during a resume review only"
+                  where="Upstash Redis"
+                  howLong="30 minutes"
+                />
+                <Row
+                  what="Counters: how many calls and tokens a session used"
+                  where="Upstash Redis"
+                  howLong="24 hours"
+                />
+                <Row
+                  what="Your IP address, as a rate-limiting key"
+                  where="Upstash Redis"
+                  howLong="1 hour"
+                />
+                <Row
+                  what="Logs: timings, token counts, cost, a random session id"
+                  where="Vercel logs"
+                  howLong="Vercel's retention"
+                />
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The first row is the one worth explaining. A review runs as two requests — one to
+            read and classify the resume, one to review it — so the parsed copy is held between
+            them and expires on its own. It is kept on the server rather than passed through
+            your browser on purpose: the check that stops the review inventing achievements
+            compares every suggestion against the original text, and that check is worthless if
+            the original could be edited in transit.
+          </p>
+          <p>
+            <strong className="font-semibold text-slate-800">No log line contains your resume,
+            your name, your email, or your phone number.</strong> Where a log needs to refer to a
+            piece of text, it records a length and a fingerprint instead of the words.
+          </p>
+        </Section>
+
+        <Section icon={HardDrive} title="What stays in your browser">
+          <p>Your session lives on your own device, not on a server:</p>
+          <ul className="ml-1 space-y-2">
+            <li className="flex gap-2">
+              <code className="mt-0.5 h-fit rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+                localStorage
+              </code>
+              <span>
+                Your conversation and the profile built from your resume, so a refresh does not
+                lose it. Plus a random session id used to group cost telemetry — it identifies a
+                session, not a person.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <code className="mt-0.5 h-fit rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+                sessionStorage
+              </code>
+              <span>
+                Your resume text, so moving from the coach to the resume review does not ask you
+                to upload it twice. This one is cleared automatically when you close the tab.
+              </span>
+            </li>
+          </ul>
+          <p>There are no cookies, and nothing is shared with any third party from here.</p>
+        </Section>
+
+        <Section icon={Trash2} title="How to clear it">
+          <ul className="ml-1 list-disc space-y-1.5 pl-4">
+            <li>
+              <strong className="font-semibold text-slate-800">Start over</strong> in the chat
+              header wipes the conversation, the profile, and the stored resume text immediately.
+            </li>
+            <li>Closing the tab clears the stored resume text on its own.</li>
+            <li>
+              Clearing site data for this domain in your browser settings removes everything
+              listed above.
+            </li>
+            <li>
+              The server-side copy held during a review expires by itself within 30 minutes.
+              There is no button for this because there is nothing to press — it is on a timer,
+              not a shelf.
+            </li>
+          </ul>
+        </Section>
+
+        <Section icon={Eye} title="Third parties">
+          <p>
+            Three, and no others: <strong className="font-semibold text-slate-800">OpenAI</strong>{' '}
+            for the models, <strong className="font-semibold text-slate-800">Vercel</strong> for
+            hosting, and <strong className="font-semibold text-slate-800">Upstash</strong> for the
+            short-lived storage above. If bot protection is switched on,{' '}
+            <strong className="font-semibold text-slate-800">Cloudflare Turnstile</strong> also
+            runs an invisible check when you start a session — it sees that a request happened,
+            not what is in it.
+          </p>
+          <p>No analytics, no tag managers, no advertising pixels, no social embeds.</p>
+        </Section>
+
+        <Section icon={Clock} title="If this page is wrong">
+          <p>
+            It is meant to describe the code, so a mismatch is a bug worth reporting rather than
+            fine print. The relevant files are{' '}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/resume-review/prepared-cache.ts</code>{' '}
+            for the 30-minute copy,{' '}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/rate-limit.ts</code> for
+            the IP counters, and{' '}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/redact.ts</code> for
+            what logs are allowed to contain.
+          </p>
+        </Section>
+      </div>
+
+      <div className="mt-8 flex flex-wrap gap-4 text-sm">
+        <Link
+          href="/about"
+          className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+        >
+          How the coaching actually works
+        </Link>
+        <Link
+          href="/"
+          className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+        >
+          Back to the app
+        </Link>
+      </div>
+    </div>
+  );
+}

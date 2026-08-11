@@ -7,6 +7,7 @@ import {
   allowsNarrativeAssessment,
   personaRubric,
 } from './rubric';
+import { redactInline } from '../redact';
 import type {
   Finding,
   JobDescription,
@@ -238,7 +239,7 @@ export function postValidateReview(input: PostValidateInput): PostValidationRepo
           reason: 'original-text-not-verbatim',
           detail:
             `${label}: originalText is not present in the referenced bullet. ` +
-            `quoted="${raw.originalText.slice(0, 120)}" bullet="${canonical.slice(0, 120)}"`,
+            `quoted=${redactInline(raw.originalText)} bullet=${redactInline(canonical)}`,
         });
         continue;
       }
@@ -254,7 +255,7 @@ export function postValidateReview(input: PostValidateInput): PostValidationRepo
         dropped.push({
           kind: 'finding',
           reason: 'original-text-not-verbatim',
-          detail: `${label}: originalText was not found in the resume. quoted="${raw.originalText.slice(0, 120)}"`,
+          detail: `${label}: originalText was not found in the resume. quoted=${redactInline(raw.originalText)}`,
         });
         continue;
       }
@@ -408,7 +409,10 @@ export function postValidateReview(input: PostValidateInput): PostValidationRepo
         dropped.push({
           kind: 'requirement',
           reason: 'requirement-not-traceable',
-          detail: `requirement "${coverage.requirement}" is not traceable to the job description text.`,
+          // The requirement text is the employer's words rather than the candidate's, but it
+          // arrives here from a user-supplied paste and is treated as untrusted input
+          // everywhere else — so it is redacted on the same rule rather than a softer one.
+          detail: `requirement ${redactInline(coverage.requirement)} is not traceable to the job description text.`,
         });
       }
       return ok;

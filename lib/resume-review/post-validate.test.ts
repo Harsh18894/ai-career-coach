@@ -801,3 +801,90 @@ describe('result shape', () => {
     expect(JSON.stringify(result)).not.toMatch(/"score"|"rating"|"outOf"/);
   });
 });
+
+describe('log redaction', () => {
+  /* -----------------------------------------------------------------------------------
+   * The drop logs used to carry `quoted="<first 120 chars of the resume>"`, which on a real
+   * resume is the name, email and phone number — written to logs that are retained. These
+   * tests exist so that never comes back as a debugging convenience.
+   * --------------------------------------------------------------------------------- */
+
+  function dropLogLines(): string[] {
+    const calls = [
+      ...(console.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls,
+      ...(console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls,
+    ];
+    return calls.map((args) => String(args[0]));
+  }
+
+  it('never writes the candidate\'s words into a drop log, only a length and a fingerprint', () => {
+    // A finding quoting text that is not in the resume: the path that used to log both the
+    // model's quote and 120 characters of the real bullet side by side.
+    const { dropped } = run(
+      makeOutput({
+        findings: [
+          {
+            dimension: 'quantified_impact',
+            severity: 'improvement',
+            targetBulletId: BULLET_ID,
+            targetSection: null,
+            originalText: 'Led a team of engineers to deliver the platform migration.',
+            reason: 'No outcome.',
+            suggestedText: 'Led a team of [N] engineers to deliver the platform migration.',
+            addedPlaceholders: ['[N]'],
+          },
+        ],
+      })
+    );
+
+    expect(dropped).toHaveLength(1);
+
+    const logged = dropLogLines().join('\n');
+    expect(logged).toContain('review_item_dropped');
+
+    // Neither the model's quote nor the real bullet may appear anywhere in the logs.
+    expect(logged).not.toContain('Led a team of engineers');
+    expect(logged).not.toContain('billing service');
+    expect(logged).not.toContain('Test Person');
+
+    // What replaced them is still useful: a shape and a fingerprint.
+    expect(logged).toMatch(/<\d+c\/\d+w#[0-9a-f]{8}>/);
+
+    // And the structured detail itself carries no source text either.
+    expect(dropped[0].detail).not.toContain('Led a team of engineers');
+    expect(dropped[0].detail).toMatch(/<\d+c\/\d+w#[0-9a-f]{8}>/);
+  });
+
+  it('redacts untraceable job requirements too, since a job description is also pasted user text', () => {
+    const jobDescription: JobDescription = {
+      title: 'Engineer',
+      company: 'Somewhere',
+      location: null,
+      descriptionText: 'We need someone who writes TypeScript.',
+      sourceUrl: null,
+      retrievalMethod: 'paste',
+    };
+
+    const { dropped } = run(
+      makeOutput({
+        requirementCoverage: [
+          {
+            requirement: 'Ten years of experience operating Kubernetes at planetary scale',
+            status: 'absent',
+            howToAddress: 'Name the largest cluster you have run.',
+            evidenceInResume: null,
+          },
+        ],
+      }),
+      { path: 'against_job', jobDescription }
+    );
+
+    // Asserted first: without a drop, the "does not contain" checks below would pass for the
+    // wrong reason.
+    expect(dropped.some((d) => d.reason === 'requirement-not-traceable')).toBe(true);
+
+    const logged = dropLogLines().join('\n');
+    expect(logged).not.toContain('planetary scale');
+    expect(logged).not.toContain('Kubernetes');
+  });
+});

@@ -288,6 +288,17 @@ export default function ResumeUpload({
             </button>
           </p>
 
+          {/* Placed at the point of decision rather than only in the footer: the question
+              "where does my resume go" occurs to people as they are about to hand it over. */}
+          <p className="mt-4 text-center text-xs text-slate-400">
+            <Link
+              href="/privacy"
+              className="underline-offset-2 hover:text-slate-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+            >
+              What happens to your resume
+            </Link>
+          </p>
+
           {showLinkedinHelp && (
             <div className="mt-3 p-5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 animate-fade-in">
               <p className="font-semibold text-slate-800 mb-2">

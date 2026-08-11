@@ -121,6 +121,18 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+Security headers (CSP, HSTS, Referrer-Policy, Permissions-Policy, nosniff) are set in
+`next.config.ts`. The CSP is deliberately a strong exfiltration control and a weak injection
+one — `script-src` carries `'unsafe-inline'` because Next's App Router streams the RSC payload
+through inline scripts, and the nonce-based alternative costs static rendering. The comment
+above the policy says so, so nobody assumes otherwise.
+
+`/privacy` is a plain-language note on what is sent to OpenAI, what is stored where and for how
+long, and how to clear it. Every claim on it was checked against the code — including the two
+that came out inconvenient: a parsed resume does sit in Redis for up to 30 minutes during a
+review, and IP addresses are rate-limiting keys for an hour. Both are disclosed rather than
+finessed. If that page and the code disagree, the page is the bug.
+
 ### 4. (Optional) Run the eval suite
 ```bash
 npm run eval:cheap            # free, deterministic, snapshot-cached checks

@@ -68,7 +68,16 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="w-full flex-shrink-0 py-6 border-t border-slate-200 bg-linear-to-r from-indigo-50/30 via-white to-violet-50/30 text-center text-xs text-slate-400">
-          © {new Date().getFullYear()} Aria AI. Demo-ready prototype.
+          <p>
+            © {new Date().getFullYear()} Aria AI. Demo-ready prototype.
+            <span aria-hidden="true" className="mx-2">·</span>
+            <Link
+              href="/privacy"
+              className="underline-offset-2 hover:text-slate-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+            >
+              What happens to your resume
+            </Link>
+          </p>
         </footer>
       </body>
     </html>

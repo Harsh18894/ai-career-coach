@@ -10,9 +10,9 @@ import { isBotProtectionConfigured, verifyHumanToken } from './bot-protection';
 const SECRET = 'test-secret-key';
 
 function mockSiteverify(response: { status?: number; body?: unknown } | Error) {
-  // Params are declared (rather than inferred from an empty signature) so the assertions
-  // below can read what was posted to Cloudflare.
-  const fetchMock = vi.fn(async (_url: string, _init?: { body?: unknown }) => {
+  // Typed via the generic rather than by declaring unused parameters, so `mock.calls` below
+  // is still typed enough to read what was posted to Cloudflare.
+  const fetchMock = vi.fn<(url: string, init?: { body?: unknown }) => Promise<Response>>(async () => {
     if (response instanceof Error) throw response;
     return {
       ok: (response.status ?? 200) < 400,

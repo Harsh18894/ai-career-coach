@@ -23,6 +23,7 @@ import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
 import QuickOptions, { type QuickOption } from './QuickOptions';
+import { clearStashedResumeText } from '@/lib/resume-stash';
 
 // Readiness gating for the UNDERSTANDING phase: ask at least this many questions before
 // recommending, recommend regardless after the cap so the conversation can't stall forever,
@@ -1043,6 +1044,10 @@ export default function ChatWindow({
 
   const handleResetSession = () => {
     localStorage.removeItem('career_coach_session');
+    // The resume text carried over to the review surface is part of "start over" too. Without
+    // this, /privacy's claim that reset clears it would be false — and the review page would
+    // still be holding the resume of a session the user just wiped.
+    clearStashedResumeText();
     // A reset ends the session being measured — mint a new id so the next conversation's
     // cost isn't aggregated onto this one's.
     startNewSession();
