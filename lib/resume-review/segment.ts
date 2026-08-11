@@ -34,7 +34,10 @@ const RawRoleSchema = z.object({
 });
 
 const RawEducationSchema = z.object({
-  institution: z.string(),
+  // Nullish for the same reason as contact.links: an education-adjacent entry (a standalone
+  // certificate, an online course) legitimately has no institution, and the model returns null
+  // rather than inventing one — which cost a repair round-trip until this accepted it.
+  institution: z.string().nullish().transform((v) => v ?? 'Unspecified'),
   degree: z.string().nullish(),
   fieldOfStudy: z.string().nullish(),
   location: z.string().nullish(),
@@ -156,6 +159,12 @@ export async function segmentResume(resumeText: string): Promise<ResumeSegment |
     openai,
     {
       model: 'gpt-5-nano',
+      // Segmentation is transcription with a handful of small judgement calls, not a task that
+      // benefits from extended deliberation. Measured at default effort it spent 7,040
+      // reasoning tokens and 55.7s on one resume — nearly its own 60s ceiling, and most of the
+      // bill. 'low' keeps the judgement calls (isInternship, isOngoing) without paying for
+      // deliberation the task does not need.
+      reasoning_effort: 'low',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildPrompt(resumeText) },

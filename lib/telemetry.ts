@@ -79,6 +79,10 @@ export type TelemetryContext = {
   isSample: boolean;
   /** Which sample profile was used, when isSample. */
   sampleId?: string;
+  /** Resume-review only: the persona the review ran at, and which path it took. Lets cost per
+   * review be reported separately from cost per coaching session, and split by both. */
+  persona?: string;
+  reviewPath?: string;
 };
 
 /**
@@ -91,6 +95,21 @@ const contextStore = new AsyncLocalStorage<TelemetryContext>();
 /** Wrap a route handler body so every LLM call inside it is attributed. */
 export function withTelemetryContext<T>(context: TelemetryContext, fn: () => Promise<T>): Promise<T> {
   return contextStore.run(context, fn);
+}
+
+/**
+ * Enriches the active context in place, for facts not known when the handler started.
+ *
+ * The resume-review pipeline is the motivating case: persona is only determined by stage 2,
+ * but stage 3's llm_call record needs to carry it so cost can be split by persona. Mutating
+ * the stored object is safe because AsyncLocalStorage hands every call in this request the
+ * same object reference, and it is scoped to this request alone.
+ *
+ * No-op outside a telemetry scope.
+ */
+export function updateTelemetryContext(patch: Partial<TelemetryContext>): void {
+  const store = contextStore.getStore();
+  if (store) Object.assign(store, patch);
 }
 
 /** Falls back to an anonymous context so a missing wrapper degrades to unattributed logging
@@ -139,6 +158,8 @@ export type LlmCallRecord = {
   errorCode?: string;
   isSample: boolean;
   sampleId?: string;
+  persona?: string;
+  reviewPath?: string;
 };
 
 /** One line, one object, no pretty-printing — so `vercel logs | grep llm_call` is parseable. */
@@ -273,6 +294,8 @@ async function finish(
     ok: true,
     isSample: context.isSample,
     ...(context.sampleId ? { sampleId: context.sampleId } : {}),
+    ...(context.persona ? { persona: context.persona } : {}),
+    ...(context.reviewPath ? { reviewPath: context.reviewPath } : {}),
   });
 
   await recordSpend(context.sessionId, estimatedCostUsd);
@@ -299,6 +322,8 @@ function finishWithError(call: string, model: string, startedAt: number, streame
     errorCode: classifyError(error),
     isSample: context.isSample,
     ...(context.sampleId ? { sampleId: context.sampleId } : {}),
+    ...(context.persona ? { persona: context.persona } : {}),
+    ...(context.reviewPath ? { reviewPath: context.reviewPath } : {}),
   });
 }
 
