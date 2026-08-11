@@ -21,7 +21,7 @@ import { SAMPLE_PROFILES } from '../lib/samples';
 import { extractProfile, generatePaths, generateRoadmap } from '../lib/ai/coach';
 import { withTelemetryContext, readSessionCost } from '../lib/telemetry';
 import { INITIAL_STATE, type UserSignals } from '../lib/state/conversation';
-import type { Profile, CareerPath } from '../lib/ai/schemas';
+import { CareerPathSchema, type Profile, type CareerPath } from '../lib/ai/schemas';
 
 /* =====================================================================================
  * Config
@@ -37,7 +37,6 @@ const CONFIG = {
   concurrency: 4,
   outputDir: join('evals', 'baselines'),
   snapshotDir: join('evals', '.cache', 'snapshots'),
-  fixtureDir: join('evals', 'fixtures', 'resumes'),
 };
 
 /* =====================================================================================
@@ -125,8 +124,15 @@ async function collectProfiles(): Promise<ProfileSource[]> {
     for (const name of deckSnapshotNames) {
       const snapshot = readSnapshot<{ paths?: CareerPath[] } | CareerPath[]>(name);
       if (!snapshot) continue;
-      cachedPaths = Array.isArray(snapshot) ? snapshot : snapshot.paths;
-      if (cachedPaths?.length) break;
+      const candidates = Array.isArray(snapshot) ? snapshot : snapshot.paths;
+      // Older snapshots predate the tier field, and generateRoadmap keys its week bands off
+      // `tier` — a path missing it would silently produce an unbounded roadmap and corrupt the
+      // measurement. Only reuse snapshots that still satisfy the current schema.
+      const valid = (candidates ?? []).filter((path) => CareerPathSchema.safeParse(path).success);
+      if (valid.length) {
+        cachedPaths = valid;
+        break;
+      }
     }
 
     sources.push({ id, origin: 'eval-fixture', profile, cachedPaths });
@@ -262,8 +268,18 @@ type RoadmapRecord = {
   tier: string;
   totalWeeks: number;
   itemCount: number;
+  /** Items naming a known learning platform or provider, with or without a link. Separates
+   * "names a resource but does not link it" from "does not reference a resource at all" —
+   * a distinction that decides what Phase 2's catalog actually has to replace. */
+  itemsNamingAProvider: number;
+  /** A few verbatim items, so the artifact carries evidence and not just counts. */
+  sampleItems: string[];
   urls: string[];
 };
+
+/** Providers a model would plausibly cite when recommending study material. */
+const PROVIDER_PATTERN =
+  /\b(coursera|udemy|edx|datacamp|pluralsight|codecademy|freecodecamp|youtube|khan academy|leetcode|hackerrank|kaggle|udacity|linkedin learning|o'?reilly|manning|packt|educative|scrimba|exercism|codewars|mode analytics|stratascratch)\b/i;
 
 async function main(): Promise<void> {
   const startedAt = Date.now();
@@ -280,24 +296,30 @@ async function main(): Promise<void> {
   const allUrls: string[] = [];
 
   await withTelemetryContext({ sessionId, route: '/scripts/baseline-links', isSample: false }, async () => {
+    // Decks are resolved up front, then walked breadth-first (one path per profile, then the
+    // next path per profile). A depth-first walk would spend the whole roadmap budget on the
+    // first profile, and link behaviour could plausibly vary by persona.
+    const decks = new Map<string, { source: ProfileSource; paths: CareerPath[]; signals: UserSignals }>();
     for (const source of sources) {
-      if (roadmaps.length >= maxRoadmaps || allUrls.length >= CONFIG.targetUrlCount) break;
-
       const signals = signalsFor(source.profile);
       const paths =
         source.cachedPaths?.length
           ? source.cachedPaths
           : await generatePaths(source.profile, signals, [], [], { country: source.profile.country ?? 'India' });
+      decks.set(source.id, { source, paths, signals });
+    }
 
-      for (const path of paths) {
-        if (roadmaps.length >= maxRoadmaps || allUrls.length >= CONFIG.targetUrlCount) break;
+    const deepestDeck = Math.max(0, ...Array.from(decks.values(), (deck) => deck.paths.length));
+
+    outer: for (let pathIndex = 0; pathIndex < deepestDeck; pathIndex++) {
+      for (const { source, paths, signals } of decks.values()) {
+        if (roadmaps.length >= maxRoadmaps || allUrls.length >= CONFIG.targetUrlCount) break outer;
+        const path = paths[pathIndex];
+        if (!path) continue;
 
         const roadmap = await generateRoadmap(source.profile, path, signals);
         const urls = extractUrls(roadmap);
-        const itemCount = roadmap.phases.reduce(
-          (total, phase) => total + phase.weeks.reduce((sum, week) => sum + week.items.length, 0),
-          0
-        );
+        const items = roadmap.phases.flatMap((phase) => phase.weeks.flatMap((week) => week.items));
 
         roadmaps.push({
           profileId: source.id,
@@ -305,13 +327,15 @@ async function main(): Promise<void> {
           pathTitle: path.title,
           tier: path.tier,
           totalWeeks: roadmap.totalWeeks,
-          itemCount,
+          itemCount: items.length,
+          itemsNamingAProvider: items.filter((item) => PROVIDER_PATTERN.test(item)).length,
+          sampleItems: items.slice(0, 3),
           urls,
         });
         allUrls.push(...urls);
 
         console.log(
-          `[baseline] ${source.id} / ${path.title} (${path.tier}) -> ${itemCount} items, ${urls.length} URLs  [running total: ${allUrls.length}]`
+          `[baseline] ${source.id} / ${path.title} (${path.tier}) -> ${items.length} items, ${urls.length} URLs  [running total: ${allUrls.length}]`
         );
       }
     }
@@ -379,6 +403,8 @@ function writeArtifacts(input: {
 
   const roadmapsWithLinks = roadmaps.filter((r) => r.urls.length > 0).length;
   const totalItems = roadmaps.reduce((sum, r) => sum + r.itemCount, 0);
+  const itemsNamingAProvider = roadmaps.reduce((sum, r) => sum + r.itemsNamingAProvider, 0);
+  const noUrlsAtAll = results.length === 0;
 
   const raw = {
     capturedAt: new Date().toISOString(),
@@ -391,13 +417,16 @@ function writeArtifacts(input: {
       totalUrls: allUrls.length,
       uniqueUrls: results.length,
       urlsPerRoadmap: roadmaps.length ? allUrls.length / roadmaps.length : 0,
+      itemsNamingAProvider,
     },
     validation: {
       ok: results.filter((r) => r.status === 'ok').length,
       dead: results.filter((r) => r.status === 'dead').length,
       timeout: results.filter((r) => r.status === 'timeout').length,
       blocked: results.filter((r) => r.status === 'blocked').length,
-      brokenRatePercent: Number(brokenRate.toFixed(1)),
+      // Null rather than 0 when nothing was emitted: a 0% broken rate over zero links reads
+      // as "every link works", which is the opposite of what happened.
+      brokenRatePercent: noUrlsAtAll ? null : Number(brokenRate.toFixed(1)),
       uniqueDomains: domains.size,
       youtubeWatchLinks: youtubeLinks.length,
       youtubeBroken: youtubeBroken.length,
@@ -420,8 +449,8 @@ function writeArtifacts(input: {
     '',
     '## Headline',
     '',
-    results.length === 0
-      ? `**The roadmap generator emitted no URLs at all** across ${roadmaps.length} roadmaps and ${totalItems} weekly items. There is no broken-link rate to quote, because there are no links.`
+    noUrlsAtAll
+      ? `**The roadmap generator emitted no URLs at all** across ${roadmaps.length} roadmaps and ${totalItems} weekly items, and only ${itemsNamingAProvider} of those items named a learning provider even without a link. There is no broken-link rate to quote, because there are no links.`
       : `**${brokenRate.toFixed(1)}% of emitted resource links are broken** (${broken.length} of ${results.length} unique URLs).`,
     '',
     '## Generation',
@@ -434,22 +463,42 @@ function writeArtifacts(input: {
     `| Total URLs emitted | ${allUrls.length} |`,
     `| Unique URLs | ${results.length} |`,
     `| URLs per roadmap | ${roadmaps.length ? (allUrls.length / roadmaps.length).toFixed(2) : '0'} |`,
+    `| Items naming a known learning provider | ${itemsNamingAProvider} |`,
     `| Estimated generation cost | ${costUsd === null ? 'n/a (Redis unconfigured)' : `$${costUsd.toFixed(4)}`} |`,
     '',
     '## Link validation',
     '',
-    '| Status | Count |',
-    '| --- | --- |',
-    `| ok | ${raw.validation.ok} |`,
-    `| dead | ${raw.validation.dead} |`,
-    `| timeout | ${raw.validation.timeout} |`,
-    `| blocked | ${raw.validation.blocked} |`,
+    noUrlsAtAll
+      ? [
+          '_Not applicable — no URLs were emitted, so nothing was validated._',
+          '',
+          'Note that this is **not** a 0% broken rate. A 0% broken rate would mean every link',
+          'worked. What happened is that the generator produced no links to check.',
+        ].join('\n')
+      : [
+          '| Status | Count |',
+          '| --- | --- |',
+          `| ok | ${raw.validation.ok} |`,
+          `| dead | ${raw.validation.dead} |`,
+          `| timeout | ${raw.validation.timeout} |`,
+          `| blocked | ${raw.validation.blocked} |`,
+          '',
+          `- Unique domains: **${domains.size}**`,
+          `- Broken rate (dead + timeout): **${brokenRate.toFixed(1)}%**`,
+          `- YouTube watch links: **${youtubeLinks.length}**, of which broken or fabricated: **${youtubeBroken.length}** (${youtubeBrokenRate.toFixed(1)}%)`,
+          `- YouTube links with a video id that is not 11 characters (certainly fabricated): **${raw.validation.youtubeCertainlyFabricated}**`,
+        ].join('\n'),
     '',
-    `- Unique domains: **${domains.size}**`,
-    `- Broken rate (dead + timeout): **${brokenRate.toFixed(1)}%**`,
-    `- YouTube watch links: **${youtubeLinks.length}**, of which broken or fabricated: **${youtubeBroken.length}** (${youtubeBrokenRate.toFixed(1)}%)`,
-    `- YouTube links with a video id that is not 11 characters (certainly fabricated): **${raw.validation.youtubeCertainlyFabricated}**`,
+    '## What the items contain instead',
     '',
+    'Sample of verbatim weekly items, so this artifact carries evidence rather than only counts:',
+    '',
+    ...roadmaps.slice(0, 4).flatMap((r) => [
+      `**${r.profileId} — ${r.pathTitle}** (${r.tier})`,
+      '',
+      ...r.sampleItems.map((item) => `- ${item}`),
+      '',
+    ]),
     '## Ten most frequently emitted URLs',
     '',
     topUrls.length === 0
@@ -465,8 +514,8 @@ function writeArtifacts(input: {
   console.log(`[baseline] wrote ${mdPath}`);
 
   const headline =
-    results.length === 0
-      ? `BASELINE: 0 URLs emitted across ${roadmaps.length} roadmaps / ${totalItems} items — the current generator names resources but never links them.`
+    noUrlsAtAll
+      ? `BASELINE: 0 URLs across ${roadmaps.length} roadmaps / ${totalItems} items (${itemsNamingAProvider} items name a provider) — the generator emits no resource links at all.`
       : `BASELINE: ${brokenRate.toFixed(1)}% of resource links broken (${broken.length}/${results.length} unique URLs, ${domains.size} domains); YouTube broken/fabricated ${youtubeBroken.length}/${youtubeLinks.length}.`;
   console.log(`\n${headline}`);
 }

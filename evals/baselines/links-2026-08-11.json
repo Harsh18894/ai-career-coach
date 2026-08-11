@@ -1,0 +1,179 @@
+{
+  "capturedAt": "2026-08-11T04:01:40.571Z",
+  "durationMs": 527491,
+  "estimatedCostUsd": 0.11470892999999999,
+  "generation": {
+    "roadmapsGenerated": 10,
+    "roadmapsContainingAtLeastOneUrl": 0,
+    "totalRoadmapItems": 290,
+    "totalUrls": 0,
+    "uniqueUrls": 0,
+    "urlsPerRoadmap": 0,
+    "itemsNamingAProvider": 6
+  },
+  "validation": {
+    "ok": 0,
+    "dead": 0,
+    "timeout": 0,
+    "blocked": 0,
+    "brokenRatePercent": null,
+    "uniqueDomains": 0,
+    "youtubeWatchLinks": 0,
+    "youtubeBroken": 0,
+    "youtubeBrokenRatePercent": 0,
+    "youtubeCertainlyFabricated": 0
+  },
+  "links": [],
+  "roadmaps": [
+    {
+      "profileId": "R-grow-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Senior Revenue Operations Analyst — Forecasting & Incentive Systems (IC)",
+      "tier": "conservative",
+      "totalWeeks": 6,
+      "itemCount": 18,
+      "itemsNamingAProvider": 1,
+      "sampleItems": [
+        "Complete dbt Learn: 'dbt Fundamentals' modules on models/tests (1–2 modules) and apply tests to one commission calc query (use existing SQL snippets).",
+        "Set up a GitHub repo and push a minimal dbt project or a well-organized SQL folder with CTEs and a README (include one sample dataset snapshot).",
+        "Write 2 short README sections: 'commission_engine_before.md' and 'commission_engine_after.md' summarizing the before/after mechanics and metrics."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-pivot-01",
+      "origin": "eval-fixture",
+      "pathTitle": "SDR Team Lead / Frontline Sales Lead",
+      "tier": "conservative",
+      "totalWeeks": 6,
+      "itemCount": 24,
+      "itemsNamingAProvider": 0,
+      "sampleItems": [
+        "Draft a one‑page 90‑day pilot: objective, success metrics (activity + outcome), weekly cadence, escalation plan and two pilot mentees' learning goals.",
+        "Define 3–5 KPIs for the pilot (e.g., dials/day, qualified leads w/in 14 days, conversion to SQL, pipeline value) and target improvements (baseline → goal).",
+        "Create a 10‑slide / 1‑page slide deck and a 20‑minute script to request a pilot approval meeting with your manager (use concrete baseline metrics from Brightloop)."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-grad-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Entry Frontend Engineer — startup product team (React + TypeScript)",
+      "tier": "conservative",
+      "totalWeeks": 8,
+      "itemCount": 31,
+      "itemsNamingAProvider": 0,
+      "sampleItems": [
+        "Define a concise product: single-page dashboard or small CRUD app relevant to healthtech/analytics (e.g., patient-analytics dashboard with filterable charts). Write a 1-paragraph problem statement.",
+        "Create GitHub repo with README, issue backlog (3–6 issues), and an initial project board; pick a license.",
+        "Scaffold a React + TypeScript app (Vite or Create React App), set up ESLint, Prettier, TypeScript strict mode, and install React Testing Library + Jest."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-inject-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Consolidate as Senior Revenue Operations Analyst (formal title & scope) at Ledgerly",
+      "tier": "conservative",
+      "totalWeeks": 6,
+      "itemCount": 18,
+      "itemsNamingAProvider": 0,
+      "sampleItems": [
+        "Run SQL pulls / Tableau exports to compile: forecast accuracy (quarterly) numbers showing 18%→7% reduction, revenue impact estimates, and dashboard usage logs (viewer list, timestamps) used in board meetings — assemble into a single spreadsheet.",
+        "Collect qualitative evidence: 1‑page notes from execs who use the dashboard (email excerpts, meeting minutes), and written feedback from the two junior analysts you mentored (impact on their KPIs).",
+        "Map current org context: current informal responsibilities, list of stakeholders for the 3‑person workstream, and any informal handoffs (who escalates what)."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "backend-engineer",
+      "origin": "sample",
+      "pathTitle": "Senior Backend Engineer — Payments Platform (Senior IC)",
+      "tier": "conservative",
+      "totalWeeks": 8,
+      "itemCount": 24,
+      "itemsNamingAProvider": 1,
+      "sampleItems": [
+        "Write a one-page project brief: objective (e.g., 'robust reconciliation run + idempotent retry workflow to reduce manual interventions'), success metrics (incident count, mean time to reconcile, manual tickets/week), and target improvement.",
+        "Gather/record baseline metrics from production or mocks (logs, current retry count, manual intervention frequency). If production data is sensitive, create a realistic synthetic baseline based on your experience.",
+        "Define minimal deliverables for a demo: API sketch, DB schema change, reconciliation run flow, metrics to emit (Prometheus/Grafana)."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "career-switcher",
+      "origin": "sample",
+      "pathTitle": "Senior Growth Marketing Manager (e‑commerce/DTC)",
+      "tier": "conservative",
+      "totalWeeks": 6,
+      "itemCount": 19,
+      "itemsNamingAProvider": 0,
+      "sampleItems": [
+        "Write a 1-page brief: goal (title ask + promotion justification), target metric (revenue or GMV lift), and three candidate experiments to run in the next 3 months.",
+        "Do a data & access audit (Snowflake + Looker): list tables/dashboards needed, note missing events/tags, capture current baseline metrics (AOV, conversion, recurring revenue).",
+        "Create a simple mapping from experiment KPIs to monthly revenue impact (formula sheet in Google Sheets) to use for hypothesis ROI estimates."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "recent-graduate",
+      "origin": "sample",
+      "pathTitle": "Junior Backend Engineer (Java / Spring Boot) — graduate entry",
+      "tier": "conservative",
+      "totalWeeks": 8,
+      "itemCount": 28,
+      "itemsNamingAProvider": 1,
+      "sampleItems": [
+        "Decide a focused domain: e.g., Order Management service (create/read/update orders, simple search) — limit scope to 4–6 endpoints and one main aggregate.",
+        "Generate Spring Boot project with Spring Initializr (Web, Data JPA, H2/Postgres driver, Actuator), create GitHub repo, add MIT or Apache license and CONTRIBUTING note.",
+        "Implement domain model (entities/DTOs), repository interfaces and 2–3 core endpoints (POST /orders, GET /orders/{id}, GET /orders) with basic validation."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-grow-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Revenue Operations Manager — First-line People Leader (3–6 reports)",
+      "tier": "realistic",
+      "totalWeeks": 14,
+      "itemCount": 42,
+      "itemsNamingAProvider": 0,
+      "sampleItems": [
+        "Extract and document KPI improvements: pre/post forecast variance (18%→7%), commission engine time-saved (hours/week), dashboard usage metrics — produce 1-page metrics sheet.",
+        "Run SQL/Tableau queries to produce charts for executive dashboard slides (revenue accuracy, forecast coverage, commission exceptions).",
+        "List current direct/indirect reports and scope you already lead; capture specific examples of decisions you made as lead."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-pivot-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Revenue Operations / Growth Operations Specialist",
+      "tier": "realistic",
+      "totalWeeks": 14,
+      "itemCount": 44,
+      "itemsNamingAProvider": 1,
+      "sampleItems": [
+        "Export a 3–6 month sample from Salesforce (leads, contacts, accounts, activities, opportunities).",
+        "Define core KPIs and funnel stages (Lead → MQL → SAL → SQL → Opportunity → Closed-won) in a 1-page doc.",
+        "Choose platform: set up Metabase (free cloud/local) or create an Airtable base; sketch dashboard wireframe."
+      ],
+      "urls": []
+    },
+    {
+      "profileId": "R-grad-01",
+      "origin": "eval-fixture",
+      "pathTitle": "Junior Analytics Engineer / BI Engineer (dbt + Airflow + SQL)",
+      "tier": "realistic",
+      "totalWeeks": 14,
+      "itemCount": 42,
+      "itemsNamingAProvider": 2,
+      "sampleItems": [
+        "Choose a compact, business-focused dataset (recommend: Kaggle 'Medical Appointment No-Shows' or a synthetic healthtech bookings dataset) and write a one-paragraph business problem (e.g., reduce no-shows / optimize resource utilisation).",
+        "Create a public GitHub repo with license and project structure: /dbt, /airflow, /docker-compose.yml, /docs, /notebooks.",
+        "Stand up a local Postgres (Docker) and initialize a dbt project (dbt init) configured to that database; add a README 'how to run locally' with exact commands."
+      ],
+      "urls": []
+    }
+  ]
+}
