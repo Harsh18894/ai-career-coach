@@ -11,7 +11,9 @@
     "eval": "tsx evals/run.ts",
     "eval:cheap": "EVAL_CHEAP=1 tsx evals/run.ts",
     "eval:report": "tsx evals/run.ts",
-    "eval:warm": "tsx evals/scripts/warm.ts"
+    "eval:warm": "tsx evals/scripts/warm.ts",
+    "baseline:links": "tsx scripts/baseline-links.ts",
+    "baseline:links:help": "echo 'Captures the pre-Phase-2 resource-link baseline. Makes real OpenAI calls (~$0.25-0.50/run) and counts against DAILY_BUDGET_USD. Requires --confirm. Never run in CI. Usage: npm run baseline:links -- --confirm'"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.8",

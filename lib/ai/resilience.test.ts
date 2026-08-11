@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type OpenAI from 'openai';
+import { APIConnectionTimeoutError, APIConnectionError, APIError } from 'openai';
 import { z } from 'zod';
 import { structuredCompletion, resilientStream, withSingleRetry, TIMEOUTS } from './resilience';
 import { AppError } from '../errors';
@@ -14,9 +15,16 @@ function mockClient(create: CreateMock): OpenAI {
   return { chat: { completions: { create } } } as unknown as OpenAI;
 }
 
-/** Shapes a rejection the way the OpenAI SDK does, with an HTTP status. */
-function apiError(status: number): Error & { status: number } {
-  return Object.assign(new Error(`mock upstream ${status}`), { status });
+/**
+ * Real SDK error instances, not hand-rolled look-alikes.
+ *
+ * This matters: the SDK does not set `.name` on its error classes, so an earlier version of
+ * these tests passed against fakes that carried `name: 'APIConnectionTimeoutError'` while the
+ * production classifier never matched a real one. Construct the actual classes so the test
+ * cannot drift from the SDK again.
+ */
+function apiError(status: number): APIError {
+  return new APIError(status, { error: { message: `mock upstream ${status}` } }, undefined, undefined);
 }
 
 function completionWith(content: string) {
@@ -80,11 +88,22 @@ describe('withSingleRetry', () => {
     expect(attempt).toHaveBeenCalledTimes(2);
   });
 
-  it('classifies a connection timeout as UPSTREAM_TIMEOUT and retries it', async () => {
-    const timeout = Object.assign(new Error('timed out'), { name: 'APIConnectionTimeoutError' });
-    const attempt = vi.fn().mockRejectedValue(timeout);
+  it('classifies a real SDK timeout as UPSTREAM_TIMEOUT and retries it', async () => {
+    const attempt = vi.fn().mockRejectedValue(new APIConnectionTimeoutError({}));
     await expect(withSingleRetry(attempt, 'test')).rejects.toMatchObject({ code: 'UPSTREAM_TIMEOUT' });
     expect(attempt).toHaveBeenCalledTimes(2);
+  });
+
+  it('classifies a real SDK connection drop as UPSTREAM_ERROR and retries it', async () => {
+    const attempt = vi.fn().mockRejectedValue(new APIConnectionError({ message: 'Connection error.' }));
+    await expect(withSingleRetry(attempt, 'test')).rejects.toMatchObject({ code: 'UPSTREAM_ERROR' });
+    expect(attempt).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a plain programming error — that is our bug, not a transient fault', async () => {
+    const attempt = vi.fn().mockRejectedValue(new TypeError('x is not a function'));
+    await expect(withSingleRetry(attempt, 'test')).rejects.toMatchObject({ code: 'UNKNOWN' });
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 });
 

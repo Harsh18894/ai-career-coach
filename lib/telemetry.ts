@@ -77,6 +77,8 @@ export type TelemetryContext = {
   /** True for sessions started from the "try with a sample resume" button, so demo traffic
    * can be excluded from real usage metrics. */
   isSample: boolean;
+  /** Which sample profile was used, when isSample. */
+  sampleId?: string;
 };
 
 /**
@@ -100,10 +102,12 @@ function currentContext(): TelemetryContext {
 /** Reads session identity off the request headers set by lib/session.ts. */
 export function telemetryContextFromRequest(request: Request, route: string): TelemetryContext {
   const sessionId = request.headers.get('x-aria-session-id')?.trim();
+  const sampleId = request.headers.get('x-aria-sample-id')?.trim();
   return {
     sessionId: sessionId && sessionId.length <= 64 ? sessionId : 'unattributed',
     route,
     isSample: request.headers.get('x-aria-sample') === '1',
+    ...(sampleId && sampleId.length <= 64 ? { sampleId } : {}),
   };
 }
 
@@ -134,6 +138,7 @@ export type LlmCallRecord = {
   ok: boolean;
   errorCode?: string;
   isSample: boolean;
+  sampleId?: string;
 };
 
 /** One line, one object, no pretty-printing — so `vercel logs | grep llm_call` is parseable. */
@@ -267,6 +272,7 @@ async function finish(
     streamed,
     ok: true,
     isSample: context.isSample,
+    ...(context.sampleId ? { sampleId: context.sampleId } : {}),
   });
 
   await recordSpend(context.sessionId, estimatedCostUsd);
@@ -292,6 +298,7 @@ function finishWithError(call: string, model: string, startedAt: number, streame
     ok: false,
     errorCode: classifyError(error),
     isSample: context.isSample,
+    ...(context.sampleId ? { sampleId: context.sampleId } : {}),
   });
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, AlertCircle, Link2, ChevronDown } from 'lucide-react';
+import { Upload, AlertCircle, Link2, ChevronDown, FlaskConical } from 'lucide-react';
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import {
   ClientApiError,
@@ -10,7 +10,8 @@ import {
   offersPasteFallback,
   type ClientError,
 } from '@/lib/errors';
-import { sessionHeaders } from '@/lib/session';
+import { sessionHeaders, startNewSession } from '@/lib/session';
+import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 
 interface ResumeUploadProps {
@@ -30,6 +31,7 @@ export default function ResumeUpload({
   const [showTextFallback, setShowTextFallback] = useState(false);
   const [manualText, setManualText] = useState('');
   const [showLinkedinHelp, setShowLinkedinHelp] = useState(false);
+  const [showSamplePicker, setShowSamplePicker] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,6 +128,19 @@ export default function ResumeUpload({
     fileInputRef.current?.click();
   };
 
+  /**
+   * Starts a session from a fictional sample profile. It goes through `onManualTextSubmit` —
+   * the same paste-text path a real user hits — so there is no second intake flow to keep
+   * correct. The session id is re-minted first so this run is tagged isSample from its very
+   * first request, rather than inheriting whatever session was already in localStorage.
+   */
+  const handleUseSample = (sample: SampleProfile) => {
+    setError(null);
+    setShowSamplePicker(false);
+    startNewSession({ isSample: true, sampleId: sample.id });
+    onManualTextSubmit(sample.resumeText);
+  };
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualText.trim() || manualText.trim().length < 150) {
@@ -198,6 +213,41 @@ export default function ResumeUpload({
 
       {!isLoading && (
         <>
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={() => setShowSamplePicker((prev) => !prev)}
+              aria-expanded={showSamplePicker}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
+            >
+              <FlaskConical className="w-4 h-4" />
+              Try with a sample resume
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showSamplePicker ? 'rotate-180' : ''}`} />
+            </button>
+            <p className="mt-2 text-xs text-slate-500">
+              Prefer not to upload anything? Start from one of three fictional profiles.
+            </p>
+          </div>
+
+          {showSamplePicker && (
+            <div className="mt-3 grid gap-2 animate-fade-in">
+              {SAMPLE_PROFILES.map((sample) => (
+                <button
+                  key={sample.id}
+                  type="button"
+                  onClick={() => handleUseSample(sample)}
+                  className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
+                >
+                  <span className="block text-sm font-semibold text-slate-800">{sample.label}</span>
+                  <span className="block mt-0.5 text-xs text-slate-500">{sample.blurb}</span>
+                </button>
+              ))}
+              <p className="text-xs text-slate-400 text-center mt-1">
+                These profiles are invented for the demo — they are not real people.
+              </p>
+            </div>
+          )}
+
           <p className="mt-4 text-center text-sm text-slate-500">
             Don&apos;t have a resume ready?{' '}
             <button

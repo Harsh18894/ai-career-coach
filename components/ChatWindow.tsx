@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe } from 'lucide-react';
+import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe, FlaskConical } from 'lucide-react';
 import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
@@ -12,7 +12,8 @@ import {
   isRetryable,
   type ClientError,
 } from '@/lib/errors';
-import { sessionHeaders, startNewSession } from '@/lib/session';
+import { sessionHeaders, startNewSession, currentSampleId } from '@/lib/session';
+import { findSampleProfile } from '@/lib/samples';
 import MessageBubble from './MessageBubble';
 import ThinkingBubble from './ThinkingBubble';
 import PathDeck from './PathDeck';
@@ -196,6 +197,10 @@ export default function ChatWindow({
   // because it is a closure over the failed turn, not something the render depends on.
   const retryRef = useRef<(() => Promise<void>) | null>(null);
   const [canRetry, setCanRetry] = useState(false);
+  // Which fictional sample profile backs this session, if any. Safe to read during the initial
+  // render: ChatWindow only ever mounts after the landing screen hands off, so it is never
+  // server-rendered and there is no hydration pass for a localStorage read to disagree with.
+  const [sampleLabel] = useState<string | null>(() => findSampleProfile(currentSampleId())?.label ?? null);
   
   // For regeneration feedback — QuickOptions owns its own "Something else" text internally, so
   // this is just the gate for whether the reason panel is showing at all.
@@ -1039,6 +1044,17 @@ export default function ChatWindow({
           {state.signals.intentGuess !== 'unknown' && (
             <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">
               {state.signals.intentGuess.replace('_', ' ')}
+            </span>
+          )}
+          {/* Persistent for the whole session: nothing here is a real person's career, and a
+              reviewer should never have to wonder whether it is. */}
+          {sampleLabel && (
+            <span
+              title={`Fictional sample profile: ${sampleLabel}`}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full border border-amber-200"
+            >
+              <FlaskConical className="w-3 h-3" aria-hidden="true" />
+              Sample profile
             </span>
           )}
         </div>

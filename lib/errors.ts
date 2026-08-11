@@ -121,7 +121,28 @@ export class AppError extends Error {
  * Classification
  * ===================================================================================== */
 
-type UpstreamErrorShape = { status?: number; name?: string; code?: string };
+type UpstreamErrorShape = { status?: number; name?: string; code?: string; message?: string };
+
+/**
+ * Whether a thrown value came from the OpenAI SDK.
+ *
+ * The SDK does NOT set `.name` on its error classes — an APIConnectionTimeoutError reports
+ * `name === 'Error'` — so name matching silently fails. It does always define `status` and
+ * `headers` (both undefined for connection-level failures), which is a reliable structural
+ * marker and does not require importing the SDK into a module the client bundles.
+ */
+function isSdkError(error: unknown): error is UpstreamErrorShape {
+  return error instanceof Error && 'status' in error && 'headers' in error;
+}
+
+/** Connection-level SDK failures carry no HTTP status; the SDK distinguishes them by message. */
+function isConnectionLevel(error: UpstreamErrorShape): boolean {
+  return error.status === undefined;
+}
+
+function isTimeoutMessage(error: UpstreamErrorShape): boolean {
+  return /timed out|timeout/i.test(error.message ?? '');
+}
 
 /**
  * Maps a thrown OpenAI SDK error to a taxonomy code.
@@ -134,10 +155,16 @@ export function classifyUpstreamError(error: unknown): ErrorCode {
 
   const err = error as UpstreamErrorShape;
 
-  if (err?.name === 'APIConnectionTimeoutError' || err?.name === 'AbortError' || err?.code === 'ETIMEDOUT') {
-    return 'UPSTREAM_TIMEOUT';
+  if (err?.name === 'AbortError' || err?.code === 'ETIMEDOUT') return 'UPSTREAM_TIMEOUT';
+  if (err?.code === 'ECONNRESET') return 'UPSTREAM_ERROR';
+
+  if (isSdkError(error)) {
+    if (isConnectionLevel(error)) {
+      return isTimeoutMessage(error) ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR';
+    }
+    if (error.status === 429) return 'RATE_LIMITED';
+    return 'UPSTREAM_ERROR';
   }
-  if (err?.name === 'APIConnectionError' || err?.code === 'ECONNRESET') return 'UPSTREAM_ERROR';
 
   if (typeof err?.status === 'number') {
     if (err.status === 429) return 'RATE_LIMITED';
@@ -154,14 +181,22 @@ export function classifyUpstreamError(error: unknown): ErrorCode {
 export function isRetryableUpstream(error: unknown): boolean {
   const err = error as UpstreamErrorShape;
 
-  if (err?.name === 'APIConnectionTimeoutError' || err?.name === 'APIConnectionError') return true;
   if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNRESET') return true;
+
+  if (isSdkError(error)) {
+    // Timeouts and dropped connections are the canonical transient case.
+    if (isConnectionLevel(error)) return true;
+    if (error.status === 429) return true;
+    return (error.status ?? 0) >= 500;
+  }
 
   if (typeof err?.status === 'number') {
     if (err.status === 429) return true;
     return err.status >= 500;
   }
 
+  // Anything that is not recognisably an upstream failure is our own bug. Retrying it would
+  // just run the same broken code path again.
   return false;
 }
 

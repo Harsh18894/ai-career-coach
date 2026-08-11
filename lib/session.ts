@@ -18,6 +18,9 @@ export type SessionMeta = {
   /** True for sessions started from the "try with a sample resume" button, so demo traffic is
    * excluded from real usage metrics. Set at session start and fixed for its lifetime. */
   isSample: boolean;
+  /** Which sample profile (lib/samples) this session was started from, when isSample. Lets the
+   * in-session badge name the profile, and lets logs be split per sample. */
+  sampleId?: string;
 };
 
 function newId(): string {
@@ -41,7 +44,12 @@ function read(): SessionMeta | null {
       typeof (parsed as SessionMeta).id === 'string' &&
       (parsed as SessionMeta).id
     ) {
-      return { id: (parsed as SessionMeta).id, isSample: (parsed as SessionMeta).isSample === true };
+      const meta = parsed as SessionMeta;
+      return {
+        id: meta.id,
+        isSample: meta.isSample === true,
+        ...(typeof meta.sampleId === 'string' ? { sampleId: meta.sampleId } : {}),
+      };
     }
   } catch {
     // Corrupt or unavailable storage — fall through and mint a fresh one.
@@ -69,14 +77,24 @@ export function getSessionMeta(): SessionMeta {
 
 /** Begins a new measurable session. Called when the user resets, and by the sample-resume
  * entry point (which passes isSample). */
-export function startNewSession(options: { isSample?: boolean } = {}): SessionMeta {
-  const meta: SessionMeta = { id: newId(), isSample: options.isSample === true };
+export function startNewSession(options: { isSample?: boolean; sampleId?: string } = {}): SessionMeta {
+  const meta: SessionMeta = {
+    id: newId(),
+    isSample: options.isSample === true,
+    ...(options.sampleId ? { sampleId: options.sampleId } : {}),
+  };
   write(meta);
   return meta;
 }
 
 export function isSampleSession(): boolean {
   return getSessionMeta().isSample;
+}
+
+/** The sample profile id backing this session, or null for a real one. */
+export function currentSampleId(): string | null {
+  const meta = getSessionMeta();
+  return meta.isSample ? meta.sampleId ?? null : null;
 }
 
 /**
@@ -89,5 +107,6 @@ export function sessionHeaders(): Record<string, string> {
   return {
     'x-aria-session-id': meta.id,
     'x-aria-sample': meta.isSample ? '1' : '0',
+    ...(meta.sampleId ? { 'x-aria-sample-id': meta.sampleId } : {}),
   };
 }

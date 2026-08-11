@@ -17,9 +17,19 @@ import { trackedCompletion, trackedStream } from '../telemetry';
  *  - 400-class errors are never retried — those are our bug, and retrying hides them.
  * ===================================================================================== */
 
+/**
+ * Measured, not guessed: the gpt-5 family spends most of its output budget on reasoning
+ * tokens, and structured extraction is the slowest thing here — observed extractProfile runs
+ * took 27s and 30s, so an even 30s ceiling times out on a healthy call.
+ *
+ * Note the interaction with the routes' `maxDuration = 60`: a call that times out and is
+ * retried can exceed the platform's own function ceiling, in which case the request is
+ * terminated and the client surfaces UPSTREAM_TIMEOUT with a Retry button. That is the
+ * intended degradation, not a fault — but it is why these values are not raised further.
+ */
 export const TIMEOUTS = {
   /** Every call except roadmap generation. */
-  default: 30_000,
+  default: 45_000,
   /** Roadmap generation writes a phased, week-by-week plan and legitimately runs long. */
   roadmap: 60_000,
 } as const;
