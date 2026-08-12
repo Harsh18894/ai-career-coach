@@ -20,12 +20,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { BackLink } from '@/components/shell/BackLink';
+import { LIMITS, formatBytes } from '@/lib/limits';
 
 export default function AboutPage() {
   const entryPoints = [
     {
       title: 'Upload a resume PDF',
-      desc: 'Drag and drop a PDF, or browse for one (up to 5 MB). We pull the text out on our server and turn it into a structured profile.',
+      desc: `Try Hachi, then Upload my resume, and your file browser opens straight away. Pick a PDF (up to ${formatBytes(LIMITS.maxUploadBytes)}) and the conversation starts on it immediately — there is no extra screen in between. We pull the text out on our server and turn it into a structured profile. Come back later and it offers the resume you already gave it, rather than asking twice.`,
     },
     {
       title: 'Export your LinkedIn profile',
@@ -33,7 +34,11 @@ export default function AboutPage() {
     },
     {
       title: 'Skip the resume entirely',
-      desc: 'No resume at all? The coach builds your profile through a short, adaptive conversation instead. It asks one question at a time and never repeats what you have already told it. The first question gives you quick picks (studying, working, between things) plus a box to type your own.',
+      desc: 'No resume at all? Choose "No PDF? Answer a few questions instead" and the coach builds your profile through a short, adaptive conversation. It asks one question at a time and never repeats what you have already told it. The first question gives you quick picks (studying, working, between things) plus a box to type your own. You can also paste your resume as plain text if you have the words but not the file.',
+    },
+    {
+      title: 'Or use a sample profile',
+      desc: 'Not ready to hand over your own resume? Three fictional profiles are built in, each described up front so a sample is never mistaken for yours. They run the entire product end to end — the same conversation, paths, and roadmap a real resume gets.',
     },
   ];
 

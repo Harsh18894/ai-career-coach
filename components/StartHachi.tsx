@@ -120,7 +120,38 @@ function StartDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      // Focus trap. `aria-modal="true"` promises assistive tech that the rest of the page is
+      // inert; without this, Tab walked straight out into the page behind and a keyboard user
+      // was left tabbing through a document they could not see, with no way back.
+      const panel = panelRef.current;
+      if (!panel) return;
+      // Anything deliberately out of the tab order carries tabindex="-1" — the hidden file
+      // input included. Excluding by attribute rather than by measured visibility is what makes
+      // this work identically in a browser and in jsdom, which has no layout to measure.
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href]:not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
     // The page behind a modal should not scroll under it.
@@ -238,6 +269,9 @@ function StartDialog({ onClose }: { onClose: () => void }) {
               className="hidden"
               onChange={onFileChosen}
               aria-label="Choose your resume PDF"
+              // Never a tab stop: it is display:none and driven entirely by the row above it.
+              // Also how the focus trap knows to skip it.
+              tabIndex={-1}
             />
 
             <button

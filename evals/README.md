@@ -19,7 +19,8 @@ which no suite previously touched either (see "The eight evals" below).
 This harness was originally specified assuming the coach app under test calls
 **Anthropic Claude** (`@anthropic-ai/sdk`) while the judge calls **OpenAI** (`gpt-5-nano`).
 
-In this repo, `lib/ai/coach.ts` calls **OpenAI exclusively** (model `gpt-5-nano`) — there is no
+In this repo, `lib/ai/coach.ts` calls **OpenAI exclusively** — `gpt-5-nano` for structured
+extraction and classification, `gpt-5-mini` for everything the user reads — and there is no
 Anthropic usage anywhere in the codebase. Per "don't modify app source to make evals pass,"
 the adapter (`evals/adapter/coach.ts`) binds to the real functions as they actually are. The
 judge and the coach-under-test happen to share a provider in this repo; `@anthropic-ai/sdk` is
@@ -60,7 +61,8 @@ across evals via an ephemeral run-cache; judge calls run 3x each for majority vo
   environment directly (CI).
 - `JUDGE_MODEL` — override the judge model (default `gpt-5-nano`).
 - `COACH_MODEL` — override the `coachModelVersion` string stamped into the report (default
-  `openai:gpt-5-nano`, matching what `lib/ai/coach.ts` actually calls today).
+  `openai:gpt-5-nano`). It is a label for attributing a report after the fact, not a switch:
+  the models are chosen per call site in `lib/ai/coach.ts` and setting this does not change them.
 - `EVAL_CHEAP=1` — set automatically by `npm run eval:cheap`; switches every `cachedCall` to
   snapshot-only (no live calls). You shouldn't need to set this by hand.
 

@@ -125,6 +125,31 @@ describe('StartHachi hand-off', () => {
     expect(push).toHaveBeenCalledWith('/?start=questions');
   });
 
+  it('keeps Tab inside the dialog, in both directions', async () => {
+    const user = await openDialog();
+    const dialog = screen.getByRole('dialog');
+    const stops = Array.from(
+      dialog.querySelectorAll<HTMLElement>('a[href]:not([tabindex="-1"]), button:not([tabindex="-1"])')
+    );
+    expect(stops.length).toBeGreaterThan(1);
+
+    // Forward off the end wraps to the start. `aria-modal="true"` tells assistive tech the rest
+    // of the page is inert; without a trap, Tab walked out into a document the user could not see.
+    stops[stops.length - 1].focus();
+    await user.tab();
+    expect(document.activeElement).toBe(stops[0]);
+
+    // And backwards off the front wraps to the end.
+    stops[0].focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(stops[stops.length - 1]);
+  });
+
+  it('never makes the hidden file input a tab stop', async () => {
+    await openDialog();
+    expect(screen.getByLabelText(/choose your resume pdf/i)).toHaveAttribute('tabindex', '-1');
+  });
+
   it('names the sample in the event so the listener can mint the session once', async () => {
     const started = listenForStart();
     const user = await openDialog();

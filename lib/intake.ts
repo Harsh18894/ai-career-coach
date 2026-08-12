@@ -1,8 +1,9 @@
 import type { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { FunnelPath } from '@/lib/analytics-events';
-import { ClientApiError, clientErrorFrom, type ClientError } from '@/lib/errors';
+import { ClientApiError, clientErrorFrom, ERROR_MESSAGES, type ClientError } from '@/lib/errors';
 import { LIMITS, formatBytes } from '@/lib/limits';
-import { sessionHeaders } from '@/lib/session';
+import { sessionHeaders, startNewSession } from '@/lib/session';
+import type { SampleProfile } from '@/lib/samples';
 import { stashResumeText } from '@/lib/resume-stash';
 import { humanTokenHeaders } from '@/lib/turnstile';
 import { startSpan } from '@/lib/journey';
@@ -29,6 +30,22 @@ export type IntakeSource =
   | { kind: 'file'; file: File }
   | { kind: 'text'; text: string };
 
+/**
+ * What the two endpoints answer with. Named rather than left implicit so the optionality is
+ * visible: every field here can be absent on an error response, and the code below has to say
+ * what it does in that case instead of trusting `data.profile` to exist.
+ */
+type ParseResumeResponse = {
+  profile?: Profile;
+  /** The extracted resume text, echoed back for the stash. */
+  text?: string;
+  insufficientInfo?: boolean;
+};
+
+type GenerateOpenerResponse = {
+  opener?: AdaptiveQuestion;
+};
+
 export type IntakeResult =
   /** A profile was extracted and an opening question is ready. */
   | { status: 'profile'; profile: Profile; opener: AdaptiveQuestion }
@@ -44,7 +61,9 @@ export type IntakeResult =
  * is exactly the case where pasting is the right next move.
  */
 export function validateResumeFile(file: File): ClientError | null {
-  if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+  // Case-insensitive: a Windows export is frequently `Resume.PDF`, and some browsers leave
+  // `file.type` empty, so the extension is the only signal left.
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     return {
       code: 'RESUME_PARSE_FAILED',
       message: 'That file is not a PDF. Upload a PDF, or paste your resume text instead.',
@@ -59,6 +78,41 @@ export function validateResumeFile(file: File): ClientError | null {
   }
 
   return null;
+}
+
+/**
+ * Reads a JSON body without letting a non-JSON one masquerade as a bug in this code.
+ *
+ * These routes always answer JSON, but the layers in front of them do not: a platform 502, a
+ * proxy timeout page or a captive portal all return HTML, and `response.json()` then throws a
+ * SyntaxError that surfaces as "unexpected problem" with no indication that the request never
+ * reached the app. Classifying it by status instead produces the message the situation deserves.
+ */
+async function readJson<T>(response: Response): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    const code = response.ok
+      ? 'INVALID_OUTPUT'
+      : response.status === 429
+        ? 'RATE_LIMITED'
+        : 'UPSTREAM_ERROR';
+    throw new ClientApiError({ code, message: ERROR_MESSAGES[code] });
+  }
+}
+
+/**
+ * Begins a session for one of the fictional sample profiles, and returns the source to run.
+ *
+ * Shared by all three places a sample can start — the chooser dialog, the `?start=<id>` deep
+ * link, and the intake screen's own picker — because the ordering matters and had already been
+ * copied twice: the session must be tagged `isSample` BEFORE the first request goes out, or the
+ * demo run is attributed to real traffic.
+ */
+export function beginSampleSession(sample: SampleProfile): IntakeSource {
+  startNewSession({ isSample: true, sampleId: sample.id });
+  track('sample_cta_click', { path: 'sample' });
+  return { kind: 'text', text: sample.resumeText };
 }
 
 /**
@@ -100,13 +154,20 @@ export async function runIntake(
     });
   }
 
-  const data = await response.json();
+  const data = await readJson<ParseResumeResponse>(response);
   if (!response.ok) {
     throw new ClientApiError(clientErrorFrom(data, 'RESUME_PARSE_FAILED'));
   }
 
   if (data.insufficientInfo) {
     return { status: 'insufficient' };
+  }
+
+  // A 200 with no profile should be impossible — the route validates before responding — but
+  // "impossible" here would mean handing `undefined` to the chat as a profile and failing several
+  // screens later with something unrelated. Fail where the assumption actually breaks.
+  if (!data.profile) {
+    throw new ClientApiError({ code: 'INVALID_OUTPUT', message: ERROR_MESSAGES.INVALID_OUTPUT });
   }
 
   // Stashed before the opener call, so a failure there still leaves the resume available to
@@ -119,9 +180,12 @@ export async function runIntake(
     headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
     body: JSON.stringify({ profile: data.profile }),
   });
-  const openerData = await openerResponse.json();
+  const openerData = await readJson<GenerateOpenerResponse>(openerResponse);
   if (!openerResponse.ok) {
     throw new ClientApiError(clientErrorFrom(openerData));
+  }
+  if (!openerData.opener) {
+    throw new ClientApiError({ code: 'INVALID_OUTPUT', message: ERROR_MESSAGES.INVALID_OUTPUT });
   }
 
   track('profile_parsed', { path: options.path });

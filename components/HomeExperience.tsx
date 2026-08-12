@@ -8,13 +8,12 @@ import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from '@/components/Analyzing
 import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
 import { asClientError, type ClientError } from '@/lib/errors';
 import { isSampleSession, startNewSession } from '@/lib/session';
-import { findSampleProfile } from '@/lib/samples';
+import { findSampleProfile, type SampleProfile } from '@/lib/samples';
 import { primeBotProtection } from '@/lib/turnstile';
-import { runIntake, type IntakeSource } from '@/lib/intake';
+import { runIntake, beginSampleSession, type IntakeSource } from '@/lib/intake';
 import { takePendingIntake } from '@/lib/pending-intake';
 import type { FunnelPath } from '@/lib/analytics-events';
 import { startSpan } from '@/lib/journey';
-import { track } from '@/lib/analytics';
 import { STORAGE_KEYS } from '@/lib/brand';
 import { START_EVENT, type StartDetail } from '@/components/StartHachi';
 
@@ -102,15 +101,14 @@ export function HomeExperience({ landing }: { landing: React.ReactNode }) {
     const sample = findSampleProfile(sampleId);
     if (sample) {
       window.history.replaceState({}, '', '/');
-      startNewSession({ isSample: true, sampleId: sample.id });
-      track('sample_cta_click', { path: 'sample' });
+      const source = beginSampleSession(sample);
       // Deferred to a microtask so no state update happens synchronously inside the effect
       // body, and so this does not pull runIntakeFlow into the dependency array of a mount-only
       // effect (which would re-run it on every render of a changed closure).
       queueMicrotask(() => {
         setStarted(true);
         setIsInitializing(false);
-        void submitRef.current?.({ kind: 'text', text: sample.resumeText }, 'sample');
+        void submitRef.current?.(source, 'sample');
       });
       return;
     }
@@ -157,7 +155,10 @@ export function HomeExperience({ landing }: { landing: React.ReactNode }) {
   const runIntakeFlow = async (source: IntakeSource, path: FunnelPath) => {
     const runId = ++intakeRunIdRef.current;
 
-    if (source.kind === 'file') shedSampleTag();
+    // Keyed on the funnel path, not the source kind: pasting your own resume after trying a
+    // sample is just as much a real session as uploading one, and keying on `kind === 'file'`
+    // left that case tagged as demo traffic for the rest of the visit.
+    if (path === 'own_resume') shedSampleTag();
 
     setIsIntakeLoading(true);
     setIntakeError(null);
@@ -187,9 +188,19 @@ export function HomeExperience({ landing }: { landing: React.ReactNode }) {
     void runIntakeFlow({ kind: 'file', file }, 'own_resume');
   };
 
-  /** Pasted text, and the sample profiles that ride the same path. */
+  /** The visitor's own resume, pasted as text rather than uploaded. */
   const handleManualTextSubmit = (text: string) => {
     void runIntakeFlow({ kind: 'text', text }, 'own_resume');
+  };
+
+  /**
+   * A fictional sample. Distinct from the paste path despite both sending text: the session has
+   * to be tagged as a demo run, and the funnel has to be able to tell the two apart — that is
+   * the entire point of segmenting by intake path.
+   */
+  const handleSampleSubmit = (sample: SampleProfile) => {
+    setStarted(true);
+    void runIntakeFlow(beginSampleSession(sample), 'sample');
   };
 
   // Assigned in an effect, not during render — a ref written during render is a lint error and
@@ -225,9 +236,7 @@ export function HomeExperience({ landing }: { landing: React.ReactNode }) {
         return;
       }
 
-      startNewSession({ isSample: true, sampleId: sample.id });
-      track('sample_cta_click', { path: 'sample' });
-      void submitRef.current?.({ kind: 'text', text: sample.resumeText }, 'sample');
+      void submitRef.current?.(beginSampleSession(sample), 'sample');
     };
 
     window.addEventListener(START_EVENT, onStart);
@@ -306,6 +315,7 @@ export function HomeExperience({ landing }: { landing: React.ReactNode }) {
           <ResumeUpload
             onFileSubmit={handleFileSubmit}
             onManualTextSubmit={handleManualTextSubmit}
+            onSampleSubmit={handleSampleSubmit}
             onStartWithoutResume={handleStartWithoutResume}
             error={intakeError}
           />

@@ -17,6 +17,7 @@ function renderUpload(overrides: Partial<React.ComponentProps<typeof ResumeUploa
   const props = {
     onFileSubmit: vi.fn(),
     onManualTextSubmit: vi.fn(),
+    onSampleSubmit: vi.fn(),
     onStartWithoutResume: vi.fn(),
     ...overrides,
   };
@@ -60,34 +61,23 @@ describe('ResumeUpload sample profiles', () => {
     expect(screen.getByText(/not real people/i)).toBeInTheDocument();
   });
 
-  it('feeds the chosen sample into the existing paste-text path verbatim', async () => {
+  it('hands the chosen sample up as a sample, not as pasted text', async () => {
     const user = userEvent.setup();
     const props = renderUpload();
 
     await user.click(screen.getByRole('button', { name: /try with a sample resume/i }));
     await user.click(screen.getByRole('button', { name: new RegExp(SAMPLE_PROFILES[1].label, 'i') }));
 
-    expect(props.onManualTextSubmit).toHaveBeenCalledTimes(1);
-    expect(props.onManualTextSubmit).toHaveBeenCalledWith(SAMPLE_PROFILES[1].resumeText);
-    // No separate intake: the upload path must not have fired.
+    expect(props.onSampleSubmit).toHaveBeenCalledTimes(1);
+    expect(props.onSampleSubmit).toHaveBeenCalledWith(SAMPLE_PROFILES[1]);
+    // Routing a sample through the paste path is what made demo runs indistinguishable from
+    // real ones in the funnel. It must stay its own callback.
+    expect(props.onManualTextSubmit).not.toHaveBeenCalled();
     expect(props.onFileSubmit).not.toHaveBeenCalled();
     expect(props.onStartWithoutResume).not.toHaveBeenCalled();
   });
 
-  it('tags the session as a sample before the intake call is made', async () => {
-    const user = userEvent.setup();
-    let metaAtSubmit: ReturnType<typeof getSessionMeta> | null = null;
-    // Captured inside the callback, i.e. at the moment the intake path is entered — the point
-    // by which the session must already be flagged for telemetry to attribute it correctly.
-    renderUpload({ onManualTextSubmit: vi.fn(() => void (metaAtSubmit = getSessionMeta())) });
-
-    await user.click(screen.getByRole('button', { name: /try with a sample resume/i }));
-    await user.click(screen.getByRole('button', { name: new RegExp(SAMPLE_PROFILES[0].label, 'i') }));
-
-    expect(metaAtSubmit).toMatchObject({ isSample: true, sampleId: SAMPLE_PROFILES[0].id });
-  });
-
-  it('mints a fresh session id rather than reusing whatever was already stored', async () => {
+  it('starts no session of its own — that ordering belongs to lib/intake.ts', async () => {
     const user = userEvent.setup();
     const before = getSessionMeta().id;
     renderUpload();
@@ -95,7 +85,7 @@ describe('ResumeUpload sample profiles', () => {
     await user.click(screen.getByRole('button', { name: /try with a sample resume/i }));
     await user.click(screen.getByRole('button', { name: new RegExp(SAMPLE_PROFILES[0].label, 'i') }));
 
-    expect(getSessionMeta().id).not.toBe(before);
+    expect(getSessionMeta().id).toBe(before);
   });
 });
 

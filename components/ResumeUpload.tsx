@@ -4,12 +4,9 @@ import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Upload, AlertCircle, Link2, ChevronDown, FlaskConical } from 'lucide-react';
 import { offersPasteFallback, type ClientError } from '@/lib/errors';
-import { startNewSession } from '@/lib/session';
-import { stashResumeText } from '@/lib/resume-stash';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import { LIMITS, formatBytes } from '@/lib/limits';
 import { validateResumeFile } from '@/lib/intake';
-import { track } from '@/lib/analytics';
 
 /**
  * The intake screen: a dropzone, a paste box, and the two ways out of both.
@@ -23,6 +20,7 @@ import { track } from '@/lib/analytics';
 interface ResumeUploadProps {
   onFileSubmit: (file: File) => void;
   onManualTextSubmit: (text: string) => void;
+  onSampleSubmit: (sample: SampleProfile) => void;
   onStartWithoutResume: () => void;
   /** Raised by the hoisted intake runner. Rendered here so there is one error surface. */
   error?: ClientError | null;
@@ -31,6 +29,7 @@ interface ResumeUploadProps {
 export default function ResumeUpload({
   onFileSubmit,
   onManualTextSubmit,
+  onSampleSubmit,
   onStartWithoutResume,
   error: intakeError = null,
 }: ResumeUploadProps) {
@@ -92,18 +91,17 @@ export default function ResumeUpload({
   };
 
   /**
-   * Starts a session from a fictional sample profile. It goes through `onManualTextSubmit` —
-   * the same paste-text path a real user hits — so there is no second intake flow to keep
-   * correct. The session id is re-minted first so this run is tagged isSample from its very
-   * first request, rather than inheriting whatever session was already in localStorage.
+   * Hands a chosen sample up rather than starting it here.
+   *
+   * This used to mint the session, stash the text and call `onManualTextSubmit` itself — which
+   * made a demo run indistinguishable from a real pasted resume by the time it reached the
+   * funnel, and put session-minting in a component that otherwise touches nothing global.
+   * `beginSampleSession` in lib/intake.ts is now the single owner of that ordering.
    */
   const handleUseSample = (sample: SampleProfile) => {
-    track('sample_cta_click', { path: 'sample' });
     setLocalError(null);
     setShowSamplePicker(false);
-    startNewSession({ isSample: true, sampleId: sample.id });
-    stashResumeText(sample.resumeText);
-    onManualTextSubmit(sample.resumeText);
+    onSampleSubmit(sample);
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {

@@ -8,7 +8,7 @@ Built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**. Hachi
 
 ## ⚡️ Key Features
 
-- **Four ways to start**: upload a resume PDF, export and upload your LinkedIn profile as a PDF, paste resume text directly, or skip the resume entirely and build a profile through a short adaptive Q&A.
+- **Five ways to start**: pick a PDF (the picker opens straight from the CTA), export and upload your LinkedIn profile as a PDF, paste resume text, skip the resume entirely and build a profile through a short adaptive Q&A, or run the whole thing on one of three fictional sample profiles.
 - **Adaptive, not scripted, intake**: both the no-resume guided questions and the understanding-phase chat are generated turn-by-turn from everything said so far — nothing already answered gets re-asked, and a student is never asked about "years of experience."
 - **Personalized Opener**: Hachi's first message cites a real transition, tenure pattern, skill, or project from the candidate's resume/profile — never a generic greeting.
 - **Explicit State Machine**: the session tracks one of seven stages at all times instead of inferring intent from raw chat text:
@@ -21,6 +21,34 @@ Built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**. Hachi
 - **Execution Roadmaps**: locking in a path generates a phased (course/project/practice/application), week-by-week roadmap classified to your actual skill level for *that specific path* — and the session stays open afterward for follow-up chat or roadmap adjustments.
 - **Tailored Session Closure**: streams a customized wrap-up reflecting the selected path, or honestly naming the pattern across rejected directions.
 - **Eval harness**: an LLM-as-judge eval suite (`evals/`) with a free/cheap mode and a live/full mode, guarding the coach's behavior (scope discipline, opener grounding, path traceability, roadmap calibration, prompt-injection resistance, and more) against regressions.
+
+---
+
+## 🚪 Getting in: one page, no dead ends
+
+The landing page and the product are the **same route**. There is no `/coach`. It never earned
+its own URL — it was the same session the landing page was selling, one navigation away, and the
+split meant anyone who started a session lost the page explaining what was about to happen.
+`app/page.tsx` stays a server component and passes the server-rendered marketing sections into
+`components/HomeExperience.tsx` as a prop, so the fold still arrives in the initial HTML and the
+LCP budget survives; only the swap between "landing" and "session" is client-side.
+
+**"Try Hachi" is a chooser, not a link.** Every CTA used to be a silent deep link that dropped
+you into a running conversation with a stranger's resume already loaded. The dialog now answers
+two questions before anything starts — what is about to happen, and *whose* resume it will use.
+
+**The upload row is the upload.** Clicking it opens the OS file picker directly and the chosen
+PDF goes straight into the conversation; there is no intermediate screen re-offering the thing
+you just clicked. If this browser already holds your resume it skips the picker entirely and says
+so. A sample resume is never offered back to you as "the resume you already gave me" — samples
+share the same stash, so the session's sample flag is what separates them. The quiet
+"No PDF? Answer a few questions instead" link opens the guided conversation immediately.
+
+All four intake sources — picker, dropzone, pasted text, sample profile — run through one
+pipeline in `lib/intake.ts`. It used to be hand-written per surface, and the copies had drifted:
+only one of them recorded the funnel event, only one stashed the resume before generating the
+opener. Because a `File` cannot travel in a URL, a PDF picked from another route rides a
+take-once module holder (`lib/pending-intake.ts`) across the single client-side navigation.
 
 ---
 
@@ -79,17 +107,103 @@ where it and the code disagree.
 
 ---
 
+## 🔒 Staying online: limits, bots, and spend
+
+This is a public, unauthenticated demo that spends real money per request, so anything a caller
+controls the size of has a number written next to it.
+
+- **`lib/limits.ts`** is the single place every ceiling lives — message length, resume and job
+  description size, array bounds, JSON body bytes, upload bytes, and the per-session caps on
+  model calls and tokens. It is dependency-free so the browser imports the same constants it is
+  held to, which turns a limit into a character counter instead of a rejected request.
+- **Rate limiting and a daily USD budget** (`lib/rate-limit.ts`, backed by Upstash Redis):
+  5 new sessions/hour/IP, 60 model calls/hour/IP, and a global per-UTC-day spend ceiling. Past it,
+  LLM-backed routes return a friendly "demo limit reached for today" rather than an error.
+- **Invisible bot check** (Cloudflare Turnstile, `lib/bot-protection.ts`) on session-creation
+  entry points only. Chat turns are deliberately not gated — a challenge between a person and
+  their next sentence costs more than the abuse it prevents. Fails *closed* on a rejected token,
+  *open* if Cloudflare is unreachable, degrading to the rate limiter and the budget.
+- Per-session ceilings key off a client-supplied session id and are therefore trivially rotated.
+  They stop a runaway client, a retry loop, or a tab left open overnight — **not** a determined
+  evader. The per-IP limiters and the daily budget are what bound that case, and the code says so
+  rather than implying otherwise.
+
+Every one of these is optional in local development: absent the Upstash and Turnstile variables,
+the corresponding layer is skipped after one startup warning, so `npm run dev` needs no external
+accounts.
+
+---
+
+## 📊 Measurement, without a third-party pixel
+
+The privacy page says, in two places, that there are no analytics trackers and no third-party
+pixels. That sentence is worth more than a hosted dashboard, so the funnel is collected
+first-party through the app's own endpoint instead (`lib/analytics.ts` → `/api/events`).
+
+The trade is real and named in the source: no retention curves, no session replay, no UI. What
+there is — one structured log line per step, in the same stream as the model calls, joined by the
+same opaque session id, and read back with a script:
+
+```bash
+npm run funnel:report -- <logfile>     # drop-off by step, segmented by intake path
+npm run latency:report -- <logfile>    # per-call-site percentiles + the two journey spans
+```
+
+Both also accept a piped stream (`vercel logs --json | npm run funnel:report`).
+
+Every property is an enum, a bounded integer, or a referrer *hostname* with the path stripped —
+which makes "did this come from Reddit" answerable without recording which thread. No resume
+text, no message content, no field derived from a resume, ever.
+
+`lib/journey.ts` marks the two spans a visitor actually feels — `intake_to_first_paths` and
+`lock_to_roadmap` — measured in the browser rather than at the server, because the number that
+matters is the one the person waits through. `latency:report` rolls those up alongside per-call-site
+percentiles, and the timeout budgets are sized against them.
+
+---
+
+## 🗺️ Where things live
+
+```
+app/
+  page.tsx                 server shell; renders the landing sections into HomeExperience
+  about/ privacy/ review/  the three other surfaces
+  api/                     coach, parse-resume, generate-opener, resume-review,
+                           job-description, events, journey, review-feedback
+components/
+  HomeExperience.tsx       landing ⇄ session swap; owns intake state and errors
+  StartHachi.tsx           the "Try Hachi" chooser dialog (file picker lives here)
+  ResumeUpload.tsx         the intake screen: dropzone, paste box, sample picker
+  ChatWindow.tsx           the conversation
+  landing/ plan/ review/ shell/ trajectory/
+lib/
+  intake.ts                one parse-resume → generate-opener pipeline, all surfaces
+  pending-intake.ts        carries a picked File across one client navigation
+  ai/                      coach.ts, schemas, output-limits, resilience
+  resume-review/           the second surface's pipeline, schemas, persona, registry
+  limits.ts rate-limit.ts bot-protection.ts turnstile.ts   the ceilings
+  analytics.ts journey.ts telemetry.ts                     the measurement
+docs/
+  resume-review-rubric.md  quality bar, written before the code; source of truth
+  landing-design.md        the design process behind the landing page
+evals/                     LLM-as-judge suite, snapshots, baselines — see evals/README.md
+scripts/                   funnel-report, latency-report, check-platform-links
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 16 (App Router), React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **Validation**: Zod schemas for every structured AI output (profile, paths, roadmap)
+- **Language**: TypeScript (strict)
+- **Styling**: Tailwind CSS v4, with the palette and spacing tokens declared via `@theme inline`
+- **Validation**: Zod v4 schemas for every structured AI output (profile, paths, roadmap, review), using OpenAI's strict structured-output mode
 - **State**: React `useState` with `localStorage` persistence (no backend database, no auth)
 - **LLM Integration**: OpenAI API, with the model sized to the task —
-  - `gpt-5-nano` for structured extraction/classification (resume parsing, conversation signal tracking)
+  - `gpt-5-nano` for structured extraction/classification (resume parsing, persona classification, conversation signal tracking)
   - `gpt-5-mini` for generation the user reads directly (chat replies, path decks, roadmaps), streamed where read live
-- **Testing**: Vitest-based eval suite with snapshot caching for cheap, deterministic CI runs
+  - `max_completion_tokens` is sized per call site in `lib/ai/output-limits.ts`, because on this model family it bounds **reasoning plus visible output** — sizing it from the visible answer truncates everything
+- **Testing**: Vitest, in two layers — component/unit tests (`components/**/*.test.tsx`, `lib/**/*.test.ts`) run with `npm test`, and the LLM-as-judge eval suite (`evals/`) with snapshot caching for cheap, deterministic CI runs
 
 ---
 
@@ -112,10 +226,20 @@ OPENAI_API_KEY=your-openai-api-key-here
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 DAILY_BUDGET_USD=5.00
+
+# Optional. Invisible Cloudflare Turnstile on session-creation entry points. Absent, the
+# check is skipped entirely, so local development needs no Cloudflare account.
+# The site key is PUBLIC by design; the secret key must never be. Do not swap them.
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
 ```
 
 Upstash also backs the short-lived store that lets a resume review span two requests; without
 it the review re-parses the resume instead, which is slower but behaves identically.
+
+`.env.example` is the authoritative list and explains each variable at length, including what
+breaks when it is absent. Nothing outside it is read at runtime — that is deliberate, so
+`grep process.env` and the example file can be checked against each other.
 
 ### 3. Run the Development Server
 ```bash
@@ -135,10 +259,13 @@ that came out inconvenient: a parsed resume does sit in Redis for up to 30 minut
 review, and IP addresses are rate-limiting keys for an hour. Both are disclosed rather than
 finessed. If that page and the code disagree, the page is the bug.
 
-### 4. (Optional) Run the eval suite
+### 4. Tests and checks
 ```bash
+npm test                      # free; component + unit tests (Vitest, jsdom)
+npm run lint                  # free
 npm run eval:cheap            # free, deterministic, snapshot-cached checks
 npm run eval                  # full live run against the OpenAI API (costs tokens)
+npm run eval:warm             # regenerates missing snapshots; needs OPENAI_API_KEY
 npm run check:platform-links  # free; fails if a curated platform link has died
 ```
 
@@ -152,10 +279,19 @@ injection resistance) need live calls and are skipped there.
 
 ## 📖 How to Demo (Step-by-Step Flow)
 
-1. **Get started**:
-   - Drag and drop a standard PDF resume, or select a file.
-   - *No resume?* Click **Build your profile in chat instead** for a short adaptive Q&A, or **Or share your LinkedIn profile** for instructions on exporting your LinkedIn profile as a PDF first.
-   - *Edge case*: upload a scanned-image PDF with no text layer — it's rejected with a clear error, since there's no text to parse.
+1. **Get started** — click **Try Hachi** in the header or any CTA on the page. The chooser asks
+   whose resume to use:
+   - **Upload my resume** opens the file picker immediately. Pick a PDF and the conversation
+     starts on the analysis screen — no intermediate page. Open the chooser a second time and
+     the row now reads *"Use the resume you already gave me"* and skips the picker entirely.
+   - **No PDF? Answer a few questions instead** goes straight into the guided Q&A.
+   - **Or try it on a sample** runs the whole product on one of three fictional profiles, each
+     named and described so "sample" is never mistaken for "yours".
+   - Cancel the picker and nothing happens — the dialog is still there behind it.
+   - *Edge cases*: a scanned-image PDF with no text layer is rejected with a clear error (there
+     is no text to parse) and the paste box opens in place. Drop a non-PDF on the dropzone and it
+     is refused locally, before a request is spent. Retry the exact same file after a failure —
+     it works, which it did not before the input's value was reset between picks.
 2. **Review the Hook**:
    - Hachi's first response is highly personalized. Verify it mentions a specific title transition, tenure duration, skill, or project present only in your profile, framing a genuine tension or opportunity.
 3. **Engage in the Chat**:
@@ -175,8 +311,8 @@ injection resistance) need live calls and are skipped there.
    - Click into a path and lock it in. Hachi streams a tailored closing reflection *and* generates a full execution roadmap in parallel.
    - Review the phased, week-by-week roadmap. Keep chatting or request roadmap adjustments — the session stays open.
    - Alternatively, click **Decline all paths** to end the session with an honest closing instead.
-8. **Try the resume review** (a separate surface — **Resume review** in the header, or the link
-   under the upload box):
+8. **Try the resume review** (a separate surface — **Resume review** in the header, the link in
+   the chooser, or the link under the upload box):
    - Pick a sample profile again if you would rather not upload anything; if you already
      supplied a resume to the coach, it carries over.
    - Check the detected experience level at the top, and the reasoning behind it. Override it to
