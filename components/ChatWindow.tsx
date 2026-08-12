@@ -962,27 +962,39 @@ export default function ChatWindow({
       messages: nextMessages,
     }));
 
+    // Fire the roadmap request now — it only needs profile/chosenPath/signals, all already
+    // known, so it does not depend on the closing-message stream below. Starting it here and
+    // awaiting it after the stream makes wall-clock time max(stream, roadmap) rather than their
+    // sum, without changing the visible loading sequence.
+    //
+    // The two are INDEPENDENT, and the error handling has to say so. Previously both lived in
+    // one try block: if the stream threw, control jumped to catch and `roadmapPromise` was
+    // never awaited — an unhandled rejection, and a roadmap that had already been generated and
+    // paid for was silently discarded. Each outcome is now settled on its own.
+    const roadmapPromise = fetch('/api/coach', coachRequestInit({
+      action: 'roadmap',
+      profile: state.profile,
+      chosenPath: path,
+      signals: state.signals,
+    })).then((response) => parseCoachResponse<{ roadmap: Roadmap }>(response));
+
+    // Attached immediately so a rejection that happens while the stream is still running is
+    // never unhandled. The real result is still read below; this only marks it as observed.
+    roadmapPromise.catch(() => {});
+
+    let streamError: unknown = null;
     try {
-      // Fire the roadmap generation request now — it only needs profile/chosenPath/signals,
-      // all already known, so it doesn't actually depend on the closing-message stream below.
-      // Awaiting it only after the stream (instead of starting it after) lets the two run
-      // concurrently: the user-visible loading sequence is unchanged (typing indicator, then
-      // the roadmap-loading card), but real wall-clock time is closer to max(stream, roadmap-gen)
-      // instead of their sum.
-      const roadmapPromise = fetch('/api/coach', coachRequestInit({
-        action: 'roadmap',
-        profile: state.profile,
-        chosenPath: path,
-        signals: state.signals,
-      }));
-
       await streamCoachTurn(nextMessages, { kind: 'path_locked', chosenPath: path }, state.signals);
+    } catch (err) {
+      streamError = err;
+    }
 
-      setIsThinking(false);
-      setIsRoadmapLoading(true);
+    setIsThinking(false);
+    setIsRoadmapLoading(true);
 
-      const roadmapData = await parseCoachResponse<{ roadmap: Roadmap }>(await roadmapPromise);
-
+    let roadmapError: unknown = null;
+    try {
+      const roadmapData = await roadmapPromise;
       setState((prev) => ({
         ...prev,
         roadmap: roadmapData.roadmap,
@@ -990,10 +1002,20 @@ export default function ChatWindow({
         roadmapPanelOpen: false,
       }));
     } catch (err) {
-      failTurn(err);
-    } finally {
-      setIsThinking(false);
-      setIsRoadmapLoading(false);
+      roadmapError = err;
+    }
+
+    setIsThinking(false);
+    setIsRoadmapLoading(false);
+
+    // Report a failure only after both have settled, and only for the half that actually
+    // failed. A closing reflection that did not arrive is not a reason to withhold a roadmap
+    // that did — the roadmap is the more valuable of the two, and the user has already paid the
+    // wait for it.
+    if (roadmapError) {
+      failTurn(roadmapError);
+    } else if (streamError) {
+      failTurn(streamError);
     }
   };
 

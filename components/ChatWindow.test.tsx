@@ -320,3 +320,102 @@ describe('ChatWindow failure handling', () => {
     expect(chatCalls).toBe(2);
   });
 });
+
+/* =====================================================================================
+ * Concurrent calls (B6)
+ *
+ * Locking a path fires the roadmap request and streams the closing reflection at the same
+ * time. They are independent, and the failure handling has to treat them that way: for a while
+ * both lived in one try block, so a stream failure jumped to catch and left the roadmap promise
+ * unawaited — an unhandled rejection, and a roadmap that had already been generated and paid
+ * for was thrown away.
+ * ===================================================================================== */
+
+const PATH = {
+  title: 'Platform Engineer',
+  tier: 'realistic' as const,
+  fitRationale: 'Four years on backend systems at Northwind.',
+  salaryRange: '₹18–24 LPA (indicative)',
+  upskills: ['Kubernetes', 'Terraform'],
+  firstMove: 'Ship one internal tool on the platform team this month.',
+  ambitionCheck: { verdict: 'aligned' as const, note: 'Matches the backend depth already shown.' },
+};
+
+const ROADMAP = {
+  skillLevel: 'good' as const,
+  summary: 'Four years of backend work makes this a short hop.',
+  weeklyHoursCommitment: '6-8 hours/week',
+  totalWeeks: 12,
+  totalDuration: '12 weeks (~3 months)',
+  phases: [
+    {
+      type: 'course' as const,
+      title: 'Foundations',
+      description: null,
+      weeks: [{ week: 1, focus: 'Kubernetes basics', items: ['Run a cluster locally', 'Deploy one service'] }],
+    },
+  ],
+};
+
+/** Drives the conversation to a rendered path deck, then locks the first path. */
+async function lockInAPath(onCoach: (action: string) => Response | Promise<Response>) {
+  fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => onCoach(actionOf(init)));
+
+  renderChat();
+  await sendFirstReply();
+  await waitFor(() => expect(screen.getByRole('textbox')).not.toBeDisabled());
+  await sendMessage('I want more ownership of systems end to end.');
+
+  // The deck renders once `recommend` returns paths.
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: /Platform Engineer/ }));
+  await user.click(await screen.findByRole('button', { name: /Build your roadmap/ }));
+  return user;
+}
+
+describe('ChatWindow concurrent roadmap + closing stream', () => {
+  it('keeps the roadmap when the closing stream fails, instead of discarding it', async () => {
+    await lockInAPath((action) => {
+      if (action === 'analyze') return jsonResponse({ signals: { ...SIGNALS, readyForRecommendation: true } });
+      if (action === 'recommend') return jsonResponse({ paths: [PATH], country: 'India' });
+      if (action === 'roadmap') return jsonResponse({ roadmap: ROADMAP });
+      // The closing reflection dies mid-stream.
+      return streamResponse(['Good choice — '], { failAfter: true });
+    });
+
+    // The roadmap arrived and is shown, even though its concurrent partner failed.
+    // getAllByText: the duration appears in both the summary card and the panel.
+    await waitFor(() => expect(screen.getAllByText(/12 weeks/).length).toBeGreaterThan(0));
+    // The stream's failure is still surfaced somewhere — asserted as "an error is shown"
+    // rather than a specific code, because a mid-stream socket failure classifies differently
+    // from an HTTP error envelope and pinning the code here would test the classifier, not the
+    // concurrency behaviour this case is about.
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('surfaces the roadmap failure rather than the stream failure when both fail', async () => {
+    await lockInAPath((action) => {
+      if (action === 'analyze') return jsonResponse({ signals: { ...SIGNALS, readyForRecommendation: true } });
+      if (action === 'recommend') return jsonResponse({ paths: [PATH], country: 'India' });
+      if (action === 'roadmap') return errorResponse('UPSTREAM_TIMEOUT', 504);
+      return streamResponse(['Good choice — '], { failAfter: true });
+    });
+
+    // The roadmap is the more valuable half, so its error is the one reported.
+    await waitFor(() =>
+      expect(screen.getByText(ERROR_MESSAGES.UPSTREAM_TIMEOUT)).toBeInTheDocument()
+    );
+  });
+
+  it('stops both loading indicators once the concurrent pair settles', async () => {
+    await lockInAPath((action) => {
+      if (action === 'analyze') return jsonResponse({ signals: { ...SIGNALS, readyForRecommendation: true } });
+      if (action === 'recommend') return jsonResponse({ paths: [PATH], country: 'India' });
+      if (action === 'roadmap') return errorResponse('UPSTREAM_ERROR', 502);
+      return streamResponse(['Good choice — '], { failAfter: true });
+    });
+
+    await waitFor(() => expect(screen.getByText(ERROR_MESSAGES.UPSTREAM_ERROR)).toBeInTheDocument());
+    expect(screen.queryByText(/Building your roadmap/i)).not.toBeInTheDocument();
+  });
+});
