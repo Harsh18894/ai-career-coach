@@ -128,7 +128,6 @@ export async function reviewPrepared(
         { role: 'system', content: buildSystemPrompt(promptInput) },
         { role: 'user', content: buildUserPrompt(promptInput) },
       ],
-      response_format: { type: 'json_object' },
     },
     { call: `resumeReview:${path}`, schema: ReviewModelOutputSchema, timeoutMs: TIMEOUTS.roadmap }
   );

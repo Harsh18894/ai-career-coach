@@ -29,6 +29,23 @@ export const ProfileSchema = z.object({
 
 export type Profile = z.infer<typeof ProfileSchema>;
 
+/**
+ * What extractProfile actually asks the model for.
+ *
+ * `hasSufficientInfo` is the model's answer to "is this even a resume", and it is read by
+ * structuredCompletion's `bailIf` before validation. Under JSON-mode that worked by accident:
+ * the field was simply an extra key nobody validated. Under STRICT structured outputs it would
+ * be rejected as an additional property, and the non-resume path would silently stop working —
+ * every recipe and blog post would come back as a confidently empty profile.
+ *
+ * So it is declared. The extra field is stripped before a Profile is returned to callers.
+ */
+export const ProfileExtractionSchema = ProfileSchema.extend({
+  hasSufficientInfo: z.boolean(),
+});
+
+export type ProfileExtraction = z.infer<typeof ProfileExtractionSchema>;
+
 export const AmbitionCheckSchema = z.object({
   verdict: z.enum(['aligned', 'too_high', 'too_low']), // honest calibration of the candidate's stated ambition against their actual profile
   note: z.string(), // specific, evidence-cited explanation. If 'too_high': must name the extra-than-average effort required (extended timeline and/or additional job-switch steps). If 'too_low': must name the evidence that justifies aiming higher.

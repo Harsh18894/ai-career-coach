@@ -325,7 +325,6 @@ Output a single JSON object with exactly:
         { role: 'system', content: 'You are a career-history analyst. Output JSON matching the requested schema.' },
         { role: 'user', content: prompt },
       ],
-      response_format: { type: 'json_object' },
     },
     { call: 'detectCareerSwitch', schema: CareerSwitchSchema }
   );

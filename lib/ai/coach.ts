@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { Profile, ProfileSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema, AdaptiveQuestion, AdaptiveQuestionSchema } from './schemas';
+import { Profile, ProfileSchema, ProfileExtractionSchema, CareerPath, PathDeckSchema, Roadmap, RoadmapSchema, AdaptiveQuestion, AdaptiveQuestionSchema } from './schemas';
 import { ChatMessage, UserSignals } from '../state/conversation';
 import { TIER_TIMELINE } from './tiers';
 import { structuredCompletion, resilientStream, TIMEOUTS } from './resilience';
@@ -183,8 +183,8 @@ ${resumeText}
 """`;
 
   // `bailIf` handles the model's legitimate "this isn't a resume" answer, which arrives as
-  // valid JSON that does not satisfy ProfileSchema — an outcome, not a failure.
-  return structuredCompletion(openai, {
+  // valid JSON reporting hasSufficientInfo: false — an outcome, not a failure.
+  const extracted = await structuredCompletion(openai, {
     model: 'gpt-5-nano',
     // B3 step 1. These calls emit structured data judged by schema conformance, not prose a
     // person reads, and the baseline measured them spending 8-10 reasoning tokens for every
@@ -200,12 +200,21 @@ ${resumeText}
       { role: 'system', content: 'You are a career profile parser. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, {
     call: 'extractProfile',
-    schema: ProfileSchema,
+    // ProfileExtractionSchema, not ProfileSchema: `hasSufficientInfo` is the model's "this is
+    // not a resume" answer, and under strict structured outputs an undeclared field is rejected
+    // rather than ignored. Declaring it keeps the non-resume path working — without this the
+    // bailIf below could never fire and every recipe would parse as a confidently empty profile.
+    schema: ProfileExtractionSchema,
     bailIf: (raw) => (raw as { hasSufficientInfo?: unknown })?.hasSufficientInfo === false,
   });
+
+  if (!extracted) return null;
+
+  // Parsed back through ProfileSchema rather than destructured, so the extraction-only field is
+  // dropped and the returned object is exactly a Profile.
+  return ProfileSchema.parse(extracted);
 }
 
 /**
@@ -258,7 +267,6 @@ If a required array has no items to report, output an empty array rather than om
       { role: 'system', content: 'You are a career profile builder. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'buildProfileFromAnswers', schema: ProfileSchema });
 }
 
@@ -317,7 +325,6 @@ Output a single JSON object with EXACTLY these fields:
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'nextGuidedProfileQuestion', schema: AdaptiveQuestionSchema });
 }
 
@@ -397,7 +404,6 @@ ${options?.changeRequests ? `5. The candidate declined the earlier rounds and as
       { role: 'system', content: `${MENTOR_SYSTEM_PROMPT} Output exactly 3 career paths in a JSON array inside a "paths" key matching the requested schema.` },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'generatePaths', schema: PathDeckSchema });
   return validated.paths;
 }
@@ -687,7 +693,6 @@ Output a single JSON object with EXACTLY these fields:
     model: 'gpt-5-mini',
     reasoning_effort: 'low', // B3 step 2 — see the note on streamChatTurn.
     messages,
-    response_format: { type: 'json_object' },
   }, { call: 'generateUnderstandingTurn', schema: AdaptiveQuestionSchema });
 }
 
@@ -743,7 +748,6 @@ Output a single JSON object with EXACTLY these fields:
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'generateOpeningMessage', schema: AdaptiveQuestionSchema });
 }
 
@@ -810,7 +814,6 @@ Preserve existing signals unless the user has directly changed their mind or con
       { role: 'system', content: 'You are a career signals extractor. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'analyzeSignals', schema: SignalsSchema });
 
   return signals as UserSignals;
@@ -894,7 +897,6 @@ Output a single JSON object with EXACTLY these fields:
       { role: 'system', content: 'You are a career roadmap planner. Output JSON matching the requested schema exactly.' },
       { role: 'user', content: prompt }
     ],
-    response_format: { type: 'json_object' },
   }, { call: 'generateRoadmap', schema: RoadmapSchema, timeoutMs: TIMEOUTS.roadmap });
 
   // Observability, not a hard gate — the prompt allows honest overflow up to 1.5x maxWeeks for

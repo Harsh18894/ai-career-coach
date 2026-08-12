@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import { AppError, isRetryableUpstream, toAppError } from '../errors';
 import { trackedCompletion, trackedStream } from '../telemetry';
 import { maxCompletionTokensFor } from './output-limits';
+import { zodResponseFormat } from 'openai/helpers/zod';
 
 /* =====================================================================================
  * Timeout, one bounded retry, and one structured-output repair attempt.
@@ -107,6 +108,43 @@ type StructuredOptions<TSchema extends z.ZodType> = {
  * quietly ship without one. An explicit max_completion_tokens already on the params wins, so a
  * caller with a genuine reason can still override.
  */
+/**
+ * Turns the caller's Zod schema into a STRICT structured-output response format.
+ *
+ * Before this, every structured call used `response_format: { type: 'json_object' }` — JSON
+ * mode, which guarantees syntactically valid JSON and nothing else. The model could and did
+ * return valid JSON with a missing field or a wrong enum, which failed Zod validation, burned a
+ * repair round trip (measured at 19-25s on generatePaths), and occasionally failed twice and
+ * surfaced as INVALID_OUTPUT to the user.
+ *
+ * Strict mode makes the schema a constraint on decoding rather than a request in a prompt, so
+ * that class of failure stops being possible. The repair path below is deliberately KEPT: it
+ * costs nothing when it never fires, and it still covers a refusal or a truncation.
+ *
+ * Falls back to JSON mode if a schema cannot be expressed strictly (unions of differing shapes,
+ * unsupported types). That degrades to exactly the previous behaviour rather than throwing —
+ * a schema this cannot express is a reason to keep working, not to fail the request.
+ */
+function strictResponseFormat(
+  schema: z.ZodType,
+  call: string
+): OpenAI.Chat.Completions.ChatCompletionCreateParams['response_format'] {
+  try {
+    return zodResponseFormat(schema, 'result');
+  } catch (error) {
+    if (!warnedSchemas.has(call)) {
+      warnedSchemas.add(call);
+      console.warn(
+        `[resilience] ${call}: schema could not be expressed as strict structured output; ` +
+          `falling back to JSON mode. ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    return { type: 'json_object' };
+  }
+}
+
+const warnedSchemas = new Set<string>();
+
 function withOutputLimit<T extends { max_completion_tokens?: number | null }>(params: T, call: string): T {
   if (params.max_completion_tokens != null) return params;
   const limit = maxCompletionTokensFor(call);
@@ -146,7 +184,12 @@ export async function structuredCompletion<TSchema extends z.ZodType>(
   };
 
   const rawText = await withSingleRetry(async () => {
-    const response = await trackedCompletion(openai, withOutputLimit(params, call), call, requestOptions);
+    const response = await trackedCompletion(
+      openai,
+      withOutputLimit({ ...params, response_format: strictResponseFormat(schema, call) }, call),
+      call,
+      requestOptions
+    );
     return response.choices[0]?.message?.content || '{}';
   }, call);
 

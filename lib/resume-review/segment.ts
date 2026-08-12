@@ -186,7 +186,6 @@ export async function segmentResume(resumeText: string): Promise<ResumeSegment |
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildPrompt(resumeText) },
       ],
-      response_format: { type: 'json_object' },
     },
     {
       call: 'segmentResume',
