@@ -21,6 +21,26 @@ export const RESUME_ANALYSIS_STEPS: AnalyzingStep[] = [
   { title: 'Almost there...', subtitle: 'Your coach is drafting a personalized opening for your session...' },
 ];
 
+// generatePaths is a single ~34s call that cannot stream, so the wait needs to name what is
+// actually happening rather than showing an indefinite spinner. Each line corresponds to real
+// work in the prompt (see generatePaths in lib/ai/coach.ts): three distinct directions, a
+// market-calibrated salary band, and an honest ambition check per path.
+export const PATH_GENERATION_STEPS: AnalyzingStep[] = [
+  { title: 'Reading back everything you said...', subtitle: 'Your profile, plus the skills and direction from this conversation...' },
+  { title: 'Shortlisting directions that actually fit...', subtitle: 'Three genuinely different paths, not three versions of one...' },
+  { title: 'Calibrating to your market...', subtitle: 'Salary bands in local currency for the market you named...' },
+  { title: 'Running the ambition check...', subtitle: "Being honest about whether each target matches your evidence..." },
+  { title: 'Writing up the three paths...', subtitle: 'Each one has to cite something real from your background...' },
+];
+
+// generateRoadmap is the other long non-streamed call (~32s). Same reasoning.
+export const ROADMAP_GENERATION_STEPS: AnalyzingStep[] = [
+  { title: 'Sizing the gap for this path...', subtitle: 'Working out where you actually start from for this specific move...' },
+  { title: 'Choosing the phases...', subtitle: 'Courses, a portfolio project, practice, then applications...' },
+  { title: 'Laying out the weeks...', subtitle: 'Concrete things to do each week, not a reading list...' },
+  { title: 'Checking the pace is realistic...', subtitle: 'Against the hours a week you can genuinely give it...' },
+];
+
 interface AnalyzingProgressProps {
   steps: AnalyzingStep[];
   intervalMs?: number;

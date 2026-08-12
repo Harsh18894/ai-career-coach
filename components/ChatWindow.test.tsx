@@ -419,3 +419,132 @@ describe('ChatWindow concurrent roadmap + closing stream', () => {
     expect(screen.queryByText(/Building your roadmap/i)).not.toBeInTheDocument();
   });
 });
+
+/* =====================================================================================
+ * Perceived latency (B7)
+ * ===================================================================================== */
+
+describe('ChatWindow perceived latency', () => {
+  it('dismisses the typing indicator on the FIRST token, not at the end of the stream', async () => {
+    // Two chunks with a gap: after the first arrives the reply is visibly on screen, so the
+    // "still thinking" bubble must already be gone. It used to stay up for the whole stream.
+    // Definite assignment: the resolver is set synchronously inside the executor, but TS's
+    // control-flow analysis cannot see that and narrows a `| null` binding to `never`.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    // A ROADMAP-stage session is the one whose replies stream free text, so it is what
+    // exercises the first-token behaviour.
+    localStorage.setItem(
+      'career_coach_session',
+      JSON.stringify({
+        stage: 'ROADMAP',
+        profile: PROFILE,
+        signals: SIGNALS,
+        messages: [{ id: 'opener', role: 'assistant', content: OPENER.message, createdAt: new Date().toISOString() }],
+        deckCount: 1,
+        shownPaths: ['Platform Engineer'],
+        rejectedDirections: [],
+        changeRequests: null,
+        chosenPath: {
+          title: 'Platform Engineer',
+          tier: 'realistic',
+          fitRationale: 'Four years of backend work at Northwind.',
+          salaryRange: '₹20-30 LPA',
+          upskills: ['Kubernetes'],
+          firstMove: 'Ship one internal tool.',
+          ambitionCheck: { verdict: 'aligned', note: 'Consistent with the evidence.' },
+        },
+        currentPaths: null,
+        roadmap: {
+          skillLevel: 'good',
+          summary: 'Solid backend base.',
+          weeklyHoursCommitment: '8-10 hours/week',
+          totalWeeks: 12,
+          totalDuration: '12 weeks (~3 months)',
+          phases: [
+            {
+              type: 'course',
+              title: 'Foundations',
+              description: null,
+              weeks: [{ week: 1, focus: 'Containers', items: ['Docker basics', 'Build an image'] }],
+            },
+          ],
+        },
+        roadmapVersion: 1,
+        selectedPathIndex: 0,
+        roadmapPanelOpen: false,
+        understandingMessageCount: 3,
+        noUsefulInfoStreak: 0,
+        profileBuildStep: 0,
+        profileBuildAnswers: [],
+        profileBuildQuestions: [],
+        pendingTurnOptions: null,
+      })
+    );
+
+    const encoder = new TextEncoder();
+    let call = 0;
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (actionOf(init) === 'analyze') return jsonResponse({ signals: SIGNALS });
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () => {
+              call += 1;
+              if (call === 1) return { done: false, value: encoder.encode('Here is the first part') };
+              await gate;
+              return { done: true, value: undefined };
+            },
+          }),
+        },
+      } as unknown as Response;
+    });
+
+    renderChat();
+    await sendMessage('How should I pace week three?');
+
+    // The first chunk is rendered and the indicator is gone, while the stream is still open.
+    await waitFor(() => expect(screen.getByText(/Here is the first part/)).toBeInTheDocument());
+    expect(screen.queryByLabelText(/thinking/i)).not.toBeInTheDocument();
+
+    release();
+  });
+
+  it('shows a sized skeleton and named steps during the long deck wait', async () => {
+    let releaseRecommend!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseRecommend = resolve;
+    });
+
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      const action = actionOf(init);
+      if (action === 'analyze') return jsonResponse({ signals: { ...SIGNALS, readyForRecommendation: true } });
+      if (action === 'recommend') {
+        await held;
+        return jsonResponse({ paths: [PATH], country: 'India' });
+      }
+      return streamResponse(['ok']);
+    });
+
+    renderChat();
+    await sendFirstReply();
+    await waitFor(() => expect(screen.getByRole('textbox')).not.toBeDisabled());
+    await sendMessage('I want more ownership of systems end to end.');
+
+    // Named progress, not a bare spinner — the first step of PATH_GENERATION_STEPS.
+    await waitFor(() =>
+      expect(screen.getByText(/Reading back everything you said/i)).toBeInTheDocument()
+    );
+
+    releaseRecommend();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Platform Engineer/ })).toBeInTheDocument());
+
+    // And the skeleton is gone once the real deck lands.
+    expect(screen.queryByText(/Reading back everything you said/i)).not.toBeInTheDocument();
+  });
+});

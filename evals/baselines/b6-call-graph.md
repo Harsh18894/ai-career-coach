@@ -138,6 +138,39 @@ One `gpt-5-mini` call returning `{ profile, opener }` against a combined schema.
 **Recommendation: worth doing, with the discriminated schema.** This is the wait users actually
 abandon on, and 5.3s off it is the best remaining ratio of gain to risk in the app.
 
+### UPDATE — implemented, measured, REVERTED
+
+Built and measured on request. **The premise was wrong and the saving does not exist.**
+
+| Configuration | Intake cost |
+|---|---|
+| Split: `extractProfile` (nano) 7.6s + `generateOpeningMessage` (mini) 5.3s | **12.9s** |
+| Merged on `gpt-5-mini` | **14.4s** — 1.5s *worse* |
+| Merged on `gpt-5-nano` | **~12.5s** — a wash, within run-to-run noise |
+
+The estimate above assumed the merged call would cost roughly what extraction alone cost — that
+the opener's 5.3s would be absorbed. It is not. The model still has to generate both halves and
+generation time is close to additive, so **merging saves one HTTP round trip (~200ms), not the
+opener's 5.3s.** On `gpt-5-mini` it actively loses, because extraction moves off `gpt-5-nano`
+onto the slower model.
+
+The `gpt-5-nano` variant reaches parity, but pays for it by having the weaker model write the
+first thing the candidate ever reads. Parity is not worth that.
+
+Reverted in full. Everything else in this document stands.
+
+Two things worth keeping from the attempt:
+
+- **The first measurement was invalid and said the merge cost +10s.** `scripts/latency-baseline.ts`
+  was still calling `/api/generate-opener` separately, so sessions ran the merged call *and* the
+  standalone opener. The per-call telemetry is what caught it — `generateOpeningMessage` appearing
+  with n=6 in a run that should not have called it at all. A session-level number alone would
+  have produced a confidently wrong conclusion in either direction.
+- **The non-resume path is the real hazard in any future attempt.** `hasSufficientInfo: false`
+  has to mean no profile *and* no opener, which needs `opener` nullable in the schema and a
+  `bailIf` that fires before validation. It worked, and it is the part most likely to be got
+  wrong by someone retrying this.
+
 ## Proposal 3 — Eliminate `analyzeSignals` on the final turn before recommending
 
 When `understandingMessageCount` has reached `MAX_UNDERSTANDING_TURNS`, the branch goes to
@@ -168,4 +201,10 @@ review's prepare phase ever becomes the bottleneck.
   other's result. Three regression tests.
 - **Not implemented, by design:** no new parallelism, because every other pair has a real data
   dependency.
-- **Awaiting your decision:** proposals 1–4 above. My recommendation is **do 2, skip 1, 3 and 4**.
+- **Attempted and reverted:** proposal 2. Measured at parity-to-worse, not the predicted 5.3s
+  saving. See the update above.
+- **Still awaiting a decision:** proposals 1, 3 and 4 — all of which I recommend against.
+
+With proposal 2 measured and rejected, **there is no remaining call-elimination win in this app
+that does not cost output quality.** The two calls left worth attacking, generatePaths and
+generateRoadmap at 30% of session time each, are the two the product is judged on.

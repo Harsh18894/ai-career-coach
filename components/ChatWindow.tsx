@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Send, RotateCcw, AlertTriangle, Sparkles, Loader2, Compass, Globe, FlaskConical } from 'lucide-react';
+import { Send, RotateCcw, AlertTriangle, Sparkles, Compass, Globe, FlaskConical } from 'lucide-react';
 import { Profile, CareerPath, Roadmap, AdaptiveQuestion } from '@/lib/ai/schemas';
 import type { CoachTurn } from '@/lib/ai/coach';
 import { ConversationState, ChatMessage, UserSignals, INITIAL_STATE } from '@/lib/state/conversation';
@@ -23,6 +23,8 @@ import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
 import QuickOptions, { type QuickOption } from './QuickOptions';
+import AnalyzingProgress, { PATH_GENERATION_STEPS, ROADMAP_GENERATION_STEPS } from './AnalyzingProgress';
+import { PathDeckSkeleton, RoadmapSkeleton } from './Skeletons';
 import { clearStashedResumeText } from '@/lib/resume-stash';
 import { startSpan, endSpan } from '@/lib/journey';
 
@@ -214,6 +216,10 @@ export default function ChatWindow({
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [isRoadmapLoading, setIsRoadmapLoading] = useState(false);
+  // Distinct from isThinking: the deck wait is ~34s and gets a sized skeleton plus named steps,
+  // where an ordinary turn (~8s) gets the typing bubble. Using one flag for both would mean
+  // either a skeleton flashing for eight seconds or a bare dot animation for thirty-four.
+  const [isRecommending, setIsRecommending] = useState(false);
   const [apiError, setApiError] = useState<ClientError | null>(null);
   // The operation to re-run when the user clicks Retry. Held in a ref rather than state
   // because it is a closure over the failed turn, not something the render depends on.
@@ -511,6 +517,14 @@ export default function ChatWindow({
           const { done, value } = await reader.read();
           if (done) break;
           accumulatedContent += decoder.decode(value);
+
+          // The typing indicator is dismissed by the FIRST token, not by the end of the stream.
+          // Previously every caller cleared isThinking only after awaiting this function, so the
+          // bubble sat underneath a reply that was already visibly arriving — for the whole
+          // stream. The point of streaming is that the wait ends when text appears; leaving a
+          // "still thinking" indicator up through it gives that back.
+          if (accumulatedContent) setIsThinking(false);
+
           setState((prev) => ({
             ...prev,
             messages: prev.messages.map((m) =>
@@ -663,7 +677,15 @@ export default function ChatWindow({
     signalsForRecommend: UserSignals,
     options?: { changeRequests?: string; transitionMessage?: string }
   ) => {
-    const recommendData = await postCoach<{
+    setIsRecommending(true);
+    let recommendData: {
+      needsCountry?: boolean;
+      detectedCountries?: string[];
+      notReady?: boolean;
+      paths?: CareerPath[];
+    };
+    try {
+      recommendData = await postCoach<{
       needsCountry?: boolean;
       detectedCountries?: string[];
       notReady?: boolean;
@@ -677,6 +699,11 @@ export default function ChatWindow({
         rejectedDirections: signalsForRecommend.rejectedDirections,
         changeRequests: options?.changeRequests,
       });
+    } finally {
+      // Cleared however the call ends — the skeleton must never outlive the request that
+      // justified it, including on the error paths handled by the caller.
+      setIsRecommending(false);
+    }
 
     if (recommendData.needsCountry) {
       setDetectedCountries(recommendData.detectedCountries ?? []);
@@ -1177,11 +1204,13 @@ export default function ChatWindow({
           />
         )}
 
-        {/* First-time roadmap generation loading state (lives in chat — there's no panel yet) */}
+        {/* First-time roadmap generation (lives in chat — there's no panel yet). Was a single
+            static line for a ~32s wait; now the same named-step treatment as the deck, over a
+            skeleton shaped like the RoadmapTitleCard that replaces it. */}
         {isRoadmapLoading && !state.roadmap && (
-          <div role="status" className="flex items-center gap-3 my-8 p-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin flex-shrink-0" />
-            <p className="text-sm font-medium text-slate-600">Building your execution roadmap…</p>
+          <div className="my-8">
+            <AnalyzingProgress steps={ROADMAP_GENERATION_STEPS} />
+            <RoadmapSkeleton />
           </div>
         )}
 
@@ -1275,7 +1304,18 @@ export default function ChatWindow({
           />
         )}
 
-        {isThinking && <ThinkingBubble />}
+        {/* The ~34s deck wait: a skeleton sized to the three cards that will replace it, plus
+            named steps so the wait reads as work rather than as a hang. */}
+        {isRecommending && (
+          <div className="my-6">
+            <AnalyzingProgress steps={PATH_GENERATION_STEPS} />
+            <PathDeckSkeleton />
+          </div>
+        )}
+
+        {/* Suppressed while a skeleton is showing — two indicators for one wait reads as two
+            things happening. */}
+        {isThinking && !isRecommending && !isRoadmapLoading && <ThinkingBubble />}
 
         {apiError && (
           <div role="alert" className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
