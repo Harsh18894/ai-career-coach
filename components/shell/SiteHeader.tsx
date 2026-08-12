@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
+import { StartHachiButton } from '@/components/StartHachi';
 
 /* =====================================================================================
  * The header. Wordmark, three links, one action.
@@ -51,12 +52,10 @@ export function SiteHeader() {
               {l.label}
             </Link>
           ))}
-          <Link
-            href="/coach"
+          <StartHachiButton
+            label={`Try ${BRAND.name}`}
             className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper transition-transform duration-150 hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-          >
-            Try {BRAND.name}
-          </Link>
+          />
         </nav>
 
         {/* Mobile: one button, one panel. No drawer library, no overlay animation. */}
@@ -94,13 +93,10 @@ export function SiteHeader() {
               {l.label}
             </Link>
           ))}
-          <Link
-            href="/coach"
-            onClick={() => setOpen(false)}
-            className="mt-2 block rounded-lg bg-ink px-4 py-3 text-center text-[15px] font-semibold text-paper"
-          >
-            Try {BRAND.name}
-          </Link>
+          <StartHachiButton
+            label={`Try ${BRAND.name}`}
+            className="mt-2 block w-full rounded-lg bg-ink px-4 py-3 text-center text-[15px] font-semibold text-paper"
+          />
         </nav>
       )}
     </header>

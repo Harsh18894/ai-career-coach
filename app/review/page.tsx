@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, Loader2, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
 import { asClientError, isRetryable, type ClientError } from '@/lib/errors';
 import {
   prepareReview,
@@ -16,6 +15,7 @@ import { ReviewIntake, type IntakeResult } from '@/components/review/ReviewIntak
 import { PersonaBanner } from '@/components/review/PersonaBanner';
 import { ReviewResults } from '@/components/review/ReviewResults';
 import { primeBotProtection } from '@/lib/turnstile';
+import { BackLink } from '@/components/shell/BackLink';
 
 /* =====================================================================================
  * The resume-review surface.
@@ -133,13 +133,7 @@ export default function ReviewPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:py-10">
       <header className="mb-6">
-        <Link
-          href="/"
-          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors hover:text-hachi"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to coaching
-        </Link>
+        <BackLink />
         <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">Resume review</h1>
         <p className="mt-2 leading-relaxed text-ink-muted">
           A line-by-line read of your resume, judged against the bar for your actual stage — with

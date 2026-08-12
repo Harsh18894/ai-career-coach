@@ -8,8 +8,9 @@ import React from 'react';
  * overflow-hidden` on <body> — which also made every OTHER page a nested scroller, so on mobile
  * the URL bar never collapsed and the landing fold lost ~60px.
  *
- * Applying the constraint per-route fixes both: /coach and /review get the bounded box they
- * need, and the landing page and the prose pages scroll the document normally.
+ * Applying the constraint per-route fixes both: /review gets the bounded box it
+ * needs, and the home page and the prose pages scroll the document normally. (The coaching
+ * session lives on "/" now and sets its own bounded height in HomeExperience.)
  *
  * The offset matches the header's own height (h-14 mobile, h-16 from sm).
  */

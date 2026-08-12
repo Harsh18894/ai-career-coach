@@ -9,7 +9,7 @@ import { SAMPLE_PATHS, type SamplePath } from './SampleData';
  * The differentiator this section exists to demonstrate is that a recommendation must point at
  * something the person actually did. So the evidence is not prose to be read — it is marked,
  * highlighted inside the rationale, and listed as discrete fragments. A visitor who reads
- * nothing should still see orange marks sitting on top of a résumé fact.
+ * nothing should still see orange marks sitting on top of a resume fact.
  *
  * Tier and the ambition verdict do the calibration work that a "% fit" would otherwise do.
  * See the note in components/trajectory/Trajectory.tsx on why there is no percentage.
@@ -67,7 +67,7 @@ function PathCard({ path, isOpen, onToggle }: { path: SamplePath; isOpen: boolea
         isOpen ? 'border-hachi/40 shadow-[0_2px_16px_rgba(255,90,54,0.08)]' : 'border-border-soft'
       }`}
     >
-      <div className="p-5 sm:p-6">
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <span className="font-mono text-xs font-semibold tracking-widest text-ink-muted">{path.index}</span>
           <span className="text-right">
@@ -76,10 +76,12 @@ function PathCard({ path, isOpen, onToggle }: { path: SamplePath; isOpen: boolea
           </span>
         </div>
 
-        <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-ink sm:text-xl">
+        {/* Fixed minimum so a two-line title in one card does not push its salary and control
+            row out of line with the single-line titles beside it. */}
+        <h3 className="mt-3 min-h-[3.5rem] text-lg font-semibold leading-snug tracking-tight text-ink sm:text-xl">
           {path.title}
         </h3>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">{path.summary}</p>
+        <p className="mt-2 min-h-[3.75rem] text-[15px] leading-relaxed text-ink-muted">{path.summary}</p>
 
         <p className="mt-4 text-sm font-medium text-ink">{path.salaryRange}</p>
 
@@ -88,7 +90,7 @@ function PathCard({ path, isOpen, onToggle }: { path: SamplePath; isOpen: boolea
           onClick={onToggle}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-hachi transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 rounded"
+          className="mt-auto pt-4 inline-flex items-center gap-1.5 self-start text-sm font-semibold text-hachi transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 rounded"
         >
           {isOpen ? 'Hide the reasoning' : 'Why this fits'}
           <span aria-hidden="true" className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>
@@ -145,7 +147,7 @@ export function PathExplorer() {
   const [openId, setOpenId] = useState<string | null>(SAMPLE_PATHS[1].id);
 
   return (
-    <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0">
+    <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:items-start sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0">
       {SAMPLE_PATHS.map((path, i) => (
         <div
           key={path.id}

@@ -22,7 +22,7 @@ export function SiteFooter() {
               Privacy
             </Link>
             <a
-              href="https://github.com/harshdeep-singh/hachi"
+              href="https://github.com/Harsh18894/ai-career-coach"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"

@@ -87,7 +87,7 @@ the settlement service."
 **What it measures.** Whether the document's structure survives automated parsing — the same
 class of failure this app's own resume pipeline already contends with (see the `< 150` character
 scanned-PDF check in `app/api/parse-resume/route.ts`).
-**Why it matters.** Most résumés are read by a parser before a human ever sees them. A resume
+**Why it matters.** Most resumes are read by a parser before a human ever sees them. A resume
 that parses into gibberish never reaches a person, regardless of how good the underlying career
 is.
 **A scoping honesty note for implementers.** By the time review code sees a resume, it has

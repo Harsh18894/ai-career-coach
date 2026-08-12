@@ -13,7 +13,7 @@ export const maxDuration = 10;
  * The schema is the privacy guarantee.
  *
  * Every field is an enum, a bounded integer, or a hostname. There is no string field a client
- * could put résumé text into, so "no PII reaches analytics" is enforced by validation rather
+ * could put resume text into, so "no PII reaches analytics" is enforced by validation rather
  * than by everyone remembering. Anything unrecognised is stripped by Zod before the log line is
  * written.
  */

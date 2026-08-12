@@ -28,7 +28,7 @@ export type SamplePath = {
   summary: string;
   /** The verbatim fitRationale — the evidence, shown when the card expands. */
   fitRationale: string;
-  /** The specific fragments of the résumé this points at. Rendered as evidence markers. */
+  /** The specific fragments of the resume this points at. Rendered as evidence markers. */
   evidence: string[];
   ambition: { verdict: 'aligned' | 'too_high' | 'too_low'; note: string };
   upskills: string[];
@@ -154,6 +154,6 @@ export const SAMPLE_ROADMAP_MILESTONES: RoadmapMilestone[] = [
     phase: 'Apply',
     title: 'Targeted applications',
     detail: 'Apply narrowly and specifically, with the project as the centre of the story.',
-    items: ['Shortlist roles that match the built stack', 'Rewrite the résumé around the project'],
+    items: ['Shortlist roles that match the built stack', 'Rewrite the resume around the project'],
   },
 ];

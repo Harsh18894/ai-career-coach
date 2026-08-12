@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Database, Eye, HardDrive, Send, Trash2 } from 'lucide-react';
+import { BackLink } from '@/components/shell/BackLink';
+import { Clock, Database, Eye, HardDrive, Send, Trash2 } from 'lucide-react';
 
 export const metadata = {
   title: 'What happens to your resume | Hachi',
@@ -55,13 +56,7 @@ function Row({ what, where, howLong }: { what: string; where: string; howLong: s
 export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Link>
+      <BackLink />
 
       <h1 className="mt-6 text-3xl font-bold tracking-tight text-ink">
         What happens to your resume

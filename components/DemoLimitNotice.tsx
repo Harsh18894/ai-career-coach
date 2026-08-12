@@ -77,7 +77,7 @@ export function DemoLimitNotice({
 
           <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-start">
             <a
-              href="https://github.com/harshdeep-singh/hachi"
+              href="https://github.com/Harsh18894/ai-career-coach"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-sm font-semibold text-amber-900 transition-colors hover:border-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"

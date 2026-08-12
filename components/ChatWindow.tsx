@@ -23,6 +23,8 @@ import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
 import QuickOptions, { type QuickOption } from './QuickOptions';
+import { CareerPlan } from './plan/CareerPlan';
+import { PlanStages } from './plan/PlanStages';
 import { DemoLimitNotice, isDemoLimit } from './DemoLimitNotice';
 import { SessionFeedback } from './SessionFeedback';
 import AnalyzingProgress, { PATH_GENERATION_STEPS, ROADMAP_GENERATION_STEPS } from './AnalyzingProgress';
@@ -225,10 +227,13 @@ export default function ChatWindow({
   // where an ordinary turn (~8s) gets the typing bubble. Using one flag for both would mean
   // either a skeleton flashing for eight seconds or a bare dot animation for thirty-four.
   const [isRecommending, setIsRecommending] = useState(false);
+  /* Which face of the post-decision experience is showing. Local, not persisted: coming back
+   * to the session should land on the plan, which is the artifact, not on the transcript. */
+  const [conversationOpen, setConversationOpen] = useState(false);
 
   /** Which intake this session came through, for segmenting the funnel. Derived rather than
    * passed down: the sample flag already lives in session meta, and a profile-less session is
-   * by definition the guided no-résumé path. */
+   * by definition the guided no-resume path. */
   const funnelPath: FunnelPath = currentSampleId()
     ? 'sample'
     : initialProfile
@@ -270,11 +275,41 @@ export default function ChatWindow({
   const [showRoadmapFeedbackInput, setShowRoadmapFeedbackInput] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** The transcript's own scroll container. Scrolling is done on THIS element, never via
+   * scrollIntoView — see scrollToBottom. */
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollAtRef = useRef(0);
   const pendingScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Keeps the transcript pinned to the latest message — and nothing else.
+   *
+   * This used to call `messagesEndRef.current.scrollIntoView()`. That method scrolls EVERY
+   * scrollable ancestor, including the document, so each new token dragged the whole page —
+   * header, plan, everything — upward. Scrolling the container directly moves only the
+   * transcript.
+   *
+   * It also no longer scrolls unconditionally. If the reader has scrolled up to re-read
+   * something, yanking them back to the bottom on the next token is the rudest thing this
+   * component could do, so a deliberate scroll away suspends autoscroll until they return.
+   */
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const NEAR_BOTTOM_PX = 140;
+    // Nothing overflows yet, or the reader has moved away on purpose.
+    if (distanceFromBottom > NEAR_BOTTOM_PX) return;
+
+    // scrollTo is not implemented in jsdom, and `scrollTop` is the universally supported
+    // primitive underneath it — so the smooth version is used where it exists and the plain
+    // assignment everywhere else.
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    } else {
+      container.scrollTop = container.scrollHeight;
+    }
     lastScrollAtRef.current = Date.now();
   };
 
@@ -1171,8 +1206,89 @@ export default function ChatWindow({
     }
   };
 
+  /* Once a roadmap exists the user is in DECISION -> PLAN -> ACTION, not in a chat. The plan
+   * becomes the page and the conversation becomes a drawer behind one button — it is still
+   * there, still complete, still the evidence for everything on screen, but it no longer
+   * competes with the thing the user came back for. */
+  const hasPlan = Boolean(state.roadmap && state.chosenPath);
+
+  if (hasPlan && !conversationOpen) {
+    return (
+      <div className="flex flex-1 flex-col bg-paper animate-fade-in">
+        <PlanStages />
+
+        {/* Failures still happen on this screen — a closing reflection that died, an adjust
+            request that timed out. Without this they would be set in state and never rendered,
+            because the plan view is not the chat view. Found by a test, not by looking. */}
+        {apiError && (
+          <div className="mx-auto w-full max-w-3xl px-5 pt-5 sm:px-8">
+            {isDemoLimit(apiError.code) ? (
+              <DemoLimitNotice
+                code={apiError.code as 'BUDGET_EXCEEDED' | 'RATE_LIMITED'}
+                retryAfterSeconds={apiError.retryAfterSeconds}
+              />
+            ) : (
+              <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{apiError.message}</p>
+                  {canRetry && (
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="mt-3 rounded-lg border border-red-300 bg-white px-3.5 py-1.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50"
+                    >
+                      Try again
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
+          <CareerPlan
+            profile={state.profile}
+            chosenPath={state.chosenPath!}
+            roadmap={state.roadmap!}
+            roadmapVersion={state.roadmapVersion}
+            onAdjust={handleUpdateRoadmap}
+            isAdjusting={isRoadmapLoading}
+            onAskHachi={() => setConversationOpen(true)}
+          />
+        </div>
+
+        {/* The assistant, always one tap away. */}
+        <button
+          type="button"
+          onClick={() => setConversationOpen(true)}
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-paper shadow-lg transition-transform duration-150 hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2"
+        >
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-hachi" />
+          Ask Hachi
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full bg-white animate-fade-in">
+      {hasPlan && (
+        /* Returning to the plan from the conversation. */
+        <div className="flex items-center justify-between border-b border-border-soft px-5 py-2.5">
+          <button
+            type="button"
+            onClick={() => setConversationOpen(false)}
+            className="inline-flex items-center gap-2 rounded text-sm font-semibold text-ink transition-colors hover:text-hachi focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
+          >
+            <span aria-hidden="true">‹</span>
+            Back to your plan
+          </button>
+          <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Conversation</span>
+        </div>
+      )}
+
       {/* Header Info Banner */}
       <div className="px-6 py-3.5 border-b border-border-soft flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2.5">
@@ -1218,7 +1334,7 @@ export default function ChatWindow({
       <div className="flex flex-col flex-1 min-w-0 min-h-0">
 
       {/* Messages Feed Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-6 py-4">
       <div className="max-w-4xl mx-auto w-full space-y-4">
         {state.messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
@@ -1467,6 +1583,9 @@ export default function ChatWindow({
 
       </div>
 
+      {/* The roadmap side panel is kept for the conversation view, where "show me the plan
+          again" while mid-chat is still a reasonable thing to want. On the plan view itself it
+          would be a panel showing what the page already is. */}
       {state.roadmap && (
         <RoadmapPanel
           roadmap={state.roadmap}

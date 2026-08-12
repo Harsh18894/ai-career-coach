@@ -8,7 +8,7 @@ import { FEEDBACK_ANSWERS, type FeedbackAnswer } from '@/lib/analytics-events';
  * The one-question prompt, shown once a session has produced something.
  *
  * One question, three buttons, no free-text box. The free-text box is where somebody types
- * their situation — which would put résumé-adjacent prose into the analytics stream and break
+ * their situation — which would put resume-adjacent prose into the analytics stream and break
  * the guarantee the rest of this system is built on. If someone wants to say more, the "who
  * built this" section on the landing page invites it, and that route goes to a human rather
  * than to a log line.

@@ -18,7 +18,7 @@ import type { FunnelEvent, FunnelProps } from './analytics-events';
  * by the same opaque session id.
  *
  * ============================== WHAT IS NEVER SENT ==============================
- * No résumé text. No name, email, phone, or any field derived from a résumé. No message
+ * No resume text. No name, email, phone, or any field derived from a resume. No message
  * content. No URLs with query strings. No IP is recorded by this path beyond what the platform
  * already logs for every request.
  *

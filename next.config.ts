@@ -116,6 +116,13 @@ const nextConfig: NextConfig = {
   // map of the client either.
   productionBrowserSourceMaps: false,
 
+  /* /coach was folded into "/" — the session and the page that explains it are the same
+   * place now. Anything already linking to the old route (a Reddit comment, a bookmark) lands
+   * on the home page rather than a 404. */
+  async redirects() {
+    return [{ source: '/coach', destination: '/', permanent: false }];
+  },
+
   async headers() {
     return [
       {

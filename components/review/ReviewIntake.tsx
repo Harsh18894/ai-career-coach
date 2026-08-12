@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ClipboardPaste, FileUp, FlaskConical, Link2, Loader2, Target } from 'lucide-react';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
 import { asClientError, offersPasteFallback, type ClientError } from '@/lib/errors';
@@ -36,6 +36,8 @@ export function ReviewIntake({ onStart, busy }: { onStart: (result: IntakeResult
     readStashedResumeText() ? 'carried' : 'none'
   );
   const [showPaste, setShowPaste] = useState(false);
+
+
   const [showSamples, setShowSamples] = useState(false);
   const [error, setError] = useState<ClientError | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -49,6 +51,26 @@ export function ReviewIntake({ onStart, busy }: { onStart: (result: IntakeResult
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jobTextRef = useRef<HTMLTextAreaElement>(null);
+
+  /* Deep link from the "Try Hachi" chooser: /review?sample=<id> arrives with a sample already
+   * chosen. Read once and stripped from the URL, so a refresh does not silently re-apply it
+   * over a resume the user has since pasted. */
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('sample');
+    const sample = SAMPLE_PROFILES.find((s) => s.id === id);
+    if (!sample) return;
+    window.history.replaceState({}, '', '/review');
+    // Deferred so no state update happens synchronously inside the effect body. Every setter
+    // used here is stable, so this mount-only effect genuinely has no dependencies.
+    queueMicrotask(() => {
+      startNewSession({ isSample: true, sampleId: sample.id });
+      setResumeText(sample.resumeText);
+      setResumeSource('sample');
+      setShowSamples(false);
+      setShowPaste(false);
+      setError(null);
+    });
+  }, []);
 
   /* ---- resume ------------------------------------------------------------------------- */
 
@@ -78,6 +100,7 @@ export function ReviewIntake({ onStart, busy }: { onStart: (result: IntakeResult
     setShowPaste(false);
     setError(null);
   };
+
 
   /* ---- job ---------------------------------------------------------------------------- */
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResumeUpload from './ResumeUpload';
 import { SAMPLE_PROFILES } from '@/lib/samples';
@@ -15,7 +15,7 @@ import { getSessionMeta } from '@/lib/session';
 
 function renderUpload(overrides: Partial<React.ComponentProps<typeof ResumeUpload>> = {}) {
   const props = {
-    onUploadSuccess: vi.fn(),
+    onFileSubmit: vi.fn(),
     onManualTextSubmit: vi.fn(),
     onStartWithoutResume: vi.fn(),
     ...overrides,
@@ -70,7 +70,7 @@ describe('ResumeUpload sample profiles', () => {
     expect(props.onManualTextSubmit).toHaveBeenCalledTimes(1);
     expect(props.onManualTextSubmit).toHaveBeenCalledWith(SAMPLE_PROFILES[1].resumeText);
     // No separate intake: the upload path must not have fired.
-    expect(props.onUploadSuccess).not.toHaveBeenCalled();
+    expect(props.onFileSubmit).not.toHaveBeenCalled();
     expect(props.onStartWithoutResume).not.toHaveBeenCalled();
   });
 
@@ -96,6 +96,68 @@ describe('ResumeUpload sample profiles', () => {
     await user.click(screen.getByRole('button', { name: new RegExp(SAMPLE_PROFILES[0].label, 'i') }));
 
     expect(getSessionMeta().id).not.toBe(before);
+  });
+});
+
+describe('ResumeUpload file selection', () => {
+  const pdf = () => new File(['%PDF-1.4'], 'resume.pdf', { type: 'application/pdf' });
+
+  it('hands a chosen PDF straight to the caller', async () => {
+    const user = userEvent.setup();
+    const props = renderUpload();
+
+    await user.upload(screen.getByLabelText(/upload resume pdf/i), pdf());
+
+    expect(props.onFileSubmit).toHaveBeenCalledTimes(1);
+    expect(props.onFileSubmit).toHaveBeenCalledWith(expect.any(File));
+  });
+
+  it('accepts the same file twice — the input value is cleared between picks', async () => {
+    const user = userEvent.setup();
+    const props = renderUpload();
+    const input = screen.getByLabelText(/upload resume pdf/i);
+
+    // Retrying the file that just failed is the single most likely next action, and it used to
+    // do nothing: an unchanged input value fires no change event.
+    await user.upload(input, pdf());
+    await user.upload(input, pdf());
+
+    expect(props.onFileSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a non-PDF locally and opens the paste box instead of spending a request', () => {
+    const props = renderUpload();
+
+    // Dropped, not picked: the picker filters by `accept`, so a wrong file type can realistically
+    // only arrive over the dropzone.
+    const file = new File(['hello'], 'resume.txt', { type: 'text/plain' });
+    fireEvent.drop(screen.getByText(/drag & drop your resume pdf here/i), {
+      dataTransfer: { files: [file], types: ['Files'] },
+    });
+
+    expect(props.onFileSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/not a PDF/i);
+    expect(screen.getByLabelText(/paste your resume contents/i)).toBeInTheDocument();
+  });
+
+  it('leaves the paste box reachable after an error that offers no automatic fallback', async () => {
+    const user = userEvent.setup();
+    // UPSTREAM_ERROR is not in offersPasteFallback, so nothing opens the form on its own —
+    // without a standing link, a network failure stranded the user with no way forward.
+    renderUpload({ error: { code: 'UPSTREAM_ERROR', message: 'Something went wrong.' } });
+
+    expect(screen.queryByLabelText(/paste your resume contents/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /paste your resume text instead/i }));
+
+    expect(screen.getByLabelText(/paste your resume contents/i)).toBeInTheDocument();
+  });
+
+  it('surfaces an error raised by the hoisted intake runner', () => {
+    renderUpload({ error: { code: 'RESUME_PARSE_FAILED', message: 'Could not read that PDF.' } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not read that PDF.');
+    // RESUME_PARSE_FAILED does have a fallback, so the form opens without being asked.
+    expect(screen.getByLabelText(/paste your resume contents/i)).toBeInTheDocument();
   });
 });
 

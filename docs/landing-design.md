@@ -33,9 +33,9 @@ Three personas, mapped to the buckets the product already reasons in.
 | **Hired to do** | Turn an open field into two or three named roles they could actually apply for tomorrow. |
 | **Arrives feeling** | Behind. Everyone else seems to have a plan. Applying broadly and hearing nothing, which they read as a verdict on them rather than on the funnel. |
 | **Prior experience of career advice** | University careers service: a CV template, "have you tried networking", a list of graduate schemes. Correct, generic, and useless for choosing between things. |
-| **Objections** | "I don't have anything to put in." Their résumé is coursework and one internship, and they expect a tool like this to have nothing to say to them — or worse, to tell them they're underqualified in a way they already suspect. |
+| **Objections** | "I don't have anything to put in." Their resume is coursework and one internship, and they expect a tool like this to have nothing to say to them — or worse, to tell them they're underqualified in a way they already suspect. |
 
-The product-specific fear: that it will read their thin résumé and confirm the thing they are
+The product-specific fear: that it will read their thin resume and confirm the thing they are
 afraid of. This is why the fold cannot open with anything that sounds like assessment.
 
 ## Persona B — "I'm stuck and I can't name why"
@@ -185,10 +185,10 @@ naming the model, or using the words *revolutionary*, *powerful*, *seamless*, or
 > No signup. Nothing to upload.
 
 **Secondary CTA**
-> Or use your own résumé — upload, paste, or just answer a few questions
+> Or use your own resume — upload, paste, or just answer a few questions
 
 **Trust line**
-> Free · No account · Your résumé is never stored on our servers — [what happens to it](/privacy)
+> Free · No account · Your resume is never stored on our servers — [what happens to it](/privacy)
 
 **The artifact.** A real path card from a sample run, rendered in the real component. Verbatim
 from `evals/.cache/snapshots/generatePaths:R-grow-01:c3.json`:
@@ -208,7 +208,7 @@ The fit rationale is the whole argument. It names a company, a system, and a met
 tool produces that sentence, and no amount of copy asserts it as well as showing it.
 
 ### How it works
-> **1. Tell it where you're at.** Upload a résumé, paste it, or answer a few questions if you'd
+> **1. Tell it where you're at.** Upload a resume, paste it, or answer a few questions if you'd
 > rather not. Takes about a minute.
 >
 > **2. Have an actual conversation.** Four or five questions, adapting to what you say. It won't
@@ -236,14 +236,14 @@ tool produces that sentence, and no amount of copy asserts it as well as showing
 > - It isn't a recruiter and has no jobs to place you in.
 > - It's no substitute for talking to someone actually doing the work. Use it to figure out who
 >   to go and talk to.
-> - If your résumé is thin, it will say so plainly rather than flatter you.
+> - If your resume is thin, it will say so plainly rather than flatter you.
 
 ### Who built this
 > I'm Harsh. I built Hachi because most career advice is fluent and generic, and the useful kind
 > — someone who knows your actual situation telling you the specific thing — is hard to get.
 >
 > It's called Hachi because it's meant to sit beside you and be on your side. That's the whole
-> idea: not an assessor, a companion who happens to have read a lot of résumés.
+> idea: not an assessor, a companion who happens to have read a lot of resumes.
 >
 > It's a side project, it's free, and it costs me a few cents every time someone uses it. If it's
 > useful, tell me. If it's wrong about you, definitely tell me.
@@ -260,7 +260,7 @@ Per Task C6, no PII. The funnel:
 
 `landing view → sample CTA → upload CTA → profile parsed → first coach message → Nth turn → deck shown → path locked → roadmap viewed`
 
-Segmented by **referrer** (Reddit separable) and by **sample vs. own-résumé path**. Plus
+Segmented by **referrer** (Reddit separable) and by **sample vs. own-resume path**. Plus
 time-on-page before first CTA click, and error/rate-limit events.
 
 ## What the chosen concept predicts
@@ -271,7 +271,7 @@ Concept 3 claims that *showing the artifact converts skeptics*. If true:
 |---|---|
 | Sample CTA click-through | **> 25%** of landing views |
 | Time before first CTA click | **short** — median under 30s. The artifact should make the decision fast. |
-| Sample → own-résumé | **> 15%** of people who finish a sample session start a real one. This is the concept's core bet: seeing the output makes uploading plausible. |
+| Sample → own-resume | **> 15%** of people who finish a sample session start a real one. This is the concept's core bet: seeing the output makes uploading plausible. |
 | Deck shown, of sessions started | **> 60%** |
 | Reddit comments | Objections about *quality of recommendations*, not about *what does it even do* |
 
@@ -280,7 +280,7 @@ Concept 3 claims that *showing the artifact converts skeptics*. If true:
 - **High landing views, low sample CTA (< 10%), long dwell.** People are reading and not acting —
   the artifact is being parsed as a screenshot of someone else's result rather than an invitation.
   Concept 1's clearer promise would have been the better call.
-- **Good sample completion, near-zero own-résumé conversion (< 5%).** The demo entertains but
+- **Good sample completion, near-zero own-resume conversion (< 5%).** The demo entertains but
   doesn't persuade; the trust line isn't doing its job, or the output isn't good enough to want
   for yourself. This would be the most useful failure — it points at the product, not the page.
 - **Comments asking "what is this"**, i.e. the fold failed to communicate at all.
@@ -301,7 +301,7 @@ the honest instrument at this sample size.
 A pal is **on your side**, **talks straight**, and **doesn't perform**. In copy:
 
 - **Second person, always.** "You've been applying for months", never "users often report".
-- **Plain words.** *Job*, not *role opportunity*. *Pay*, not *compensation band*. *Résumé*, not
+- **Plain words.** *Job*, not *role opportunity*. *Pay*, not *compensation band*. *Resume*, not
   *professional profile document*.
 - **No hype vocabulary.** No *revolutionary*, *powerful*, *seamless*, *unlock*, *supercharge*,
   *game-changing*, *cutting-edge*.
@@ -361,5 +361,5 @@ knows the legend, cut it.
 > ❌ "Results may vary depending on individual circumstances and market conditions."
 
 **One more, for the app itself, not just the page:** the coach's own copy already follows this —
-error messages say what happened and what to do next, and the review tells people when a résumé
+error messages say what happened and what to do next, and the review tells people when a resume
 is thin. The landing page should not be written in a different voice from the product it opens.

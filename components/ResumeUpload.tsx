@@ -3,37 +3,39 @@
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Upload, AlertCircle, Link2, ChevronDown, FlaskConical } from 'lucide-react';
-import { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
-import {
-  ClientApiError,
-  clientErrorFrom,
-  asClientError,
-  offersPasteFallback,
-  type ClientError,
-} from '@/lib/errors';
-import { sessionHeaders, startNewSession } from '@/lib/session';
+import { offersPasteFallback, type ClientError } from '@/lib/errors';
+import { startNewSession } from '@/lib/session';
 import { stashResumeText } from '@/lib/resume-stash';
 import { SAMPLE_PROFILES, type SampleProfile } from '@/lib/samples';
-import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
-import { LIMITS } from '@/lib/limits';
-import { humanTokenHeaders } from '@/lib/turnstile';
-import { startSpan } from '@/lib/journey';
+import { LIMITS, formatBytes } from '@/lib/limits';
+import { validateResumeFile } from '@/lib/intake';
 import { track } from '@/lib/analytics';
 
+/**
+ * The intake screen: a dropzone, a paste box, and the two ways out of both.
+ *
+ * Purely presentational as far as the network is concerned. The parse-resume/generate-opener
+ * sequence used to live here and again in HomeExperience; it now lives once in lib/intake.ts,
+ * called by whichever surface is showing. That also means the analysis spinner is the page's,
+ * not this component's — so an upload started from the header chooser and one started from this
+ * dropzone look identical.
+ */
 interface ResumeUploadProps {
-  onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
+  onFileSubmit: (file: File) => void;
   onManualTextSubmit: (text: string) => void;
   onStartWithoutResume: () => void;
+  /** Raised by the hoisted intake runner. Rendered here so there is one error surface. */
+  error?: ClientError | null;
 }
 
 export default function ResumeUpload({
-  onUploadSuccess,
+  onFileSubmit,
   onManualTextSubmit,
   onStartWithoutResume,
+  error: intakeError = null,
 }: ResumeUploadProps) {
   const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState<ClientError | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<ClientError | null>(null);
   const [showTextFallback, setShowTextFallback] = useState(false);
   const [manualText, setManualText] = useState('');
   const [showLinkedinHelp, setShowLinkedinHelp] = useState(false);
@@ -51,88 +53,38 @@ export default function ResumeUpload({
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      await processFile(e.dataTransfer.files[0]);
-    }
+    const file = e.dataTransfer.files?.[0];
+    if (file) submitFile(file);
   };
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      await processFile(e.target.files[0]);
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Cleared before anything else, so choosing the same filename again after a failure still
+    // fires a change event. Without this, the second attempt at a file that failed to parse
+    // silently did nothing.
+    e.target.value = '';
+    if (file) submitFile(file);
   };
 
-  const processFile = async (file: File) => {
-    setError(null);
+  /**
+   * Checked here rather than left to the runner, so a wrong file type answers instantly instead
+   * of flashing the analysis screen on its way to the same message.
+   */
+  const submitFile = (file: File) => {
+    const invalid = validateResumeFile(file);
+    if (invalid) {
+      setLocalError(invalid);
+      setShowTextFallback(true);
+      return;
+    }
+    setLocalError(null);
     setShowTextFallback(false);
-
-    if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-      setError({ code: 'RESUME_PARSE_FAILED', message: 'That file is not a PDF. Upload a PDF, or paste your resume text instead.' });
-      setShowTextFallback(true);
-      return;
-    }
-
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      setError({ code: 'RESUME_PARSE_FAILED', message: 'That file is over the 5 MB limit. Try a smaller PDF, or paste your resume text instead.' });
-      setShowTextFallback(true);
-      return;
-    }
-
-    setIsLoading(true);
-    // Span starts here, not at the fetch: the wait a user perceives begins when they hand over
-    // the file, and PDF parsing happens before any model call.
-    startSpan('intake_to_first_paths');
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/parse-resume', {
-        method: 'POST',
-        // No Content-Type — the browser sets the multipart boundary itself.
-        headers: { ...sessionHeaders(), ...(await humanTokenHeaders()) },
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new ClientApiError(clientErrorFrom(data, 'RESUME_PARSE_FAILED'));
-      }
-
-      if (data.insufficientInfo) {
-        onStartWithoutResume();
-      } else {
-        if (typeof data.text === 'string') stashResumeText(data.text);
-        const openerResponse = await fetch('/api/generate-opener', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
-          body: JSON.stringify({ profile: data.profile }),
-        });
-        const openerData = await openerResponse.json();
-        if (!openerResponse.ok) {
-          throw new ClientApiError(clientErrorFrom(openerData));
-        }
-        track('profile_parsed', { path: 'own_resume' });
-        onUploadSuccess(data.profile, openerData.opener);
-      }
-    } catch (err) {
-      const clientError = asClientError(err);
-      console.error(`[${clientError.code}]`, err);
-      setError(clientError);
-      // An unreadable PDF is the one failure with a genuine alternative route — reveal the
-      // paste-text form directly rather than telling the user about it and making them hunt.
-      if (offersPasteFallback(clientError.code)) setShowTextFallback(true);
-    } finally {
-      setIsLoading(false);
-    }
+    onFileSubmit(file);
   };
 
   const onButtonClick = () => {
@@ -147,7 +99,7 @@ export default function ResumeUpload({
    */
   const handleUseSample = (sample: SampleProfile) => {
     track('sample_cta_click', { path: 'sample' });
-    setError(null);
+    setLocalError(null);
     setShowSamplePicker(false);
     startNewSession({ isSample: true, sampleId: sample.id });
     stashResumeText(sample.resumeText);
@@ -157,11 +109,19 @@ export default function ResumeUpload({
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualText.trim() || manualText.trim().length < 150) {
-      setError({ code: 'RESUME_PARSE_FAILED', message: 'That is too short to work with — paste at least 150 characters of your resume or career history.' });
+      setLocalError({ code: 'RESUME_PARSE_FAILED', message: 'That is too short to work with — paste at least 150 characters of your resume or career history.' });
       return;
     }
+    setLocalError(null);
     onManualTextSubmit(manualText);
   };
+
+  // Derived, not stored: this component stays mounted across a failed run, so a lazy useState
+  // initialiser would go stale, and an effect that copied the prop into state would trip the
+  // set-state-in-effect rule.
+  const shownError = localError ?? intakeError;
+  const pasteVisible =
+    showTextFallback || (intakeError ? offersPasteFallback(intakeError.code) : false);
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -181,7 +141,7 @@ export default function ResumeUpload({
         className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200 ${dragActive
           ? 'border-hachi/30 '
           : 'border-border-soft bg-paper'
-          } ${isLoading ? 'pointer-events-none opacity-80' : ''}`}
+          }`}
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
@@ -191,41 +151,34 @@ export default function ResumeUpload({
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept=".pdf"
+          accept="application/pdf,.pdf"
           onChange={handleChange}
           aria-label="Upload resume PDF"
         />
 
-        {isLoading ? (
-          <div className="py-10">
-            <AnalyzingProgress steps={RESUME_ANALYSIS_STEPS} />
+        <div className="flex flex-col items-center justify-center py-6">
+          <div className="p-3.5 rounded-full bg-hachi text-white shadow-sm mb-4 transition-transform duration-150 hover:scale-105">
+            <Upload className="w-7 h-7" />
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-6">
-            <div className="p-3.5 rounded-full bg-hachi text-white shadow-sm mb-4 transition-transform duration-150 hover:scale-105">
-              <Upload className="w-7 h-7" />
-            </div>
 
-            <p className="text-lg font-semibold text-ink mb-1">
-              Drag &amp; drop your resume PDF here
-            </p>
-            <p className="text-sm text-ink-muted mb-6">
-              Only PDF formats up to 5 MB are accepted
-            </p>
+          <p className="text-lg font-semibold text-ink mb-1">
+            Drag &amp; drop your resume PDF here
+          </p>
+          <p className="text-sm text-ink-muted mb-6">
+            {`Only PDF formats up to ${formatBytes(LIMITS.maxUploadBytes)} are accepted`}
+          </p>
 
-            <button
-              type="button"
-              onClick={onButtonClick}
-              className="px-6 py-2.5 bg-hachi text-white rounded-xl font-semibold shadow-sm hover:opacity-90 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 transition-all duration-150"
-            >
-              Select file
-            </button>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={onButtonClick}
+            className="px-6 py-2.5 bg-hachi text-white rounded-xl font-semibold shadow-sm hover:opacity-90 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 transition-all duration-150"
+          >
+            Select file
+          </button>
+        </div>
       </div>
 
-      {!isLoading && (
-        <>
+      <>
           <div className="mt-5 text-center">
             <button
               type="button"
@@ -269,6 +222,20 @@ export default function ResumeUpload({
             >
               Get a line-by-line review instead
             </Link>
+          </p>
+
+          {/* Always available, not only after a parse failure. `offersPasteFallback` is false
+              for a network or rate-limit error, which used to leave the one workaround
+              unreachable at exactly the moment it was needed. */}
+          <p className="mt-2 text-center text-sm text-ink-muted">
+            No PDF handy?{' '}
+            <button
+              type="button"
+              onClick={() => setShowTextFallback(true)}
+              className="font-semibold text-hachi underline-offset-2 hover:text-hachi hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi rounded"
+            >
+              Paste your resume text instead
+            </button>
           </p>
 
           <p className="mt-2 text-center text-sm text-ink-muted">
@@ -333,19 +300,18 @@ export default function ResumeUpload({
               </ol>
             </div>
           )}
-        </>
-      )}
+      </>
 
-      {error && (
+      {shownError && (
         <div role="alert" className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
           <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
           <div className="flex-1 text-sm">
-            <p>{error.message}</p>
+            <p>{shownError.message}</p>
           </div>
         </div>
       )}
 
-      {showTextFallback && (
+      {pasteVisible && (
         <form onSubmit={handleManualSubmit} className="mt-6 p-6 bg-white border border-border-soft rounded-2xl shadow-sm">
           <label htmlFor="manual-resume-text" className="block text-sm font-semibold text-ink mb-2">
             Paste your resume contents, professional experience, and career history here:

@@ -19,6 +19,7 @@ import {
   MousePointerClick,
 } from 'lucide-react';
 import Link from 'next/link';
+import { BackLink } from '@/components/shell/BackLink';
 
 export default function AboutPage() {
   const entryPoints = [
@@ -178,10 +179,12 @@ export default function AboutPage() {
 
   return (
     <div className="w-full max-w-4xl mx-auto py-6 px-4 animate-fade-in space-y-12">
+      <BackLink />
+
       {/* Intro */}
       <div className="text-center space-y-3">
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
-          <span className="bg-hachi bg-clip-text text-transparent">
+          <span className="text-hachi">
             How this works?
           </span>
         </h1>

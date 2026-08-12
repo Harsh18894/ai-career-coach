@@ -133,6 +133,20 @@ async function sendFirstReply() {
   return user;
 }
 
+/**
+ * Opens the conversation from the plan view.
+ *
+ * Once a roadmap exists the plan is the page and the transcript sits behind "Ask Hachi" — the
+ * information architecture changed, so the tests that exercise chat behaviour on a ROADMAP-stage
+ * session have to walk the same path a user does.
+ */
+async function openConversationFromPlan() {
+  const user = userEvent.setup();
+  // Exact name: the plan also has a "Read the conversation" control that opens the same drawer.
+  await user.click(await screen.findByRole('button', { name: 'Ask Hachi' }));
+  return user;
+}
+
 /** Sends through the free-text composer — valid once no options panel is showing. */
 async function sendMessage(text: string) {
   const user = userEvent.setup();
@@ -321,6 +335,7 @@ describe('ChatWindow failure handling', () => {
     });
 
     renderChat();
+    await openConversationFromPlan();
     await waitFor(() => expect(screen.getByText(OPENER.message)).toBeInTheDocument());
 
     const user = await sendMessage('How should I start week one?');
@@ -527,6 +542,7 @@ describe('ChatWindow perceived latency', () => {
     });
 
     renderChat();
+    await openConversationFromPlan();
     await sendMessage('How should I pace week three?');
 
     // The first chunk is rendered and the indicator is gone, while the stream is still open.
