@@ -55,17 +55,17 @@ export default function RoadmapPanel({
       />
 
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white border-l border-slate-200 flex flex-col transition-transform duration-300 md:static md:z-auto md:translate-x-0 md:w-[60vw] md:flex-shrink-0 ${open ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white border-l border-border-soft flex flex-col transition-transform duration-300 md:static md:z-auto md:translate-x-0 md:w-[60vw] md:flex-shrink-0 ${open ? 'translate-x-0' : 'translate-x-full'
           }`}
       >
         {/* Mobile-only header bar with a close control back to chat */}
-        <div className="flex items-center justify-between px-4 py-3 bg-linear-to-r from-indigo-50 to-violet-50/60 border-b border-slate-200 flex-shrink-0 md:hidden">
-          <span className="text-sm font-semibold text-slate-900">Roadmap</span>
+        <div className="flex items-center justify-between px-4 py-3 bg-paper/60 border-b border-border-soft flex-shrink-0 md:hidden">
+          <span className="text-sm font-semibold text-ink">Roadmap</span>
           <button
             type="button"
             onClick={onClose}
             aria-label="Back to chat"
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+            className="p-1.5 rounded-lg hover:bg-paper text-ink-muted"
           >
             <X className="w-4 h-4" />
           </button>
@@ -74,8 +74,8 @@ export default function RoadmapPanel({
         <div className="flex-1 overflow-y-auto p-4 pb-8 relative">
           {isUpdating && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+              <div className="flex items-center gap-2 text-sm font-medium text-ink-muted">
+                <Loader2 className="w-4 h-4 animate-spin text-hachi" />
                 <span>Updating roadmap…</span>
               </div>
             </div>
@@ -88,9 +88,9 @@ export default function RoadmapPanel({
               <button
                 type="button"
                 onClick={onOpenFeedbackInput}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-xl text-xs font-semibold shadow-sm transition-all duration-150"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-border-soft text-ink hover:bg-paper hover:border-border-soft rounded-xl text-xs font-semibold shadow-sm transition-all duration-150"
               >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <Sparkles className="w-3.5 h-3.5 text-hachi" />
                 <span>Adjust roadmap</span>
               </button>
             </div>

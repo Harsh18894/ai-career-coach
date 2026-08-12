@@ -6,7 +6,9 @@
  * The coaching session state in lib/session.ts is deliberately separate and longer-lived.
  * ===================================================================================== */
 
-const STORAGE_KEY = 'career_coach_last_resume_text';
+import { STORAGE_KEYS } from './brand';
+
+const STORAGE_KEY = STORAGE_KEYS.lastResumeText;
 
 export function stashResumeText(text: string): void {
   if (typeof window === 'undefined') return;

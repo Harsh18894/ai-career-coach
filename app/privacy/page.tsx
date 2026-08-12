@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, Clock, Database, Eye, HardDrive, Send, Trash2 } from 'lucide-react';
 
 export const metadata = {
-  title: 'What happens to your resume | Aria',
+  title: 'What happens to your resume | Hachi',
   description:
     'Plainly: what is sent to OpenAI, what is stored and for how long, what stays in your browser, and how to clear it.',
 };
@@ -30,24 +30,24 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="flex items-center gap-2.5 text-lg font-semibold text-slate-900">
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-50">
-          <Icon className="h-4 w-4 text-indigo-600" />
+    <section className="rounded-2xl border border-border-soft bg-white p-6 shadow-sm">
+      <h2 className="flex items-center gap-2.5 text-lg font-semibold text-ink">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-hachi/8">
+          <Icon className="h-4 w-4 text-hachi" />
         </span>
         {title}
       </h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600">{children}</div>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-ink-muted">{children}</div>
     </section>
   );
 }
 
 function Row({ what, where, howLong }: { what: string; where: string; howLong: string }) {
   return (
-    <tr className="border-b border-slate-100 last:border-0">
-      <td className="py-2.5 pr-4 align-top text-slate-800">{what}</td>
-      <td className="py-2.5 pr-4 align-top text-slate-600">{where}</td>
-      <td className="py-2.5 align-top whitespace-nowrap text-slate-600">{howLong}</td>
+    <tr className="border-b border-border-soft/60 last:border-0">
+      <td className="py-2.5 pr-4 align-top text-ink">{what}</td>
+      <td className="py-2.5 pr-4 align-top text-ink-muted">{where}</td>
+      <td className="py-2.5 align-top whitespace-nowrap text-ink-muted">{howLong}</td>
     </tr>
   );
 }
@@ -57,18 +57,18 @@ export default function PrivacyPage() {
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" />
         Back
       </Link>
 
-      <h1 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">
+      <h1 className="mt-6 text-3xl font-bold tracking-tight text-ink">
         What happens to your resume
       </h1>
-      <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Aria is a personal portfolio project, not a company. There are no accounts, no analytics
-        trackers, no advertising, and nothing is ever sold or shared. This page is the specific
+      <p className="mt-3 text-base leading-relaxed text-ink-muted">
+        Hachi is a personal portfolio project, not a company. There are no accounts, no
+        third-party trackers, no advertising, and nothing is ever sold or shared. This page is the specific
         version of that, because &ldquo;we take your privacy seriously&rdquo; tells you nothing.
       </p>
 
@@ -80,9 +80,9 @@ export default function PrivacyPage() {
             — there is no version of this that works without it.
           </p>
           <p>
-            The models are <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">gpt-5-nano</code>{' '}
+            The models are <code className="rounded bg-paper px-1 py-0.5 text-xs">gpt-5-nano</code>{' '}
             for extraction and classification and{' '}
-            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">gpt-5-mini</code> for the
+            <code className="rounded bg-paper px-1 py-0.5 text-xs">gpt-5-mini</code> for the
             text you read. Under OpenAI&rsquo;s API terms, data sent through the API is not used
             to train their models, and they retain it for a limited period for abuse monitoring.
             Their policy governs that, not this project —{' '}
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
               href="https://openai.com/policies/api-data-usage-policies"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+              className="font-medium text-hachi underline underline-offset-2 hover:text-hachi"
             >
               read it here
             </a>
@@ -112,7 +112,7 @@ export default function PrivacyPage() {
           <div className="overflow-x-auto">
             <table className="mt-1 w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <tr className="border-b border-border-soft text-xs font-semibold uppercase tracking-wide text-ink-muted/70">
                   <th className="pb-2 pr-4 font-semibold">What</th>
                   <th className="pb-2 pr-4 font-semibold">Where</th>
                   <th className="pb-2 font-semibold">How long</th>
@@ -151,7 +151,7 @@ export default function PrivacyPage() {
             the original could be edited in transit.
           </p>
           <p>
-            <strong className="font-semibold text-slate-800">No log line contains your resume,
+            <strong className="font-semibold text-ink">No log line contains your resume,
             your name, your email, or your phone number.</strong> Where a log needs to refer to a
             piece of text, it records a length and a fingerprint instead of the words.
           </p>
@@ -161,7 +161,7 @@ export default function PrivacyPage() {
           <p>Your session lives on your own device, not on a server:</p>
           <ul className="ml-1 space-y-2">
             <li className="flex gap-2">
-              <code className="mt-0.5 h-fit rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+              <code className="mt-0.5 h-fit rounded bg-paper px-1.5 py-0.5 text-xs text-ink">
                 localStorage
               </code>
               <span>
@@ -171,7 +171,7 @@ export default function PrivacyPage() {
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="mt-0.5 h-fit rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+              <code className="mt-0.5 h-fit rounded bg-paper px-1.5 py-0.5 text-xs text-ink">
                 sessionStorage
               </code>
               <span>
@@ -186,7 +186,7 @@ export default function PrivacyPage() {
         <Section icon={Trash2} title="How to clear it">
           <ul className="ml-1 list-disc space-y-1.5 pl-4">
             <li>
-              <strong className="font-semibold text-slate-800">Start over</strong> in the chat
+              <strong className="font-semibold text-ink">Start over</strong> in the chat
               header wipes the conversation, the profile, and the stored resume text immediately.
             </li>
             <li>Closing the tab clears the stored resume text on its own.</li>
@@ -204,26 +204,36 @@ export default function PrivacyPage() {
 
         <Section icon={Eye} title="Third parties">
           <p>
-            Three, and no others: <strong className="font-semibold text-slate-800">OpenAI</strong>{' '}
-            for the models, <strong className="font-semibold text-slate-800">Vercel</strong> for
-            hosting, and <strong className="font-semibold text-slate-800">Upstash</strong> for the
+            Three, and no others: <strong className="font-semibold text-ink">OpenAI</strong>{' '}
+            for the models, <strong className="font-semibold text-ink">Vercel</strong> for
+            hosting, and <strong className="font-semibold text-ink">Upstash</strong> for the
             short-lived storage above. If bot protection is switched on,{' '}
-            <strong className="font-semibold text-slate-800">Cloudflare Turnstile</strong> also
+            <strong className="font-semibold text-ink">Cloudflare Turnstile</strong> also
             runs an invisible check when you start a session — it sees that a request happened,
             not what is in it.
           </p>
-          <p>No analytics, no tag managers, no advertising pixels, no social embeds.</p>
+          <p>
+            No third-party analytics, no tag managers, no advertising pixels, no social embeds.
+            Nothing on this site talks to anyone except the three services above.
+          </p>
+          <p>
+            There is one first-party counter: which step of the flow you reached — landed,
+            started, saw recommendations — plus which site linked you here, recorded as a
+            hostname only. It exists so I can tell whether people are getting stuck, and it goes
+            to this app&rsquo;s own logs, not to anybody else. It never records anything you
+            typed, and the field list is fixed in code so it cannot quietly grow.
+          </p>
         </Section>
 
         <Section icon={Clock} title="If this page is wrong">
           <p>
             It is meant to describe the code, so a mismatch is a bug worth reporting rather than
             fine print. The relevant files are{' '}
-            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/resume-review/prepared-cache.ts</code>{' '}
+            <code className="rounded bg-paper px-1 py-0.5 text-xs">lib/resume-review/prepared-cache.ts</code>{' '}
             for the 30-minute copy,{' '}
-            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/rate-limit.ts</code> for
+            <code className="rounded bg-paper px-1 py-0.5 text-xs">lib/rate-limit.ts</code> for
             the IP counters, and{' '}
-            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">lib/redact.ts</code> for
+            <code className="rounded bg-paper px-1 py-0.5 text-xs">lib/redact.ts</code> for
             what logs are allowed to contain.
           </p>
         </Section>
@@ -232,13 +242,13 @@ export default function PrivacyPage() {
       <div className="mt-8 flex flex-wrap gap-4 text-sm">
         <Link
           href="/about"
-          className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+          className="font-medium text-hachi underline underline-offset-2 hover:text-hachi"
         >
           How the coaching actually works
         </Link>
         <Link
           href="/"
-          className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+          className="font-medium text-hachi underline underline-offset-2 hover:text-hachi"
         >
           Back to the app
         </Link>

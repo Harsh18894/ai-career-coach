@@ -64,7 +64,7 @@ export const LIMITS = {
   /* ---------------------------------------------------------------------------------
    * Per-session ceilings (see lib/rate-limit.ts)
    *
-   * IMPORTANT: the session id is supplied by the client (x-aria-session-id) and is therefore
+   * IMPORTANT: the session id is supplied by the client (x-hachi-session-id) and is therefore
    * trivially rotated. These two ceilings stop a runaway client, a retry loop, or one person
    * leaving a tab open overnight — they are NOT a control against someone who is deliberately
    * evading them. The per-IP limiters and the global daily budget are what bound that case.

@@ -62,10 +62,10 @@ export default function AnalyzingProgress({ steps, intervalMs = 3200 }: Analyzin
 
   return (
     <div className="flex flex-col items-center justify-center gap-4" role="status">
-      <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+      <Loader2 className="w-10 h-10 text-hachi animate-spin" />
       <div key={index} className="space-y-1 text-center animate-fade-in">
-        <p className="text-base font-medium text-slate-800">{current.title}</p>
-        <p className="text-sm text-slate-500">{current.subtitle}</p>
+        <p className="text-base font-medium text-ink">{current.title}</p>
+        <p className="text-sm text-ink-muted">{current.subtitle}</p>
       </div>
     </div>
   );

@@ -11,7 +11,9 @@
  * attribution only — it carries no personal data and is not used for auth or access control.
  */
 
-const STORAGE_KEY = 'career_coach_session_meta';
+import { STORAGE_KEYS } from './brand';
+
+const STORAGE_KEY = STORAGE_KEYS.sessionMeta;
 
 export type SessionMeta = {
   id: string;
@@ -105,8 +107,8 @@ export function currentSampleId(): string | null {
 export function sessionHeaders(): Record<string, string> {
   const meta = getSessionMeta();
   return {
-    'x-aria-session-id': meta.id,
-    'x-aria-sample': meta.isSample ? '1' : '0',
-    ...(meta.sampleId ? { 'x-aria-sample-id': meta.sampleId } : {}),
+    'x-hachi-session-id': meta.id,
+    'x-hachi-sample': meta.isSample ? '1' : '0',
+    ...(meta.sampleId ? { 'x-hachi-sample-id': meta.sampleId } : {}),
   };
 }

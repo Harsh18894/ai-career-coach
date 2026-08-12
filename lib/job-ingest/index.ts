@@ -18,7 +18,7 @@ import type { JobDescription } from '../resume-review/schemas';
 export const FETCH_TIMEOUT_MS = 8_000;
 export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2 MB
 
-const USER_AGENT = 'aria-job-ingest/1.0 (+resume review; contact via site)';
+const USER_AGENT = 'hachi-job-ingest/1.0 (+resume review; contact via site)';
 
 export type IngestFailureReason =
   | UrlRejection

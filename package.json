@@ -1,5 +1,5 @@
 {
-  "name": "ai-career-coach",
+  "name": "hachi",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,7 +16,8 @@
     "baseline:links": "tsx scripts/baseline-links.ts",
     "baseline:links:help": "echo 'Captures the pre-Phase-2 resource-link baseline. Makes real OpenAI calls (~$0.25-0.50/run) and counts against DAILY_BUDGET_USD. Requires --confirm. Never run in CI. Usage: npm run baseline:links -- --confirm'",
     "latency:report": "tsx scripts/latency-report.ts",
-    "latency:baseline": "tsx scripts/latency-baseline.ts"
+    "latency:baseline": "tsx scripts/latency-baseline.ts",
+    "funnel:report": "tsx scripts/funnel-report.ts"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.8",
@@ -44,5 +45,6 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.9"
-  }
+  },
+  "description": "Hachi \u2014 your career pal. Three traceable career paths and a week-by-week roadmap, from your resume or a short chat."
 }

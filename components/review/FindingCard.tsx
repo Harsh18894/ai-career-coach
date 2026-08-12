@@ -34,37 +34,37 @@ export function FindingCard({
   const hasRewrite = Boolean(finding.suggestedText);
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <article className="rounded-2xl border border-border-soft bg-white p-4 shadow-sm sm:p-5">
       <header className="mb-3 flex flex-wrap items-center gap-2">
         <SeverityChip severity={finding.severity} />
-        <span className="text-xs font-semibold text-slate-500">
+        <span className="text-xs font-semibold text-ink-muted">
           {DIMENSION_LABELS[finding.dimension] ?? finding.dimension}
         </span>
       </header>
 
       {finding.originalText.trim() !== '' && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <p className="mb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+        <div className="rounded-xl border border-border-soft bg-paper p-3">
+          <p className="mb-1 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
             Currently
           </p>
-          <p className="text-sm leading-relaxed text-slate-700">{finding.originalText}</p>
+          <p className="text-sm leading-relaxed text-ink">{finding.originalText}</p>
         </div>
       )}
 
       {hasRewrite && (
         <>
           <div className="flex justify-center py-1.5" aria-hidden="true">
-            <ArrowDown className="h-4 w-4 text-slate-300" />
+            <ArrowDown className="h-4 w-4 text-ink-muted/50" />
           </div>
 
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+          <div className="rounded-xl border border-hachi/30 bg-hachi/5 p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold tracking-wide text-indigo-700 uppercase">
+              <p className="text-[11px] font-semibold tracking-wide text-hachi uppercase">
                 Suggested
               </p>
               <CopyButton text={finding.suggestedText ?? ''} />
             </div>
-            <p className="text-sm leading-relaxed text-slate-800">
+            <p className="text-sm leading-relaxed text-ink">
               <PlaceholderText text={finding.suggestedText ?? ''} />
             </p>
             {finding.addedPlaceholders.length > 0 && (
@@ -77,7 +77,7 @@ export function FindingCard({
       )}
 
       <footer className="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-slate-600">{finding.reason}</p>
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-ink-muted">{finding.reason}</p>
         <FeedbackButtons onVote={onVote} />
       </footer>
     </article>

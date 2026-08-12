@@ -31,18 +31,18 @@ function SectionShell({
   children: React.ReactNode;
 }) {
   const accents = {
-    indigo: 'border-indigo-200 bg-indigo-50/40',
+    indigo: 'border-hachi/30 bg-hachi/5',
     emerald: 'border-emerald-200 bg-emerald-50/40',
-    violet: 'border-violet-200 bg-violet-50/40',
+    violet: 'border-hachi/30 bg-hachi/5',
   } as const;
 
   return (
     <section className={`rounded-2xl border p-4 sm:p-5 ${accents[accent]}`}>
       <header className="mb-3 flex items-start gap-2.5">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-ink-muted" />
         <div>
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p>}
+          <h2 className="text-base font-bold text-ink">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>}
         </div>
       </header>
       {children}
@@ -72,15 +72,15 @@ export function EvidenceGuidanceSection({
     >
       {projectSuggestions && projectSuggestions.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-800">Projects worth building</h3>
+          <h3 className="text-sm font-semibold text-ink">Projects worth building</h3>
           {projectSuggestions.map((project, index) => (
-            <div key={index} className="rounded-xl border border-slate-200 bg-white p-3.5">
+            <div key={index} className="rounded-xl border border-border-soft bg-white p-3.5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h4 className="font-semibold text-slate-900">{project.title}</h4>
-                <span className="text-xs font-medium text-slate-500">{project.estimatedEffort}</span>
+                <h4 className="font-semibold text-ink">{project.title}</h4>
+                <span className="text-xs font-medium text-ink-muted">{project.estimatedEffort}</span>
               </div>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{project.scope}</p>
-              <dl className="mt-2.5 space-y-1 text-xs text-slate-600">
+              <p className="mt-1.5 text-sm leading-relaxed text-ink">{project.scope}</p>
+              <dl className="mt-2.5 space-y-1 text-xs text-ink-muted">
                 <div className="flex gap-1.5">
                   <dt className="font-semibold">Shows:</dt>
                   <dd>{project.skillDemonstrated}</dd>
@@ -99,14 +99,14 @@ export function EvidenceGuidanceSection({
 
       {internshipGuidance && (
         <div className={projectSuggestions?.length ? 'mt-5' : ''}>
-          <h3 className="text-sm font-semibold text-slate-800">Finding an internship</h3>
+          <h3 className="text-sm font-semibold text-ink">Finding an internship</h3>
           {internshipGuidance.leverageExisting && (
-            <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{internshipGuidance.leverageExisting}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink">{internshipGuidance.leverageExisting}</p>
           )}
           {internshipGuidance.approach.length > 0 && (
             <ul className="mt-2.5 space-y-1.5">
               {internshipGuidance.approach.map((step, index) => (
-                <li key={index} className="flex gap-2 text-sm leading-relaxed text-slate-700">
+                <li key={index} className="flex gap-2 text-sm leading-relaxed text-ink">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                   {step}
                 </li>
@@ -116,7 +116,7 @@ export function EvidenceGuidanceSection({
 
           {platforms && platforms.length > 0 && (
             <div className="mt-4">
-              <h4 className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Where to look</h4>
+              <h4 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Where to look</h4>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {platforms.map((platform) => (
                   <a
@@ -124,19 +124,19 @@ export function EvidenceGuidanceSection({
                     href={platform.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="group rounded-xl border border-border-soft bg-white p-3 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                   >
-                    <span className="flex items-center gap-1.5 font-semibold text-slate-900">
+                    <span className="flex items-center gap-1.5 font-semibold text-ink">
                       {platform.name}
-                      <ExternalLink className="h-3 w-3 text-slate-400 group-hover:text-emerald-600" />
+                      <ExternalLink className="h-3 w-3 text-ink-muted/70 group-hover:text-emerald-600" />
                     </span>
-                    <span className="mt-0.5 block text-xs leading-relaxed text-slate-600">{platform.notes}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-ink-muted">{platform.notes}</span>
                   </a>
                 ))}
               </div>
               {/* Attribution is the point: these are the only URLs in the product, and they are
                   hand-checked rather than model-generated. */}
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-ink-muted">
                 These come from a small hand-checked list kept in this app, filtered to your region — not
                 generated by the model, so they cannot be made up.
               </p>
@@ -165,14 +165,14 @@ export function NarrativeAssessmentSection({ narrative }: { narrative: Narrative
       title="The story your resume tells"
       subtitle="At this level this matters more than any single bullet. A tidy resume is not automatically a good senior resume."
     >
-      <p className="rounded-xl border border-slate-200 bg-white p-3.5 text-sm leading-relaxed font-medium text-slate-800">
+      <p className="rounded-xl border border-border-soft bg-white p-3.5 text-sm leading-relaxed font-medium text-ink">
         {narrative.overall}
       </p>
       <dl className="mt-3 space-y-2.5">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-xl border border-slate-200 bg-white p-3">
-            <dt className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{row.label}</dt>
-            <dd className="mt-1 text-sm leading-relaxed text-slate-700">{row.value}</dd>
+          <div key={row.label} className="rounded-xl border border-border-soft bg-white p-3">
+            <dt className="text-xs font-semibold tracking-wide text-ink-muted uppercase">{row.label}</dt>
+            <dd className="mt-1 text-sm leading-relaxed text-ink">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -189,18 +189,18 @@ export function RecruiterScanSection({ scan }: { scan: RecruiterScan }) {
       title="The 10–15 second scan"
       subtitle="What a recruiter sees before deciding whether to keep reading."
     >
-      <p className="rounded-xl border border-slate-200 bg-white p-3.5 text-sm leading-relaxed font-medium text-slate-800">
+      <p className="rounded-xl border border-border-soft bg-white p-3.5 text-sm leading-relaxed font-medium text-ink">
         {scan.fifteenSecondVerdict}
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Lands first</h3>
-          <p className="mt-1 text-sm leading-relaxed text-slate-700">{scan.whatLandsFirst}</p>
+        <div className="rounded-xl border border-border-soft bg-white p-3">
+          <h3 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Lands first</h3>
+          <p className="mt-1 text-sm leading-relaxed text-ink">{scan.whatLandsFirst}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Missing up top</h3>
-          <p className="mt-1 text-sm leading-relaxed text-slate-700">{scan.whatIsMissingUpTop}</p>
+        <div className="rounded-xl border border-border-soft bg-white p-3">
+          <h3 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Missing up top</h3>
+          <p className="mt-1 text-sm leading-relaxed text-ink">{scan.whatIsMissingUpTop}</p>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export function RecruiterScanSection({ scan }: { scan: RecruiterScan }) {
               <h3 className="text-xs font-semibold tracking-wide text-emerald-700 uppercase">Works for you</h3>
               <ul className="mt-1.5 space-y-1">
                 {scan.worksWell.map((item, index) => (
-                  <li key={index} className="flex gap-2 text-sm leading-relaxed text-slate-700">
+                  <li key={index} className="flex gap-2 text-sm leading-relaxed text-ink">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                     {item}
                   </li>
@@ -224,7 +224,7 @@ export function RecruiterScanSection({ scan }: { scan: RecruiterScan }) {
               <h3 className="text-xs font-semibold tracking-wide text-rose-700 uppercase">Works against you</h3>
               <ul className="mt-1.5 space-y-1">
                 {scan.worksAgainst.map((item, index) => (
-                  <li key={index} className="flex gap-2 text-sm leading-relaxed text-slate-700">
+                  <li key={index} className="flex gap-2 text-sm leading-relaxed text-ink">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
                     {item}
                   </li>
@@ -249,17 +249,17 @@ export function RequirementCoverageSection({ coverage }: { coverage: Requirement
     >
       <ul className="space-y-2.5">
         {coverage.map((item, index) => (
-          <li key={index} className="rounded-xl border border-slate-200 bg-white p-3.5">
+          <li key={index} className="rounded-xl border border-border-soft bg-white p-3.5">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900">{item.requirement}</p>
+              <p className="min-w-0 flex-1 text-sm font-semibold text-ink">{item.requirement}</p>
               <CoverageChip status={item.status} />
             </div>
             {item.evidenceInResume && (
-              <p className="mt-2 border-l-2 border-slate-200 pl-2.5 text-sm text-slate-600 italic">
+              <p className="mt-2 border-l-2 border-border-soft pl-2.5 text-sm text-ink-muted italic">
                 &ldquo;{item.evidenceInResume}&rdquo;
               </p>
             )}
-            <p className="mt-2 flex gap-1.5 text-sm leading-relaxed text-slate-700">
+            <p className="mt-2 flex gap-1.5 text-sm leading-relaxed text-ink">
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
               {item.howToAddress}
             </p>

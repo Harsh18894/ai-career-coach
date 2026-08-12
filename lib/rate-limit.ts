@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { type ApiErrorBody, type ErrorCode, ERROR_MESSAGES, httpStatusFor } from './errors';
+import { BRAND } from './brand';
 import { LIMITS } from './limits';
 import { sessionIdFromRequest, UNATTRIBUTED_SESSION_ID } from './session-id';
 import { TURNSTILE_HEADER, verifyHumanToken } from './bot-protection';
@@ -58,7 +59,7 @@ export const RATE_LIMIT_CONFIG = {
   /** Ceiling on total estimated spend across all users per UTC day, in USD. */
   dailyBudgetUsd: readDailyBudgetUsd(),
   /** Prefix for every Redis key this module and lib/telemetry.ts own. */
-  keyPrefix: 'aria',
+  keyPrefix: BRAND.slug,
 } as const;
 
 /* =====================================================================================

@@ -23,10 +23,15 @@ import PathDeck from './PathDeck';
 import RoadmapTitleCard from './RoadmapTitleCard';
 import RoadmapPanel from './RoadmapPanel';
 import QuickOptions, { type QuickOption } from './QuickOptions';
+import { DemoLimitNotice, isDemoLimit } from './DemoLimitNotice';
+import { SessionFeedback } from './SessionFeedback';
 import AnalyzingProgress, { PATH_GENERATION_STEPS, ROADMAP_GENERATION_STEPS } from './AnalyzingProgress';
 import { PathDeckSkeleton, RoadmapSkeleton } from './Skeletons';
 import { clearStashedResumeText } from '@/lib/resume-stash';
 import { startSpan, endSpan } from '@/lib/journey';
+import { track } from '@/lib/analytics';
+import type { FunnelPath } from '@/lib/analytics-events';
+import { STORAGE_KEYS } from '@/lib/brand';
 
 // Readiness gating for the UNDERSTANDING phase: ask at least this many questions before
 // recommending, recommend regardless after the cap so the conversation can't stall forever,
@@ -220,6 +225,15 @@ export default function ChatWindow({
   // where an ordinary turn (~8s) gets the typing bubble. Using one flag for both would mean
   // either a skeleton flashing for eight seconds or a bare dot animation for thirty-four.
   const [isRecommending, setIsRecommending] = useState(false);
+
+  /** Which intake this session came through, for segmenting the funnel. Derived rather than
+   * passed down: the sample flag already lives in session meta, and a profile-less session is
+   * by definition the guided no-résumé path. */
+  const funnelPath: FunnelPath = currentSampleId()
+    ? 'sample'
+    : initialProfile
+      ? 'own_resume'
+      : 'no_resume';
   const [apiError, setApiError] = useState<ClientError | null>(null);
   // The operation to re-run when the user clicks Retry. Held in a ref rather than state
   // because it is a closure over the failed turn, not something the render depends on.
@@ -292,7 +306,7 @@ export default function ChatWindow({
   }, [state.messages, isThinking, state.currentPaths, showRejectReasonInput, state.roadmap, isRoadmapLoading]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('career_coach_session');
+    const saved = localStorage.getItem(STORAGE_KEYS.session);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -319,7 +333,7 @@ export default function ChatWindow({
   useEffect(() => {
     if (!state.profile) return;
     const timeoutId = setTimeout(() => {
-      localStorage.setItem('career_coach_session', JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(state));
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [state]);
@@ -327,7 +341,7 @@ export default function ChatWindow({
   useEffect(() => {
     const flush = () => {
       if (latestStateRef.current.profile) {
-        localStorage.setItem('career_coach_session', JSON.stringify(latestStateRef.current));
+        localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(latestStateRef.current));
       }
     };
     const handleVisibilityChange = () => {
@@ -353,12 +367,18 @@ export default function ChatWindow({
    * belongs to a page load that no longer exists — reports nothing rather than a fiction.
    * --------------------------------------------------------------------------------- */
   useEffect(() => {
-    if (state.currentPaths && state.currentPaths.length > 0) endSpan('intake_to_first_paths');
-  }, [state.currentPaths]);
+    if (state.currentPaths && state.currentPaths.length > 0) {
+      endSpan('intake_to_first_paths');
+      track('deck_shown', { path: funnelPath });
+    }
+  }, [state.currentPaths, funnelPath]);
 
   useEffect(() => {
-    if (state.roadmap) endSpan('lock_to_roadmap');
-  }, [state.roadmap]);
+    if (state.roadmap) {
+      endSpan('lock_to_roadmap');
+      track('roadmap_viewed', { path: funnelPath });
+    }
+  }, [state.roadmap, funnelPath]);
 
   const handleProfileBuildAnswer = async (textToSend: string) => {
     const userMessage: ChatMessage = makeMessage('user', textToSend);
@@ -511,7 +531,7 @@ export default function ChatWindow({
     if (reader) {
       // A failure here is a stream that died after the headers were already sent, so the
       // partial text is on screen. It is deliberately NOT cleared — the caller reports the
-      // failure and offers a retry, leaving what Aria managed to say visible.
+      // failure and offers a retry, leaving what Hachi managed to say visible.
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -536,7 +556,7 @@ export default function ChatWindow({
         throw new ClientApiError({
           code: 'UPSTREAM_ERROR',
           message:
-            "Aria's reply was cut off partway through. What you can see above is what came through — you can retry to get a complete answer.",
+            "Hachi's reply was cut off partway through. What you can see above is what came through — you can retry to get a complete answer.",
         });
       }
     }
@@ -553,6 +573,17 @@ export default function ChatWindow({
   const failTurn = (err: unknown, retry?: () => Promise<void>) => {
     const clientError = asClientError(err);
     console.error(`[${clientError.code}]`, err);
+    // Every failure in this component funnels through here, so this is the one place that has
+    // to record them. Rate limits and the daily budget get their own steps — they are not bugs,
+    // they are the demo working as designed, and mixing them into client_error would hide both.
+    track(
+      clientError.code === 'RATE_LIMITED'
+        ? 'rate_limited'
+        : clientError.code === 'BUDGET_EXCEEDED'
+          ? 'budget_exceeded'
+          : 'client_error',
+      { path: funnelPath, errorCode: clientError.code }
+    );
     setApiError(clientError);
     const retryable = isRetryable(clientError.code) && Boolean(retry);
     retryRef.current = retryable ? retry! : null;
@@ -803,6 +834,14 @@ export default function ChatWindow({
     setInputValue('');
     setIsThinking(true);
 
+    // Turn counting starts at the first message the candidate sends, not at the opener, so
+    // "how many turns before they drop off" measures their effort rather than the coach's.
+    const turnNumber = state.understandingMessageCount + 1;
+    track(turnNumber === 1 ? 'first_coach_message' : 'chat_turn', {
+      path: funnelPath,
+      turn: turnNumber,
+    });
+
     const attempt = async () => {
         // The branch decision below (decline / recommend / continue) depends on this result,
         // so it's awaited before anything else.
@@ -975,6 +1014,7 @@ export default function ChatWindow({
     setApiError(null);
     setIsThinking(true);
     startSpan('lock_to_roadmap');
+    track('path_locked', { path: funnelPath });
 
     const selectMessage: ChatMessage = makeMessage('user', `I've chosen: ${path.title}`);
 
@@ -1113,7 +1153,7 @@ export default function ChatWindow({
   };
 
   const handleResetSession = () => {
-    localStorage.removeItem('career_coach_session');
+    localStorage.removeItem(STORAGE_KEYS.session);
     // The resume text carried over to the review surface is part of "start over" too. Without
     // this, /privacy's claim that reset clears it would be false — and the review page would
     // still be holding the resume of a session the user just wiped.
@@ -1134,20 +1174,20 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full bg-white animate-fade-in">
       {/* Header Info Banner */}
-      <div className="px-6 py-3.5 bg-linear-to-r from-indigo-50/60 via-slate-50 to-violet-50/40 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+      <div className="px-6 py-3.5 border-b border-border-soft flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full" aria-hidden="true" />
-          <span className="text-xs font-semibold text-slate-600">
-            Aria session: {state.profile?.name || 'Active candidate'}
+          <div className="w-2 h-2 rounded-full bg-hachi" aria-hidden="true" />
+          <span className="text-xs font-semibold text-ink-muted">
+            Hachi session: {state.profile?.name || 'Active candidate'}
           </span>
           {state.signals.intentGuess !== 'unknown' && (
-            <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">
+            <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 text-hachi rounded-full border border-hachi/30">
               {state.signals.intentGuess.replace('_', ' ')}
             </span>
           )}
           <Link
             href="/review"
-            className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-slate-600 uppercase transition-colors hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="rounded-full border border-border-soft bg-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-muted uppercase transition-colors hover:border-hachi/30 hover:text-hachi focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
           >
             Review this resume
           </Link>
@@ -1156,7 +1196,7 @@ export default function ChatWindow({
           {sampleLabel && (
             <span
               title={`Fictional sample profile: ${sampleLabel}`}
-              className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full border border-amber-200"
+              className="inline-flex items-center gap-1 rounded-full border border-hachi/30 bg-hachi/8 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-hachi"
             >
               <FlaskConical className="w-3 h-3" aria-hidden="true" />
               Sample profile
@@ -1166,7 +1206,7 @@ export default function ChatWindow({
         <button
           type="button"
           onClick={handleResetSession}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors duration-150"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-paper border border-border-soft text-ink-muted rounded-lg text-xs font-semibold transition-colors duration-150"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>New session</span>
@@ -1213,6 +1253,10 @@ export default function ChatWindow({
             <RoadmapSkeleton />
           </div>
         )}
+
+        {/* Asked once the session has actually delivered something — a roadmap, or a closed
+            session that ended honestly. Asking before that measures patience, not usefulness. */}
+        {(state.roadmap || state.stage === 'CLOSED') && <SessionFeedback path={funnelPath} />}
 
         {/* Compact, clickable summary — the full roadmap lives in the side panel, never as a chat bubble */}
         {state.roadmap && (
@@ -1317,7 +1361,16 @@ export default function ChatWindow({
             things happening. */}
         {isThinking && !isRecommending && !isRoadmapLoading && <ThinkingBubble />}
 
-        {apiError && (
+        {/* A spend cap or a rate limit is the demo working as designed, not a fault, so it gets
+            an honest explanation and the companion figure rather than a red alert box. */}
+        {apiError && isDemoLimit(apiError.code) && (
+          <DemoLimitNotice
+            code={apiError.code as 'BUDGET_EXCEEDED' | 'RATE_LIMITED'}
+            retryAfterSeconds={apiError.retryAfterSeconds}
+          />
+        )}
+
+        {apiError && !isDemoLimit(apiError.code) && (
           <div role="alert" className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
             <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
@@ -1342,16 +1395,16 @@ export default function ChatWindow({
       </div>
 
       {/* Input box bottom panel */}
-      <div className="p-4 bg-linear-to-r from-indigo-50/40 via-slate-50 to-violet-50/30 border-t border-slate-200 flex-shrink-0">
+      <div className="p-4 border-t border-border-soft flex-shrink-0">
         {state.stage === 'CLOSED' ? (
           <div className="text-center py-4 space-y-3">
-            <p className="text-slate-600 text-sm font-medium">
+            <p className="text-ink-muted text-sm font-medium">
               The mentoring session is closed. I wish you the best in your career journey.
             </p>
             <button
               type="button"
               onClick={handleResetSession}
-              className="px-6 py-2.5 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150"
+              className="px-6 py-2.5 bg-hachi hover:opacity-90 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150"
             >
               Start a new coaching session
             </button>
@@ -1363,7 +1416,7 @@ export default function ChatWindow({
                 <button
                   type="button"
                   onClick={handleEndSession}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors duration-150"
+                  className="text-xs font-semibold text-ink-muted hover:text-ink transition-colors duration-150"
                 >
                   I&rsquo;m all set — end session
                 </button>
@@ -1396,14 +1449,14 @@ export default function ChatWindow({
                   // a rejected request after the user has written something long.
                   maxLength={LIMITS.maxChatMessageChars}
                   rows={1}
-                  className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-slate-100"
+                  className="w-full pl-4 pr-12 py-3 rounded-xl border border-border-soft bg-white text-ink outline-none focus:ring-2 focus:ring-hachi focus:border-transparent resize-none max-h-32 transition disabled:opacity-50 disabled:bg-paper"
                 />
               </div>
               <button
                 type="submit"
                 disabled={!inputValue.trim() || isThinking || isRoadmapLoading || state.currentPaths !== null || anyQuickOptionsShowing}
                 aria-label="Send message"
-                className="p-3.5 bg-linear-to-r from-indigo-600 to-violet-600 text-white rounded-xl hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 shadow-sm hover:shadow-md"
+                className="p-3.5 bg-hachi text-white rounded-xl hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 shadow-sm hover:shadow-md"
               >
                 <Send className="w-5 h-5" />
               </button>

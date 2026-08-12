@@ -7,8 +7,11 @@
  *  - Every API route returns the same JSON envelope, so the client never has to guess.
  *
  * Kept dependency-free (no next/server, no node builtins) so client components can import the
- * message map without pulling server code into the bundle.
+ * message map without pulling server code into the bundle. lib/brand.ts is likewise
+ * dependency-free, which is why it is safe to read the product name from it here.
  */
+
+import { BRAND } from './brand';
 
 export const ERROR_CODES = [
   'RATE_LIMITED',
@@ -53,11 +56,11 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   BUDGET_EXCEEDED:
     'This demo has reached its spending limit for today. It runs on a personal API budget — please check back tomorrow.',
   UPSTREAM_TIMEOUT:
-    'Aria took too long to answer and the request timed out. Nothing was lost — you can try that again.',
+    `${BRAND.name} took too long to answer and the request timed out. Nothing was lost — you can try that again.`,
   UPSTREAM_ERROR:
-    'Aria could not be reached just now. This is usually brief — your conversation is saved, so try that again.',
+    `${BRAND.name} could not be reached just now. This is usually brief — your conversation is saved, so try that again.`,
   INVALID_OUTPUT:
-    "Aria's answer came back malformed twice in a row, so it was discarded rather than shown to you. Trying again usually works.",
+    `${BRAND.name}'s answer came back malformed twice in a row, so it was discarded rather than shown to you. Trying again usually works.`,
   RESUME_PARSE_FAILED:
     "We couldn't read any text from that PDF. If it's a scan or an image, paste your resume text instead.",
   JOB_FETCH_FAILED:
@@ -73,7 +76,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   // to do (reload) rather than accusing them of being a script.
   BOT_CHECK_FAILED:
     "We couldn't verify that this is a regular browser session. Reload the page and try once more — if it keeps happening, a privacy extension or a strict network may be blocking the check.",
-  UNKNOWN: 'Aria ran into an unexpected problem on that step. Your conversation is saved — try that again.',
+  UNKNOWN: `${BRAND.name} ran into an unexpected problem on that step. Your conversation is saved — try that again.`,
 };
 
 /** HTTP status per code. Kept here so routes never pick a status by hand. */

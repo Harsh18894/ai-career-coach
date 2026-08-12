@@ -36,7 +36,7 @@ const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverif
 
 /** Sent by the browser on gated requests. A header rather than a body field so the multipart
  * resume upload carries it too, matching how session identity already travels. */
-export const TURNSTILE_HEADER = 'x-aria-turnstile';
+export const TURNSTILE_HEADER = 'x-hachi-turnstile';
 
 /** Cloudflare's own test keys, which always pass. Not used here — noted so that if someone
  * copies them into .env thinking they have enabled protection, the grep finds this comment:

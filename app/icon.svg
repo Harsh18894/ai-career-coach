@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Hachi">
+  <!--
+    Provisional brand mark. Original artwork, drawn from primitives — not a traced photo, not a
+    likeness of any specific dog, and deliberately not Doge or any recognisable character.
+
+    Constrained hard by the size it has to survive: at 16px a favicon is roughly a dozen legible
+    pixels, so this is a head silhouette and two ears and nothing else. Muzzle, eyes and collar
+    were tried and all turn to mud below 24px.
+
+    Marked provisional because the illustration system is Task C3 and the tone is not signed off
+    yet. If the fold illustration lands somewhere different in style, this should follow it
+    rather than the other way round.
+  -->
+  <rect width="32" height="32" rx="8" fill="#4f46e5"/>
+  <g fill="#ffffff">
+    <!-- Ears: dropped, angled slightly forward — the attentive posture the brief asks for. -->
+    <path d="M9.2 9.6c-1.9.6-2.9 2.6-2.4 4.6.4 1.6 1.3 2.8 2.4 3.4z"/>
+    <path d="M22.8 9.6c1.9.6 2.9 2.6 2.4 4.6-.4 1.6-1.3 2.8-2.4 3.4z"/>
+    <!-- Head: a soft wedge, wider at the brow, tapering to the muzzle. -->
+    <path d="M16 8.5c3.9 0 7 2.6 7 6.4 0 4.4-3.1 8.6-7 8.6s-7-4.2-7-8.6c0-3.8 3.1-6.4 7-6.4z"/>
+  </g>
+  <!-- Nose: the one detail that still reads small, because it is a solid dot with contrast. -->
+  <circle cx="16" cy="18.4" r="1.5" fill="#4f46e5"/>
+</svg>

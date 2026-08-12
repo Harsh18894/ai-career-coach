@@ -95,11 +95,11 @@ export default function QuickOptions({
   };
 
   return (
-    <div className="p-5 rounded-2xl bg-linear-to-br from-indigo-50/70 to-violet-50/50 border border-indigo-200 my-6 space-y-3 animate-fade-in max-w-xl mx-auto">
+    <div className="p-5 rounded-2xl border border-hachi/30 my-6 space-y-3 animate-fade-in max-w-xl mx-auto">
       <div className={`flex items-center justify-between gap-2 ${!prompt && !onCancel ? 'hidden' : ''}`}>
         {prompt && (
-          <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            {Icon && <Icon className="w-4 h-4 text-indigo-600 flex-shrink-0" />}
+          <h4 className="text-sm font-semibold text-ink flex items-center gap-2">
+            {Icon && <Icon className="w-4 h-4 text-hachi flex-shrink-0" />}
             <span>{prompt}</span>
           </h4>
         )}
@@ -108,7 +108,7 @@ export default function QuickOptions({
             type="button"
             onClick={onCancel}
             disabled={disabled}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none flex-shrink-0 ml-auto"
+            className="text-xs font-semibold text-ink-muted hover:text-ink transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none flex-shrink-0 ml-auto"
           >
             Cancel
           </button>
@@ -127,8 +127,8 @@ export default function QuickOptions({
               disabled={disabled || showCustomInput}
               aria-pressed={multiSelect ? isChecked : undefined}
               className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-between gap-2 ${isChecked
-                ? 'border-indigo-600 bg-indigo-600 text-white'
-                : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-300 hover:bg-indigo-50/50'
+                ? 'border-hachi/30 bg-hachi text-white'
+                : 'border-border-soft bg-white text-ink hover:border-hachi/30 hover:bg-hachi/5'
                 }`}
             >
               <span>{opt.label}</span>
@@ -142,7 +142,7 @@ export default function QuickOptions({
             {customAdditions.map((text) => (
               <span
                 key={text}
-                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full bg-indigo-600 text-white text-xs font-medium"
+                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full bg-hachi text-white text-xs font-medium"
               >
                 {text}
                 <button
@@ -164,7 +164,7 @@ export default function QuickOptions({
             type="button"
             onClick={() => setShowCustomInput(true)}
             disabled={disabled}
-            className="w-full text-left px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-transparent text-sm font-medium text-slate-500 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50 disabled:pointer-events-none transition-colors duration-150"
+            className="w-full text-left px-4 py-2.5 rounded-xl border border-dashed border-border-soft bg-transparent text-sm font-medium text-ink-muted hover:border-hachi/30 hover:text-hachi disabled:opacity-50 disabled:pointer-events-none transition-colors duration-150"
           >
             Something else
           </button>
@@ -181,7 +181,7 @@ export default function QuickOptions({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') submitCustom();
               }}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:opacity-50"
+              className="w-full px-4 py-2.5 rounded-xl border border-border-soft bg-white text-sm text-ink outline-none focus:ring-2 focus:ring-hachi focus:border-transparent transition disabled:opacity-50"
             />
             <div className="flex justify-end gap-3 text-xs">
               <button
@@ -191,7 +191,7 @@ export default function QuickOptions({
                   setCustomText('');
                 }}
                 disabled={disabled}
-                className="px-4 py-2 hover:bg-slate-100 rounded-lg text-slate-600 font-semibold transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
+                className="px-4 py-2 hover:bg-paper rounded-lg text-ink-muted font-semibold transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none"
               >
                 Back
               </button>
@@ -199,7 +199,7 @@ export default function QuickOptions({
                 type="button"
                 onClick={submitCustom}
                 disabled={disabled || !customText.trim()}
-                className="px-4 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
+                className="px-4 py-2 bg-hachi hover:opacity-90 text-white rounded-lg font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
               >
                 {multiSelect ? 'Add' : 'Send'}
               </button>
@@ -212,7 +212,7 @@ export default function QuickOptions({
             type="button"
             onClick={submitSelection}
             disabled={disabled || selected.length === 0}
-            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
+            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-hachi hover:opacity-90 text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
           >
             Continue{selected.length > 0 ? ` (${selected.length} selected)` : ''}
           </button>

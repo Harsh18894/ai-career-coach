@@ -56,7 +56,7 @@ export function PlaceholderNote() {
 const SEVERITY_STYLES: Record<Severity, string> = {
   critical: 'bg-rose-50 text-rose-800 border-rose-300',
   improvement: 'bg-amber-50 text-amber-900 border-amber-300',
-  polish: 'bg-slate-100 text-slate-700 border-slate-300',
+  polish: 'bg-paper text-ink border-border-soft',
 };
 
 const SEVERITY_LABELS: Record<Severity, string> = {
@@ -118,7 +118,7 @@ export function CopyButton({ text, label = 'Copy rewrite' }: { text: string; lab
     <button
       type="button"
       onClick={copy}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-border-soft bg-white px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:border-hachi/30 hover:text-hachi focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
       aria-label={label}
     >
       {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -139,17 +139,17 @@ export function FeedbackButtons({ onVote }: { onVote: (verdict: 'up' | 'down') =
   };
 
   if (voted) {
-    return <span className="text-xs text-slate-500">Thanks — noted.</span>;
+    return <span className="text-xs text-ink-muted">Thanks — noted.</span>;
   }
 
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="mr-1 text-xs text-slate-400">Useful?</span>
+      <span className="mr-1 text-xs text-ink-muted/70">Useful?</span>
       <button
         type="button"
         onClick={() => vote('up')}
         aria-label="This finding was useful"
-        className="rounded-md p-1 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        className="rounded-md p-1 text-ink-muted/70 transition-colors hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
       >
         <ThumbsUp className="h-3.5 w-3.5" />
       </button>
@@ -157,7 +157,7 @@ export function FeedbackButtons({ onVote }: { onVote: (verdict: 'up' | 'down') =
         type="button"
         onClick={() => vote('down')}
         aria-label="This finding was not useful"
-        className="rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        className="rounded-md p-1 text-ink-muted/70 transition-colors hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
       >
         <ThumbsDown className="h-3.5 w-3.5" />
       </button>

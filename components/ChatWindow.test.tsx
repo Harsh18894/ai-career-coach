@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import ChatWindow from './ChatWindow';
 import { ERROR_MESSAGES, type ErrorCode } from '@/lib/errors';
 import type { Profile, AdaptiveQuestion } from '@/lib/ai/schemas';
+import { STORAGE_KEYS } from '@/lib/brand';
 
 /* =====================================================================================
  * Failure-mode rendering.
@@ -145,26 +146,36 @@ async function sendMessage(text: string) {
  * ===================================================================================== */
 
 describe('ChatWindow failure handling', () => {
-  it('shows the budget message and offers no Retry, because retrying cannot help', async () => {
+  it('explains the spent budget honestly instead of showing an error, and offers no Retry', async () => {
+    // Not an alert and not red: a spend cap is the demo working as designed. A Reddit spike
+    // means this is the only screen many visitors ever see, so it has to read as "free side
+    // project, come back tomorrow" rather than as a fault.
     fetchMock.mockResolvedValue(errorResponse('BUDGET_EXCEEDED', 429));
 
     renderChat();
     await sendFirstReply();
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(ERROR_MESSAGES.BUDGET_EXCEEDED);
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent(/today’s budget spent/i);
+    expect(notice).toHaveTextContent(/resets at midnight/i);
+    // The repo is offered as the thing to do instead — the point of the section.
+    expect(screen.getByRole('link', { name: /read the code instead/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+    // And it is not dressed as an error.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows the rate-limit message and offers no Retry', async () => {
+  it('explains the rate limit as the reason the demo is free, and offers no Retry', async () => {
     fetchMock.mockResolvedValue(errorResponse('RATE_LIMITED', 429));
 
     renderChat();
     await sendFirstReply();
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(ERROR_MESSAGES.RATE_LIMITED);
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent(/hourly limit/i);
+    expect(notice).toHaveTextContent(/keeps this free/i);
     expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it.each<[ErrorCode, number]>([
@@ -213,12 +224,22 @@ describe('ChatWindow failure handling', () => {
   /* =================================================================================== */
 
   it('recovers the conversation when Retry succeeds', async () => {
-    fetchMock
-      .mockResolvedValueOnce(errorResponse('UPSTREAM_ERROR', 502))
-      .mockImplementation(async (_url: string, init?: RequestInit) => {
-        if (actionOf(init) === 'analyze') return jsonResponse({ signals: SIGNALS });
-        return jsonResponse({ message: 'Say more about the platform side.', options: null, allowMultiple: false });
-      });
+    // Keyed on the request, not on call order. Analytics and journey pings share this mock and
+    // fire at unpredictable moments, so a mockResolvedValueOnce queue would be consumed by
+    // whichever telemetry ping happened to go first — which is exactly what it used to do.
+    let analyzeCalls = 0;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (typeof url === 'string' && (url.includes('/api/events') || url.includes('/api/journey'))) {
+        return jsonResponse({ ok: true });
+      }
+      if (actionOf(init) === 'analyze') {
+        analyzeCalls += 1;
+        // Fail the first attempt only; the retry succeeds.
+        if (analyzeCalls === 1) return errorResponse('UPSTREAM_ERROR', 502);
+        return jsonResponse({ signals: SIGNALS });
+      }
+      return jsonResponse({ message: 'Say more about the platform side.', options: null, allowMultiple: false });
+    });
 
     renderChat();
     const user = await sendFirstReply();
@@ -238,7 +259,7 @@ describe('ChatWindow failure handling', () => {
     // A ROADMAP-stage session is the path that streams a free-text reply, so it is what
     // exercises a mid-stream failure. Seeded through localStorage, which ChatWindow restores.
     localStorage.setItem(
-      'career_coach_session',
+      STORAGE_KEYS.session,
       JSON.stringify({
         stage: 'ROADMAP',
         profile: PROFILE,
@@ -438,7 +459,7 @@ describe('ChatWindow perceived latency', () => {
     // A ROADMAP-stage session is the one whose replies stream free text, so it is what
     // exercises the first-token behaviour.
     localStorage.setItem(
-      'career_coach_session',
+      STORAGE_KEYS.session,
       JSON.stringify({
         stage: 'ROADMAP',
         profile: PROFILE,

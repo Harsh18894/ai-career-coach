@@ -85,9 +85,9 @@ export function ReviewResults({
   return (
     <div className="space-y-5">
       {/* Headline read */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">The honest read</h2>
-        <p className="mt-2 leading-relaxed text-slate-800">{result.overallRead}</p>
+      <section className="rounded-2xl border border-border-soft bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">The honest read</h2>
+        <p className="mt-2 leading-relaxed text-ink">{result.overallRead}</p>
 
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
           <span className="rounded-full border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-rose-800">
@@ -96,7 +96,7 @@ export function ReviewResults({
           <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-amber-900">
             {counts.improvement} improvement
           </span>
-          <span className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-slate-700">
+          <span className="rounded-full border border-border-soft bg-paper px-2.5 py-0.5 text-ink">
             {counts.polish} polish
           </span>
         </div>
@@ -130,15 +130,15 @@ export function ReviewResults({
       {result.findings.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-slate-500" />
-            <h2 className="text-base font-bold text-slate-900">Line-by-line</h2>
+            <FileText className="h-4 w-4 text-ink-muted" />
+            <h2 className="text-base font-bold text-ink">Line-by-line</h2>
           </div>
 
           {hasPlaceholders && <PlaceholderNote />}
 
           {groups.map((group) => (
             <div key={group.key} className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700">{group.label}</h3>
+              <h3 className="text-sm font-semibold text-ink">{group.label}</h3>
               {group.findings.map((finding) => (
                 <FindingCard
                   key={finding.id}
@@ -152,15 +152,15 @@ export function ReviewResults({
       )}
 
       {result.dimensionNotes.length > 0 && (
-        <details className="rounded-2xl border border-slate-200 bg-white p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+        <details className="rounded-2xl border border-border-soft bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-ink">
             What was checked
           </summary>
           <dl className="mt-3 space-y-2">
             {result.dimensionNotes.map((note) => (
               <div key={note.dimension}>
-                <dt className="text-xs font-semibold text-slate-500">{note.dimension.replace(/_/g, ' ')}</dt>
-                <dd className="text-sm leading-relaxed text-slate-700">{note.note}</dd>
+                <dt className="text-xs font-semibold text-ink-muted">{note.dimension.replace(/_/g, ' ')}</dt>
+                <dd className="text-sm leading-relaxed text-ink">{note.note}</dd>
               </div>
             ))}
           </dl>

@@ -18,6 +18,7 @@ import AnalyzingProgress, { RESUME_ANALYSIS_STEPS } from './AnalyzingProgress';
 import { LIMITS } from '@/lib/limits';
 import { humanTokenHeaders } from '@/lib/turnstile';
 import { startSpan } from '@/lib/journey';
+import { track } from '@/lib/analytics';
 
 interface ResumeUploadProps {
   onUploadSuccess: (profile: Profile, opener: AdaptiveQuestion) => void;
@@ -119,6 +120,7 @@ export default function ResumeUpload({
         if (!openerResponse.ok) {
           throw new ClientApiError(clientErrorFrom(openerData));
         }
+        track('profile_parsed', { path: 'own_resume' });
         onUploadSuccess(data.profile, openerData.opener);
       }
     } catch (err) {
@@ -144,6 +146,7 @@ export default function ResumeUpload({
    * first request, rather than inheriting whatever session was already in localStorage.
    */
   const handleUseSample = (sample: SampleProfile) => {
+    track('sample_cta_click', { path: 'sample' });
     setError(null);
     setShowSamplePicker(false);
     startNewSession({ isSample: true, sampleId: sample.id });
@@ -164,20 +167,20 @@ export default function ResumeUpload({
     <div className="w-full max-w-2xl mx-auto">
       <div className="text-center mb-10">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1]">
-          <span className="text-slate-900">Find your </span>
-          <span className="bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+          <span className="text-ink">Find your </span>
+          <span className="bg-hachi bg-clip-text text-transparent">
             next career move
           </span>
         </h1>
-        <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-          Upload your resume, have a brief conversation with Aria, a sharp career mentor, and unlock your <strong>personalized career paths.</strong>
+        <p className="mt-4 text-lg text-ink-muted max-w-xl mx-auto leading-relaxed">
+          Upload your resume, have a brief conversation with Hachi, a sharp career mentor, and unlock your <strong>personalized career paths.</strong>
         </p>
       </div>
 
       <div
         className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200 ${dragActive
-          ? 'border-violet-400 bg-linear-to-br from-indigo-50/60 to-violet-50/60'
-          : 'border-slate-200 bg-slate-50'
+          ? 'border-hachi/30 '
+          : 'border-border-soft bg-paper'
           } ${isLoading ? 'pointer-events-none opacity-80' : ''}`}
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
@@ -199,21 +202,21 @@ export default function ResumeUpload({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-6">
-            <div className="p-3.5 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 text-white shadow-sm mb-4 transition-transform duration-150 hover:scale-105">
+            <div className="p-3.5 rounded-full bg-hachi text-white shadow-sm mb-4 transition-transform duration-150 hover:scale-105">
               <Upload className="w-7 h-7" />
             </div>
 
-            <p className="text-lg font-semibold text-slate-800 mb-1">
+            <p className="text-lg font-semibold text-ink mb-1">
               Drag &amp; drop your resume PDF here
             </p>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-ink-muted mb-6">
               Only PDF formats up to 5 MB are accepted
             </p>
 
             <button
               type="button"
               onClick={onButtonClick}
-              className="px-6 py-2.5 bg-linear-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-semibold shadow-sm hover:from-indigo-700 hover:to-violet-700 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-all duration-150"
+              className="px-6 py-2.5 bg-hachi text-white rounded-xl font-semibold shadow-sm hover:opacity-90 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2 transition-all duration-150"
             >
               Select file
             </button>
@@ -228,13 +231,13 @@ export default function ResumeUpload({
               type="button"
               onClick={() => setShowSamplePicker((prev) => !prev)}
               aria-expanded={showSamplePicker}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border-soft bg-white text-sm font-semibold text-ink hover:border-hachi/30 hover:text-hachi hover:bg-hachi/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi transition-colors"
             >
               <FlaskConical className="w-4 h-4" />
               Try with a sample resume
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showSamplePicker ? 'rotate-180' : ''}`} />
             </button>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-ink-muted">
               Prefer not to upload anything? Start from one of three fictional profiles.
             </p>
           </div>
@@ -246,45 +249,45 @@ export default function ResumeUpload({
                   key={sample.id}
                   type="button"
                   onClick={() => handleUseSample(sample)}
-                  className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
+                  className="text-left p-4 rounded-xl border border-border-soft bg-white hover:border-hachi/30 hover:bg-hachi/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi transition-colors"
                 >
-                  <span className="block text-sm font-semibold text-slate-800">{sample.label}</span>
-                  <span className="block mt-0.5 text-xs text-slate-500">{sample.blurb}</span>
+                  <span className="block text-sm font-semibold text-ink">{sample.label}</span>
+                  <span className="block mt-0.5 text-xs text-ink-muted">{sample.blurb}</span>
                 </button>
               ))}
-              <p className="text-xs text-slate-400 text-center mt-1">
+              <p className="text-xs text-ink-muted/70 text-center mt-1">
                 These profiles are invented for the demo — they are not real people.
               </p>
             </div>
           )}
 
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className="mt-4 text-center text-sm text-ink-muted">
             Just want your resume checked?{' '}
             <Link
               href="/review"
-              className="font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+              className="font-semibold text-hachi underline-offset-2 hover:text-hachi hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi rounded"
             >
               Get a line-by-line review instead
             </Link>
           </p>
 
-          <p className="mt-2 text-center text-sm text-slate-500">
+          <p className="mt-2 text-center text-sm text-ink-muted">
             Don&apos;t have a resume ready?{' '}
             <button
               type="button"
               onClick={onStartWithoutResume}
-              className="font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+              className="font-semibold text-hachi underline-offset-2 hover:text-hachi hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi rounded"
             >
               Build your profile in chat instead
             </button>
           </p>
 
-          <p className="mt-2 text-center text-sm text-slate-500">
+          <p className="mt-2 text-center text-sm text-ink-muted">
             <button
               type="button"
               onClick={() => setShowLinkedinHelp((prev) => !prev)}
               aria-expanded={showLinkedinHelp}
-              className="inline-flex items-center gap-1.5 font-semibold text-indigo-600 underline-offset-2 hover:text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+              className="inline-flex items-center gap-1.5 font-semibold text-hachi underline-offset-2 hover:text-hachi hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi rounded"
             >
               <Link2 className="w-3.5 h-3.5" />
               Or share your LinkedIn profile
@@ -294,32 +297,32 @@ export default function ResumeUpload({
 
           {/* Placed at the point of decision rather than only in the footer: the question
               "where does my resume go" occurs to people as they are about to hand it over. */}
-          <p className="mt-4 text-center text-xs text-slate-400">
+          <p className="mt-4 text-center text-xs text-ink-muted/70">
             <Link
               href="/privacy"
-              className="underline-offset-2 hover:text-slate-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+              className="underline-offset-2 hover:text-ink-muted hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi rounded"
             >
               What happens to your resume
             </Link>
           </p>
 
           {showLinkedinHelp && (
-            <div className="mt-3 p-5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 animate-fade-in">
-              <p className="font-semibold text-slate-800 mb-2">
+            <div className="mt-3 p-5 bg-paper border border-border-soft rounded-xl text-sm text-ink-muted animate-fade-in">
+              <p className="font-semibold text-ink mb-2">
                 Follow the below steps to download your LinkedIn profile as a PDF and upload it here:
               </p>
               <ol className="list-decimal pl-5 space-y-1.5">
                 <li>
-                  <span className="font-medium text-slate-800">Log in</span> to your LinkedIn account on a desktop browser.
+                  <span className="font-medium text-ink">Log in</span> to your LinkedIn account on a desktop browser.
                 </li>
                 <li>
-                  Click the <span className="font-medium text-slate-800">Me</span> icon at the top of the page and select <span className="font-medium text-slate-800">View Profile</span>.
+                  Click the <span className="font-medium text-ink">Me</span> icon at the top of the page and select <span className="font-medium text-ink">View Profile</span>.
                 </li>
                 <li>
-                  Click the <span className="font-medium text-slate-800">More</span> or <span className="font-medium text-slate-800">Resources</span> button located below your profile picture and headline.
+                  Click the <span className="font-medium text-ink">More</span> or <span className="font-medium text-ink">Resources</span> button located below your profile picture and headline.
                 </li>
                 <li>
-                  Select <span className="font-medium text-slate-800">Save to PDF</span> from the dropdown menu.
+                  Select <span className="font-medium text-ink">Save to PDF</span> from the dropdown menu.
                 </li>
                 <li>
                   Wait a few moments for the download to complete into your default downloads folder.
@@ -343,8 +346,8 @@ export default function ResumeUpload({
       )}
 
       {showTextFallback && (
-        <form onSubmit={handleManualSubmit} className="mt-6 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <label htmlFor="manual-resume-text" className="block text-sm font-semibold text-slate-800 mb-2">
+        <form onSubmit={handleManualSubmit} className="mt-6 p-6 bg-white border border-border-soft rounded-2xl shadow-sm">
+          <label htmlFor="manual-resume-text" className="block text-sm font-semibold text-ink mb-2">
             Paste your resume contents, professional experience, and career history here:
           </label>
           <textarea
@@ -354,16 +357,16 @@ export default function ResumeUpload({
             maxLength={LIMITS.maxResumeChars}
             rows={6}
             placeholder="Paste your titles, duties, skills, and dates of employment here..."
-            className="w-full p-4 rounded-xl border border-slate-200 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+            className="w-full p-4 rounded-xl border border-border-soft bg-white text-ink focus:ring-2 focus:ring-hachi focus:border-transparent outline-none transition"
           />
           <div className="mt-4 flex justify-between items-center gap-4">
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-ink-muted">
               Min 150 characters · Current length: {manualText.length}
             </span>
             <button
               type="submit"
               disabled={manualText.length < 150}
-              className="px-5 py-2 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white disabled:opacity-50 disabled:pointer-events-none rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 whitespace-nowrap"
+              className="px-5 py-2 bg-hachi hover:opacity-90 text-white disabled:opacity-50 disabled:pointer-events-none rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 whitespace-nowrap"
             >
               Analyze text profile
             </button>

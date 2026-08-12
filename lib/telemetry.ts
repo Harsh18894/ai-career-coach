@@ -18,9 +18,9 @@ import { classifyUpstreamError } from './errors';
  * emit exactly one structured JSON line per call to stdout (greppable in Vercel logs) and
  * maintain two Redis counters:
  *
- *   aria:session:{id}:cost  — per-session running cost, 24h TTL. Answers "what does one
+ *   hachi:session:{id}:cost  — per-session running cost, 24h TTL. Answers "what does one
  *                             completed coaching session actually cost?"
- *   aria:spend:{YYYY-MM-DD} — global daily total. This is what lib/rate-limit.ts reads for
+ *   hachi:spend:{YYYY-MM-DD} — global daily total. This is what lib/rate-limit.ts reads for
  *                             the budget cap, so the cap is fed by real measured spend.
  *
  * This module is instrumentation only: it must never change a prompt, model, temperature,
@@ -136,13 +136,13 @@ export function currentContextCostUsd(): number {
 
 /** Reads session identity off the request headers set by lib/session.ts. */
 export function telemetryContextFromRequest(request: Request, route: string): TelemetryContext {
-  const sampleId = request.headers.get('x-aria-sample-id')?.trim();
+  const sampleId = request.headers.get('x-hachi-sample-id')?.trim();
   return {
     // Shared with lib/rate-limit.ts's session ceilings, so the id this attributes cost to and
     // the id that gets limited are always the same one.
     sessionId: sessionIdFromRequest(request),
     route,
-    isSample: request.headers.get('x-aria-sample') === '1',
+    isSample: request.headers.get('x-hachi-sample') === '1',
     ...(sampleId && sampleId.length <= 64 ? { sampleId } : {}),
   };
 }

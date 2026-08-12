@@ -116,14 +116,21 @@ export default function AboutPage() {
     { stage: 'CLOSED', label: 'Closed', sub: 'A tailored wrap-up', color: 'slate' },
   ];
 
+  /* One accent, used positionally.
+   *
+   * This was seven hues — sky, indigo, violet, fuchsia, pink, emerald, slate — one per stage,
+   * which made the diagram read as a colour key the reader had to decode. The palette now has
+   * a single accent, so the stages are distinguished by their labels and their order (which is
+   * the actual information) and orange marks only the stage a session is genuinely centred on.
+   * The stage names remain the sole carrier of meaning, so nothing depends on colour. */
   const colorClasses: Record<string, { bg: string; border: string; text: string }> = {
-    sky: { bg: 'from-sky-50 to-white', border: 'border-sky-200', text: 'text-sky-500' },
-    indigo: { bg: 'from-indigo-50 to-white', border: 'border-indigo-200', text: 'text-indigo-500' },
-    violet: { bg: 'from-violet-50 to-white', border: 'border-violet-200', text: 'text-violet-500' },
-    fuchsia: { bg: 'from-fuchsia-50 to-white', border: 'border-fuchsia-200', text: 'text-fuchsia-500' },
-    pink: { bg: 'from-pink-50 to-white', border: 'border-pink-200', text: 'text-pink-500' },
-    emerald: { bg: 'from-emerald-50 to-white', border: 'border-emerald-200', text: 'text-emerald-500' },
-    slate: { bg: 'from-slate-50 to-white', border: 'border-slate-200', text: 'text-slate-500' },
+    sky: { bg: 'bg-paper', border: 'border-border-soft', text: 'text-ink-muted' },
+    indigo: { bg: 'bg-hachi/8', border: 'border-hachi/30', text: 'text-hachi' },
+    violet: { bg: 'bg-paper', border: 'border-border-soft', text: 'text-ink-muted' },
+    fuchsia: { bg: 'bg-hachi/8', border: 'border-hachi/30', text: 'text-hachi' },
+    pink: { bg: 'bg-paper', border: 'border-border-soft', text: 'text-ink-muted' },
+    emerald: { bg: 'bg-hachi/8', border: 'border-hachi/30', text: 'text-hachi' },
+    slate: { bg: 'bg-paper', border: 'border-border-soft', text: 'text-ink-muted' },
   };
 
   const evalChecks = [
@@ -174,61 +181,61 @@ export default function AboutPage() {
       {/* Intro */}
       <div className="text-center space-y-3">
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
-          <span className="bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+          <span className="bg-hachi bg-clip-text text-transparent">
             How this works?
           </span>
         </h1>
-        <p className="text-slate-500 max-w-2xl mx-auto text-base leading-relaxed">
-          A look behind the curtain at Aria, your AI career mentor: how it turns a resume (or a short chat) into a real
+        <p className="text-ink-muted max-w-2xl mx-auto text-base leading-relaxed">
+          A look behind the curtain at Hachi, your AI career mentor: how it turns a resume (or a short chat) into a real
           profile, figures out where you actually want to go, proposes three ranked paths you can trust, and builds a
           concrete roadmap once you pick one.
         </p>
       </div>
 
       {/* Entry points */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <FileInput className="w-4 h-4 text-white" />
           </span>
           <span>How to get started</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {entryPoints.map((ep, idx) => (
-            <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 text-sm mb-1">{ep.title}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">{ep.desc}</p>
+            <div key={idx} className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink text-sm mb-1">{ep.title}</h3>
+              <p className="text-xs text-ink-muted leading-relaxed">{ep.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Assumptions Section */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-indigo-600 to-blue-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <Shield className="w-4 h-4 text-white" />
           </span>
           <span>Core assumptions we make</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-600">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-ink-muted">
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">Your resume needs a text layer</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">Your resume needs a text layer</h3>
               <p className="text-xs leading-relaxed">
                 We assume an uploaded resume has real, selectable text in it. A scanned image with no text layer cannot be
                 read. Use the no-resume guided chat instead if that happens to you.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">Salary ranges are estimates</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">Salary ranges are estimates</h3>
               <p className="text-xs leading-relaxed">
                 Salary numbers are indicative, estimated by the model from your seniority, region, and industry. We are not
                 pulling live numbers from a labor market database in this demo.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">No recommendation without real direction</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">No recommendation without real direction</h3>
               <p className="text-xs leading-relaxed">
                 Two hard checks sit in front of every recommendation: at least one real skill or domain, and a genuine
                 stated sense of direction, not just a bare yes. We never trust the model&apos;s own read of the
@@ -237,25 +244,25 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">Your session stays on your device</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">Your session stays on your device</h3>
               <p className="text-xs leading-relaxed">
                 To keep this demo simple, your conversation lives in your browser&apos;s{' '}
-                <code className="px-1 py-0.5 bg-slate-200/70 rounded text-[11px]">localStorage</code>. There is no
+                <code className="px-1 py-0.5 bg-border-soft/70 rounded text-[11px]">localStorage</code>. There is no
                 account, no login, and no external database. Refresh the page and you pick up right where you left off
                 on that device.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">Persona inference</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">Persona inference</h3>
               <p className="text-xs leading-relaxed">
                 The model places your situation into one of three reference archetypes (pivoting, growing in place, or
                 early career) and an experience band, which quietly shapes the coach&apos;s tone, questions, and how it
                 frames each path.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <h3 className="font-semibold text-slate-800 mb-1">Adaptive, not scripted</h3>
+            <div className="p-4 rounded-xl bg-paper border border-border-soft">
+              <h3 className="font-semibold text-ink mb-1">Adaptive, not scripted</h3>
               <p className="text-xs leading-relaxed">
                 Both the understanding chat and the no-resume questions are generated turn by turn from everything said
                 so far. There is no fixed script, so nothing you have already answered gets asked again.
@@ -266,19 +273,19 @@ export default function AboutPage() {
       </section>
 
       {/* Steps Section */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-violet-600 to-purple-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl shadow-sm flex-shrink-0">
             <BookOpen className="w-4 h-4 text-white" />
           </span>
           <span>How a session unfolds</span>
         </h2>
         <div className="space-y-4">
           {steps.map((step, idx) => (
-            <div key={idx} className="flex items-start gap-4 border-l-2 border-slate-200 pl-4 py-1">
+            <div key={idx} className="flex items-start gap-4 border-l-2 border-border-soft pl-4 py-1">
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-slate-800">{step.title}</h3>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{step.desc}</p>
+                <h3 className="text-sm font-semibold text-ink">{step.title}</h3>
+                <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{step.desc}</p>
               </div>
             </div>
           ))}
@@ -286,37 +293,37 @@ export default function AboutPage() {
       </section>
 
       {/* Workflow Section */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-fuchsia-600 to-pink-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <Compass className="w-4 h-4 text-white" />
           </span>
           <span>Conversation state machine</span>
         </h2>
-        <p className="text-sm text-slate-600 mb-8 leading-relaxed">
+        <p className="text-sm text-ink-muted mb-8 leading-relaxed">
           The coach always knows exactly what stage it is in, instead of guessing intent from raw chat text. Most sessions
-          move left to right below, but <span className="font-medium text-slate-800">ASK_COUNTRY</span> and{' '}
-          <span className="font-medium text-slate-800">ASK_PREFERENCES</span> are detours that only fire when they are
+          move left to right below, but <span className="font-medium text-ink">ASK_COUNTRY</span> and{' '}
+          <span className="font-medium text-ink">ASK_PREFERENCES</span> are detours that only fire when they are
           needed: when your resume spans multiple countries, or after two declined rounds.{' '}
-          <span className="font-medium text-slate-800">ROADMAP</span> is not a dead end either. The session stays open
+          <span className="font-medium text-ink">ROADMAP</span> is not a dead end either. The session stays open
           for follow-up chat and roadmap adjustments until you decide to end it.
         </p>
 
         {/* Visual State flow chart */}
-        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-2 max-w-3xl mx-auto bg-linear-to-r from-indigo-50/60 via-violet-50/40 to-emerald-50/40 p-6 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-2 max-w-3xl mx-auto p-6 rounded-2xl border border-border-soft">
           {stateFlow.map((s, idx) => {
             const c = colorClasses[s.color];
             return (
               <React.Fragment key={s.stage}>
                 <div
-                  className={`flex flex-col items-center p-3.5 bg-linear-to-br ${c.bg} rounded-xl shadow-sm border ${c.border} w-[140px] text-center`}
+                  className={`flex flex-col items-center p-3.5 ${c.bg} rounded-xl shadow-sm border ${c.border} w-[140px] text-center`}
                 >
                   <span className={`text-[10px] font-semibold tracking-wide uppercase ${c.text}`}>Stage {idx + 1}</span>
-                  <span className="text-xs font-bold text-slate-800 mt-1">{s.label}</span>
-                  <span className="text-[10px] text-slate-500 mt-0.5">{s.sub}</span>
+                  <span className="text-xs font-bold text-ink mt-1">{s.label}</span>
+                  <span className="text-[10px] text-ink-muted mt-0.5">{s.sub}</span>
                 </div>
                 {idx < stateFlow.length - 1 && (
-                  <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-ink-muted/50 flex-shrink-0" />
                 )}
               </React.Fragment>
             );
@@ -325,14 +332,14 @@ export default function AboutPage() {
       </section>
 
       {/* Evals Section */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-2">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-rose-600 to-orange-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-2">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <FlaskConical className="w-4 h-4 text-white" />
           </span>
           <span>How we test the coach</span>
         </h2>
-        <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+        <p className="text-sm text-ink-muted mb-6 leading-relaxed">
           An AI coach can sound confident and still be wrong, so we do not just eyeball it and hope. Every time the
           prompts or the conversation logic change, an automated suite of checks runs against the real model. Some are
           plain code (no API calls needed), and some hand the output to a second model whose only job is to judge
@@ -342,12 +349,12 @@ export default function AboutPage() {
           {evalChecks.map((check, idx) => {
             const Icon = check.icon;
             return (
-              <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div key={idx} className="p-4 rounded-xl bg-paper border border-border-soft">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Icon className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                  <h3 className="font-semibold text-slate-800 text-sm">{check.title}</h3>
+                  <h3 className="font-semibold text-ink text-sm">{check.title}</h3>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">{check.desc}</p>
+                <p className="text-xs text-ink-muted leading-relaxed">{check.desc}</p>
               </div>
             );
           })}
@@ -356,30 +363,30 @@ export default function AboutPage() {
 
       {/* Under the hood */}
       {/* Resume review */}
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-2">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-rose-500 to-orange-500 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-2">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <FileSearch className="w-4 h-4 text-white" />
           </span>
           <span>The resume review, and why it works this way</span>
         </h2>
-        <p className="text-sm text-slate-600 leading-relaxed mb-6">
+        <p className="text-sm text-ink-muted leading-relaxed mb-6">
           Separate from the coaching conversation, and deliberately so: being coached toward a direction and having a
           document marked up are different jobs. You can do either without the other.
         </p>
 
-        <h3 className="font-semibold text-slate-800 text-sm mb-3">Two ways to be reviewed</h3>
+        <h3 className="font-semibold text-ink text-sm mb-3">Two ways to be reviewed</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h4 className="font-semibold text-slate-800 text-sm mb-1">On its own merits</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h4 className="font-semibold text-ink text-sm mb-1">On its own merits</h4>
+            <p className="text-xs text-ink-muted leading-relaxed">
               No job attached. The question is whether this resume is doing its job for someone at your stage — which
               means the standard it is held to changes depending on who you are.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h4 className="font-semibold text-slate-800 text-sm mb-1">Against one specific job</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h4 className="font-semibold text-ink text-sm mb-1">Against one specific job</h4>
+            <p className="text-xs text-ink-muted leading-relaxed">
               Paste the description or give a link. It reads your resume the way a recruiter would in the ten or fifteen
               seconds they actually spend, then walks the job&apos;s stated requirements one by one. Pasting always
               works; links often will not, because most large job sites block automated reading.
@@ -387,8 +394,8 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <h3 className="font-semibold text-slate-800 text-sm mb-1">The bar moves with your experience</h3>
-        <p className="text-xs text-slate-600 leading-relaxed mb-4">
+        <h3 className="font-semibold text-ink text-sm mb-1">The bar moves with your experience</h3>
+        <p className="text-xs text-ink-muted leading-relaxed mb-4">
           The same bullet can be fine for one person and a serious problem for another. A student writing &ldquo;helped
           maintain the reporting pipeline&rdquo; is doing about what anyone expects; someone eight years in writing the
           same sentence has failed to say what they actually did. So the review works out roughly where you are first,
@@ -397,16 +404,16 @@ export default function AboutPage() {
         </p>
         <div className="space-y-2 mb-4">
           {reviewPersonas.map((row) => (
-            <div key={row.persona} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <div key={row.persona} className="p-4 rounded-xl bg-paper border border-border-soft">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-1">
-                <h4 className="font-semibold text-slate-800 text-sm">{row.persona}</h4>
-                <span className="text-xs text-slate-500">{row.who}</span>
+                <h4 className="font-semibold text-ink text-sm">{row.persona}</h4>
+                <span className="text-xs text-ink-muted">{row.who}</span>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">{row.bar}</p>
+              <p className="text-xs text-ink-muted leading-relaxed">{row.bar}</p>
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-600 leading-relaxed mb-8">
+        <p className="text-xs text-ink-muted leading-relaxed mb-8">
           It shows you which one it picked and why, and you can change it in one click — the review re-runs at the new
           bar. Getting this wrong is the worst thing it could do: telling an experienced engineer to go find an
           internship would be both wrong and insulting, so it is never decided silently. If the call is close, it says
@@ -437,9 +444,9 @@ export default function AboutPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h4 className="font-semibold text-slate-800 text-sm mb-1">Where the links come from</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h4 className="font-semibold text-ink text-sm mb-1">Where the links come from</h4>
+            <p className="text-xs text-ink-muted leading-relaxed">
               If you are a student, the review suggests places to look for internships. Those links are not written by
               the model — it chooses from a short list kept in the code, and the actual web address is looked up
               afterwards. A model asked for a URL will happily produce one that has never existed, and the one thing
@@ -447,9 +454,9 @@ export default function AboutPage() {
               because pointing someone in Ohio at an India-only jobs board wastes their afternoon.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h4 className="font-semibold text-slate-800 text-sm mb-1">A good resume is allowed to come back quiet</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h4 className="font-semibold text-ink text-sm mb-1">A good resume is allowed to come back quiet</h4>
+            <p className="text-xs text-ink-muted leading-relaxed">
               If there is nothing serious wrong, it says so and stops. A tool that always finds ten problems is not
               being thorough, it is being decorative — and after the second invented complaint you would stop believing
               any of them.
@@ -457,38 +464,38 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
-          <MessageSquareOff className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <h3 className="font-semibold text-ink text-sm mb-3 flex items-center gap-2">
+          <MessageSquareOff className="w-4 h-4 text-ink-muted flex-shrink-0" />
           What it deliberately will not do
         </h3>
         <ul className="space-y-2">
           {reviewRefusals.map((item, idx) => (
-            <li key={idx} className="flex gap-2 text-xs text-slate-600 leading-relaxed">
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+            <li key={idx} className="flex gap-2 text-xs text-ink-muted leading-relaxed">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-muted" />
               {item}
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-6">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-emerald-600 to-teal-600 shadow-sm flex-shrink-0">
+      <section className="bg-white border border-border-soft rounded-2xl p-6 md:p-8 shadow-sm">
+        <h2 className="text-xl font-bold text-ink flex items-center gap-3 mb-6">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-ink shadow-sm flex-shrink-0">
             <Sparkles className="w-4 h-4 text-white" />
           </span>
           <span>Under the hood</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-600">
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">The right model for each job</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-ink-muted">
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">The right model for each job</h3>
             <p className="text-xs leading-relaxed">
               Structured extraction (reading your resume, tracking signals) runs on a smaller, cheaper model, since that
               is closer to classification than open-ended writing. Conversation, path generation, and roadmap planning
               run on a stronger model, because you read those directly and they need real reasoning.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">Feels instant, even mid-thought</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">Feels instant, even mid-thought</h3>
             <p className="text-xs leading-relaxed">
               The moment you send a message, the coach&apos;s reply bubble appears right away with a thinking animation
               inside it, never a separate floating spinner. Free-flowing chat replies stream in token by token. Turns
@@ -496,23 +503,23 @@ export default function AboutPage() {
               pace, so they still feel like they are being typed live.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">It remembers what matters, not everything</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">It remembers what matters, not everything</h3>
             <p className="text-xs leading-relaxed">
               The durable facts about you (your profile, everything gathered so far) get folded directly into every
               prompt. Old chat turns get trimmed out of what is sent to the model instead of resending the whole
               history every single time.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">Work happens in parallel where it can</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">Work happens in parallel where it can</h3>
             <p className="text-xs leading-relaxed">
               Locking in a path kicks off your tailored closing note and your full execution roadmap at the same time,
               instead of waiting for one to finish before starting the other.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">One quick-pick pattern, used everywhere</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">One quick-pick pattern, used everywhere</h3>
             <p className="text-xs leading-relaxed">
               Wherever the coach asks something with a real, answerable set of options, single choice or multi-select,
               it offers quick-pick buttons generated fresh for that exact question, always with a way to type your own
@@ -521,8 +528,8 @@ export default function AboutPage() {
               stays free text on purpose.
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h3 className="font-semibold text-slate-800 mb-1 text-sm">Difficulty tiers carry through to the plan</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border-soft">
+            <h3 className="font-semibold text-ink mb-1 text-sm">Difficulty tiers carry through to the plan</h3>
             <p className="text-xs leading-relaxed">
               Conservative, Realistic, and Ambitious are not just labels on a path card. The roadmap you get for a
               chosen path actually targets that tier&apos;s timeline, and if your own stated time budget makes that
@@ -536,9 +543,9 @@ export default function AboutPage() {
       <div className="text-center pt-4">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-hachi hover:opacity-90 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi focus-visible:ring-offset-2"
         >
-          <span>Return to chat with Aria</span>
+          <span>Return to chat with Hachi</span>
         </Link>
       </div>
     </div>

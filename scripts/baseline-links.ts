@@ -1,5 +1,5 @@
 /**
- * Baseline measurement: how many of the resource links Aria emits in a roadmap are real?
+ * Baseline measurement: how many of the resource links Hachi emits in a roadmap are real?
  *
  * Phase 2 intends to replace free-form, model-generated resource links with retrieval over a
  * curated catalog. That change can only be justified against a "before" number, and the
@@ -202,7 +202,7 @@ async function validateAll(urls: string[]): Promise<Map<string, ValidatedLink>> 
   const checked = await checkUrls(urls, {
     timeoutMs: CONFIG.requestTimeoutMs,
     concurrency: CONFIG.concurrency,
-    userAgent: 'aria-baseline-links/1.0 (link validation)',
+    userAgent: 'hachi-baseline-links/1.0 (link validation)',
     onProgress: (completed, total) => {
       process.stdout.write(`\r[baseline] validated ${completed}/${total} URLs`);
     },

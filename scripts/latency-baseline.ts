@@ -72,9 +72,9 @@ function headersFor(sessionId: string, sampleId: string): Headers {
     // The origin check from Pass A rejects requests without one; this is the same value a
     // browser on the dev server would send.
     Origin: BASE_URL,
-    'x-aria-session-id': sessionId,
-    'x-aria-sample': '1',
-    'x-aria-sample-id': sampleId,
+    'x-hachi-session-id': sessionId,
+    'x-hachi-sample': '1',
+    'x-hachi-sample-id': sampleId,
   };
 }
 

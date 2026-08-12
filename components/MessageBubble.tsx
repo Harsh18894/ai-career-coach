@@ -48,7 +48,7 @@ function renderInlineElements(text: string) {
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={index} className="font-semibold text-slate-900">
+        <strong key={index} className="font-semibold text-ink">
           {part.slice(2, -2)}
         </strong>
       );
@@ -68,7 +68,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
   if (isSystem) {
     return (
       <div className="flex justify-center my-4">
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-full text-xs font-medium">
+        <div className="flex items-center gap-2 px-4 py-2 bg-paper border border-border-soft text-ink-muted rounded-full text-xs font-medium">
           <ShieldAlert className="w-3.5 h-3.5" />
           <span>{message.content}</span>
         </div>
@@ -83,20 +83,24 @@ function MessageBubble({ message }: MessageBubbleProps) {
     >
       {/* Avatar */}
       {isAssistant ? (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-hachi flex items-center justify-center text-white text-xs font-bold shadow-sm">
           A
         </div>
       ) : (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs shadow-sm">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-border-soft flex items-center justify-center text-ink-muted text-xs shadow-sm">
           <User className="w-4 h-4" />
         </div>
       )}
 
       {/* Bubble */}
       <div
+        /* Assistant speaks on a white card; the person speaks in ink. Orange is deliberately
+           absent from both — it is reserved for Hachi's insights and actions, and a whole
+           conversation of orange bubbles would spend the accent that makes a recommendation
+           feel like a recommendation. */
         className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm border ${isAssistant
-          ? 'bg-white border-slate-200 text-slate-800'
-          : 'bg-linear-to-br from-slate-900 to-indigo-950 border-indigo-950 text-white font-medium'
+          ? 'bg-white border-border-soft text-ink'
+          : 'bg-ink border-ink text-white font-medium'
           }`}
       >
         <div className="prose prose-sm">
@@ -104,7 +108,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
         </div>
 
         {/* Timestamp */}
-        <span className={`block text-[10px] mt-1 text-right ${isAssistant ? 'text-slate-400' : 'text-slate-300'
+        <span className={`block text-[10px] mt-1 text-right ${isAssistant ? 'text-ink-muted/70' : 'text-white/55'
           }`}>
           {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>

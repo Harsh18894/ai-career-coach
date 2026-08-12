@@ -11,11 +11,18 @@ interface RoadmapViewProps {
   tier: PathTier | null;
 }
 
+/* Four phases, one accent.
+ *
+ * These were four unrelated hues (sky, indigo, pink, emerald), which made the roadmap read as a
+ * colour-coded chart. Each phase already carries a label AND an icon, so colour was never the
+ * carrier of meaning — dropping it costs nothing and buys back the restraint the palette needs.
+ * Orange is reserved for "project", the phase that produces the artifact everything else exists
+ * to support. */
 const PHASE_META: Record<RoadmapPhase['type'], { label: string; icon: LucideIcon; chipClass: string; labelClass: string }> = {
-  course: { label: 'Learn', icon: GraduationCap, chipClass: 'bg-linear-to-br from-sky-500 to-blue-600', labelClass: 'text-blue-600' },
-  project: { label: 'Build', icon: Hammer, chipClass: 'bg-linear-to-br from-violet-500 to-purple-600', labelClass: 'text-violet-600' },
-  practice: { label: 'Practice', icon: Dumbbell, chipClass: 'bg-linear-to-br from-fuchsia-500 to-pink-600', labelClass: 'text-fuchsia-600' },
-  application: { label: 'Apply', icon: Briefcase, chipClass: 'bg-linear-to-br from-emerald-500 to-teal-600', labelClass: 'text-emerald-600' },
+  course: { label: 'Learn', icon: GraduationCap, chipClass: 'bg-ink', labelClass: 'text-ink-muted' },
+  project: { label: 'Build', icon: Hammer, chipClass: 'bg-hachi', labelClass: 'text-hachi' },
+  practice: { label: 'Practice', icon: Dumbbell, chipClass: 'bg-ink', labelClass: 'text-ink-muted' },
+  application: { label: 'Apply', icon: Briefcase, chipClass: 'bg-ink', labelClass: 'text-ink-muted' },
 };
 
 const SKILL_LEVEL_LABEL: Record<Roadmap['skillLevel'], string> = {
@@ -30,35 +37,35 @@ export default function RoadmapView({ roadmap, tier }: RoadmapViewProps) {
 
   return (
     <div className="w-full animate-fade-in">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-5 bg-linear-to-r from-indigo-50 via-violet-50/60 to-white border-b border-slate-200">
+      <div className="rounded-2xl border border-border-soft bg-white shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-border-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-linear-to-br from-indigo-600 to-violet-600 shadow-sm flex-shrink-0">
+            <h2 className="text-lg sm:text-xl font-bold text-ink flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-hachi shadow-sm flex-shrink-0">
                 <Map className="w-4 h-4 text-white" />
               </span>
               <span>Your execution roadmap</span>
             </h2>
             <div className="flex items-center gap-2">
               {tier && <TierBadge tier={tier} />}
-              <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 bg-linear-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-full border border-indigo-200">
+              <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 text-hachi rounded-full border border-hachi/30">
                 {SKILL_LEVEL_LABEL[roadmap.skillLevel]}
               </span>
-              <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
+              <span className="flex items-center gap-1 text-xs font-medium text-ink-muted">
                 <Clock className="w-3.5 h-3.5" />
                 {roadmap.totalDuration}
               </span>
-              <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
+              <span className="flex items-center gap-1 text-xs font-medium text-ink-muted">
                 <Timer className="w-3.5 h-3.5" />
                 {roadmap.weeklyHoursCommitment}
               </span>
             </div>
           </div>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">{roadmap.summary}</p>
+          <p className="mt-2 text-sm text-ink-muted leading-relaxed">{roadmap.summary}</p>
         </div>
 
         {/* Phases — collapsible, each holding its own week-by-week breakdown */}
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border-soft">
           {roadmap.phases.map((phase, idx) => {
             const meta = PHASE_META[phase.type];
             const Icon = meta.icon;
@@ -73,7 +80,7 @@ export default function RoadmapView({ roadmap, tier }: RoadmapViewProps) {
                   type="button"
                   onClick={() => setExpandedPhase(isOpen ? null : idx)}
                   aria-expanded={isOpen}
-                  className="w-full flex items-center gap-4 p-6 text-left hover:bg-slate-50/60 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="w-full flex items-center gap-4 p-6 text-left hover:bg-paper/60 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-hachi"
                 >
                   <div className={`flex-shrink-0 w-9 h-9 rounded-full text-white shadow-sm flex items-center justify-center ${meta.chipClass}`}>
                     <Icon className="w-4 h-4" />
@@ -83,18 +90,18 @@ export default function RoadmapView({ roadmap, tier }: RoadmapViewProps) {
                       <span className={`text-[10px] font-semibold tracking-wide uppercase ${meta.labelClass}`}>
                         {meta.label}
                       </span>
-                      <h3 className="text-base font-semibold text-slate-900">{phase.title}</h3>
+                      <h3 className="text-base font-semibold text-ink">{phase.title}</h3>
                     </div>
                     {phase.description && (
-                      <p className="mt-0.5 text-sm text-slate-500 leading-relaxed">{phase.description}</p>
+                      <p className="mt-0.5 text-sm text-ink-muted leading-relaxed">{phase.description}</p>
                     )}
                   </div>
                   <div className="flex-shrink-0 flex items-center gap-3">
-                    <span className="text-xs font-medium text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-xs font-medium text-ink-muted flex items-center gap-1 whitespace-nowrap">
                       <Clock className="w-3.5 h-3.5" />
                       {weekRangeLabel}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-ink-muted/70 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
                 </button>
 
@@ -107,8 +114,8 @@ export default function RoadmapView({ roadmap, tier }: RoadmapViewProps) {
                             Week {week.week}
                           </span>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">{week.focus}</p>
-                            <ul className="mt-1.5 space-y-1 text-sm text-slate-600 list-disc pl-5">
+                            <p className="text-sm font-semibold text-ink">{week.focus}</p>
+                            <ul className="mt-1.5 space-y-1 text-sm text-ink-muted list-disc pl-5">
                               {week.items.map((item, i) => (
                                 <li key={i}>{item}</li>
                               ))}

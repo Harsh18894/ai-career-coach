@@ -45,19 +45,19 @@ export default function PathDeck({
   return (
     <div className="w-full space-y-6 my-8 animate-fade-in">
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-linear-to-br from-indigo-600 to-violet-600 shadow-sm flex-shrink-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-ink flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-hachi shadow-sm flex-shrink-0">
             <Compass className="w-5 h-5 text-white" />
           </span>
           <span>Your recommended career paths</span>
         </h2>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           Expand a path to review it, then lock it in.
         </p>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-ink-muted mt-2">
           <span className="font-semibold text-emerald-600">Conservative</span> = safest bet ({TIER_TIMELINE.conservative.monthsLabel}) ·{' '}
-          <span className="font-semibold text-indigo-600">Realistic</span> = aim here ({TIER_TIMELINE.realistic.monthsLabel}) ·{' '}
-          <span className="font-semibold text-fuchsia-600">Ambitious</span> = stretch goal ({TIER_TIMELINE.ambitious.monthsLabel})
+          <span className="font-semibold text-hachi">Realistic</span> = aim here ({TIER_TIMELINE.realistic.monthsLabel}) ·{' '}
+          <span className="font-semibold text-hachi">Ambitious</span> = stretch goal ({TIER_TIMELINE.ambitious.monthsLabel})
         </p>
       </div>
 
@@ -84,13 +84,13 @@ export default function PathDeck({
               onRegenerate();
             }}
             disabled={isLoading}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300 rounded-xl font-semibold shadow-sm transition-all duration-150 disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white border border-border-soft text-ink hover:bg-paper hover:border-border-soft rounded-xl font-semibold shadow-sm transition-all duration-150 disabled:opacity-50"
           >
-            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <Sparkles className="w-4 h-4 text-hachi" />
             <span>Show me more paths</span>
           </button>
         ) : (
-          <div className="text-xs text-slate-500 font-medium px-4 py-2 bg-slate-100 rounded-lg">
+          <div className="text-xs text-ink-muted font-medium px-4 py-2 bg-paper rounded-lg">
             Maximum path recommendation decks shown (9 options total).
           </div>
         )}
@@ -102,7 +102,7 @@ export default function PathDeck({
             onRejectAll();
           }}
           disabled={isLoading}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl font-medium transition-all duration-150 disabled:opacity-50"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-rose-50 text-ink-muted hover:text-rose-700 border border-border-soft hover:border-rose-200 rounded-xl font-medium transition-all duration-150 disabled:opacity-50"
         >
           <XCircle className="w-4 h-4" />
           <span>Decline all paths</span>

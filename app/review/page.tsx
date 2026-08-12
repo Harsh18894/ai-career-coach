@@ -135,13 +135,13 @@ export default function ReviewPage() {
       <header className="mb-6">
         <Link
           href="/"
-          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-indigo-600"
+          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors hover:text-hachi"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to coaching
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Resume review</h1>
-        <p className="mt-2 leading-relaxed text-slate-600">
+        <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">Resume review</h1>
+        <p className="mt-2 leading-relaxed text-ink-muted">
           A line-by-line read of your resume, judged against the bar for your actual stage — with
           rewrites you can copy. It will never invent a number you did not give it.
         </p>
@@ -187,12 +187,12 @@ export default function ReviewPage() {
       {phase === 'intake' && <ReviewIntake onStart={handleStart} busy={busy} />}
 
       {busy && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <Loader2 className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
-          <p className="mt-3 font-semibold text-slate-800">
+        <div className="rounded-2xl border border-border-soft bg-white p-6 text-center">
+          <Loader2 className="mx-auto h-7 w-7 animate-spin text-hachi" />
+          <p className="mt-3 font-semibold text-ink">
             {phase === 'preparing' ? 'Reading your resume…' : 'Reviewing…'}
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-ink-muted">
             {phase === 'preparing'
               ? 'Step 1 of 2 — working out the structure and your experience level.'
               : 'Step 2 of 2 — this is the slow part, usually around 30–45 seconds.'}
@@ -232,7 +232,7 @@ export default function ReviewPage() {
       )}
 
       {phase === 'done' && (
-        <div className="mt-8 border-t border-slate-200 pt-5 text-center">
+        <div className="mt-8 border-t border-border-soft pt-5 text-center">
           <button
             type="button"
             onClick={() => {
@@ -242,7 +242,7 @@ export default function ReviewPage() {
               setActivePersona(null);
               setError(null);
             }}
-            className="text-sm font-semibold text-indigo-600 underline-offset-2 hover:underline"
+            className="text-sm font-semibold text-hachi underline-offset-2 hover:underline"
           >
             Review a different resume
           </button>

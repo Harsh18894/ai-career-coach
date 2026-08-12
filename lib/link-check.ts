@@ -21,7 +21,7 @@ export type LinkCheckResult = {
 export const LINK_CHECK_DEFAULTS = {
   timeoutMs: 8_000,
   concurrency: 4,
-  userAgent: 'aria-link-check/1.0 (link validation)',
+  userAgent: 'hachi-link-check/1.0 (link validation)',
 } as const;
 
 export type LinkCheckOptions = {

@@ -24,13 +24,13 @@ import React from 'react';
 
 /** One shimmering block. `animate-pulse` is Tailwind's built-in; no custom keyframes needed. */
 function Bar({ className = '' }: { className?: string }) {
-  return <div className={`rounded bg-slate-200 animate-pulse ${className}`} />;
+  return <div className={`rounded bg-border-soft animate-pulse ${className}`} />;
 }
 
 /** Mirrors a single collapsed PathCard. */
 function PathCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-border-soft bg-white shadow-sm">
       <div className="w-full flex items-start gap-3 p-6">
         <div className="flex-1 min-w-0">
           {/* Title line — text-lg font-bold leading-snug in the real card. */}
@@ -65,7 +65,7 @@ export function PathDeckSkeleton() {
 /** Mirrors RoadmapTitleCard, which is what replaces it. */
 export function RoadmapSkeleton() {
   return (
-    <div aria-hidden="true" className="my-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div aria-hidden="true" className="my-8 rounded-2xl border border-border-soft bg-white p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <Bar className="h-10 w-10 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">

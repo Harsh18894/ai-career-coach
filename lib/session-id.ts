@@ -11,7 +11,7 @@
  * per-session ceilings in lib/limits.ts.
  */
 
-export const SESSION_ID_HEADER = 'x-aria-session-id';
+export const SESSION_ID_HEADER = 'x-hachi-session-id';
 
 /** The fallback bucket for requests that carry no usable id. Shared deliberately — an
  * unattributed caller should be counted alongside other unattributed callers rather than

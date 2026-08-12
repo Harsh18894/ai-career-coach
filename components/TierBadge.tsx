@@ -8,24 +8,30 @@ import { TIER_TIMELINE, type PathTier } from '@/lib/ai/tiers';
 // "safe bet -> aim here -> stretch goal" progression at a glance. Shared by PathCard (deck view)
 // and the roadmap views (RoadmapView/RoadmapTitleCard/RoadmapPanel) so the badge is identical
 // wherever a tier is shown.
+/* Tier is a calibration signal, not a category to colour-code.
+ *
+ * It was emerald / indigo / amber — three hues implying "safe / neutral / risky", which is a
+ * judgement the tier does not actually make. Now the icon and the written label carry the
+ * distinction (so colour is never the sole carrier), and orange marks only "realistic" — the
+ * one the coach is genuinely pointing at. */
 export const TIER_META: Record<
   PathTier,
   { icon: typeof ShieldCheck; badgeClass: string; topBorderClass: string }
 > = {
   conservative: {
     icon: ShieldCheck,
-    badgeClass: 'bg-linear-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-200',
-    topBorderClass: 'border-t-emerald-500',
+    badgeClass: 'bg-paper text-ink-muted border border-border-soft',
+    topBorderClass: 'border-t-border-soft',
   },
   realistic: {
     icon: Target,
-    badgeClass: 'bg-linear-to-r from-indigo-50 to-violet-50 text-indigo-700 border border-indigo-200',
-    topBorderClass: 'border-t-indigo-600',
+    badgeClass: 'bg-hachi/8 text-hachi border border-hachi/30',
+    topBorderClass: 'border-t-hachi',
   },
   ambitious: {
     icon: Rocket,
-    badgeClass: 'bg-linear-to-r from-amber-50 to-fuchsia-50 text-amber-700 border border-amber-200',
-    topBorderClass: 'border-t-amber-500',
+    badgeClass: 'bg-paper text-ink border border-ink/20',
+    topBorderClass: 'border-t-ink',
   },
 };
 

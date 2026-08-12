@@ -209,5 +209,5 @@ export async function getHumanToken(): Promise<string | null> {
  * no token, so the header is simply absent rather than present-and-empty. */
 export async function humanTokenHeaders(): Promise<Record<string, string>> {
   const token = await getHumanToken();
-  return token ? { 'x-aria-turnstile': token } : {};
+  return token ? { 'x-hachi-turnstile': token } : {};
 }
