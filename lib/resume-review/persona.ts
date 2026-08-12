@@ -316,6 +316,11 @@ Output a single JSON object with exactly:
     openai,
     {
       model: 'gpt-5-nano',
+      // B3 step 1: the last of the gpt-5-nano classification calls. A boolean plus one sentence
+      // of justification, judged by R7's classification accuracy — the same "structured data,
+      // not prose" shape as extractProfile and analyzeSignals. Segmentation and the review call
+      // were already low from the resume-review phase.
+      reasoning_effort: 'low',
       messages: [
         { role: 'system', content: 'You are a career-history analyst. Output JSON matching the requested schema.' },
         { role: 'user', content: prompt },

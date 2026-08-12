@@ -186,6 +186,16 @@ ${resumeText}
   // valid JSON that does not satisfy ProfileSchema — an outcome, not a failure.
   return structuredCompletion(openai, {
     model: 'gpt-5-nano',
+    // B3 step 1. These calls emit structured data judged by schema conformance, not prose a
+    // person reads, and the baseline measured them spending 8-10 reasoning tokens for every
+    // visible token they produced (extractProfile 4,288:541, analyzeSignals 2,304:226). That is
+    // deliberation bought for an audience that is a Zod schema.
+    //
+    // analyzeSignals is the riskier of the two despite being the cheaper-looking one: its output
+    // feeds canRecommend(), the programmatic gate on the whole recommendation flow. Degrading it
+    // does not look like a latency change, it looks like the coach recommending too early or
+    // refusing to recommend at all. Watched via C3/E1/H1 and the gate behaviour in the sessions.
+    reasoning_effort: 'low',
     messages: [
       { role: 'system', content: 'You are a career profile parser. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
@@ -243,6 +253,7 @@ If a required array has no items to report, output an empty array rather than om
 
   return structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    reasoning_effort: 'low', // B3 step 2 — see the note on streamChatTurn.
     messages: [
       { role: 'system', content: 'You are a career profile builder. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
@@ -301,6 +312,7 @@ Output a single JSON object with EXACTLY these fields:
 
   return structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    reasoning_effort: 'low', // B3 step 2 — see the note on streamChatTurn.
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
@@ -368,6 +380,19 @@ ${options?.changeRequests ? `5. The candidate declined the earlier rounds and as
 
   const validated = await structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    // B3 step 3 — MEDIUM, deliberately not low.
+    //
+    // This is the output the whole product is judged on. A path deck has to cite a real fact
+    // from the candidate, pick three genuinely different directions, calibrate a salary band to
+    // a market, and deliver an honest ambition check that sometimes has to tell someone their
+    // target is unrealistic. That last one is a judgement, not a formatting task, and it is the
+    // first thing to go when a model stops deliberating.
+    //
+    // The baseline also showed this call site is not where the reasoning waste is: 2,496
+    // reasoning tokens against 1,007 visible, a ratio of 2.0 — against 8-10x on the extraction
+    // calls. There is far less to reclaim here and far more to lose, so the step down is one
+    // notch rather than two.
+    reasoning_effort: 'medium',
     messages: [
       { role: 'system', content: `${MENTOR_SYSTEM_PROMPT} Output exactly 3 career paths in a JSON array inside a "paths" key matching the requested schema.` },
       { role: 'user', content: prompt }
@@ -587,6 +612,15 @@ Write the final closing: honestly name the pattern across their rejections in yo
 
   const stream = await resilientStream(openai, {
     model: 'gpt-5-mini',
+    // B3 step 2: conversational turns. Moderate risk — this is prose a person reads, not a
+    // schema, so the failure mode is blander or less well-grounded writing rather than an
+    // invalid object. Watched via B1 (opener grounding) and H1 (scope discipline).
+    //
+    // The behavioural RULES are unaffected by effort: scope discipline, the recommendation
+    // gates and injection resistance live in the system instruction as instructions, not as
+    // deliberation. What low effort removes is silent pre-writing — which on the baseline was
+    // 7.1s of the 7.9s a streamed reply took to reach its first visible token.
+    reasoning_effort: 'low',
     messages,
     stream: true,
   }, 'streamChatTurn');
@@ -651,6 +685,7 @@ Output a single JSON object with EXACTLY these fields:
 
   return structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    reasoning_effort: 'low', // B3 step 2 — see the note on streamChatTurn.
     messages,
     response_format: { type: 'json_object' },
   }, { call: 'generateUnderstandingTurn', schema: AdaptiveQuestionSchema });
@@ -703,6 +738,7 @@ Output a single JSON object with EXACTLY these fields:
 
   return structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    reasoning_effort: 'low', // B3 step 2 — see the note on streamChatTurn.
     messages: [
       { role: 'system', content: MENTOR_SYSTEM_PROMPT },
       { role: 'user', content: prompt }
@@ -767,6 +803,9 @@ Preserve existing signals unless the user has directly changed their mind or con
     // same class of work extractProfile already does on nano — and it's the highest-frequency
     // call in the app (every chat turn), so model choice matters most here cost-wise.
     model: 'gpt-5-nano',
+    // B3 step 1 — see the note on extractProfile. This one feeds the recommendation gate, so a
+    // regression here shows up as wrong gate behaviour rather than as worse prose.
+    reasoning_effort: 'low',
     messages: [
       { role: 'system', content: 'You are a career signals extractor. Output JSON matching the requested schema.' },
       { role: 'user', content: prompt }
@@ -844,6 +883,13 @@ Output a single JSON object with EXACTLY these fields:
 
   const roadmap = await structuredCompletion(openai, {
     model: 'gpt-5-mini',
+    // B3 step 3 — MEDIUM, deliberately not low. Same reasoning as generatePaths.
+    //
+    // This call site had the LOWEST reasoning-to-output ratio in the baseline (1,152 reasoning
+    // against 1,807 visible, ~1.0): almost everything it spends is on the answer itself. There
+    // is very little deliberation here to remove, which is the strongest argument for not
+    // reaching for 'low' — the cost would be paid in roadmap quality without buying much time.
+    reasoning_effort: 'medium',
     messages: [
       { role: 'system', content: 'You are a career roadmap planner. Output JSON matching the requested schema exactly.' },
       { role: 'user', content: prompt }
