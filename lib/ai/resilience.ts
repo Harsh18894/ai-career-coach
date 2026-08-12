@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { z } from 'zod';
 import { AppError, isRetryableUpstream, toAppError } from '../errors';
 import { trackedCompletion, trackedStream } from '../telemetry';
+import { maxCompletionTokensFor } from './output-limits';
 
 /* =====================================================================================
  * Timeout, one bounded retry, and one structured-output repair attempt.
@@ -97,6 +98,21 @@ type StructuredOptions<TSchema extends z.ZodType> = {
   bailIf?: (raw: unknown) => boolean;
 };
 
+/**
+ * Applies the call site's measured output ceiling.
+ *
+ * Applied HERE rather than at the call sites, for two reasons. A cap written inline is a magic
+ * number nobody can trace back to a measurement, and — more practically — every model call in
+ * this app already routes through this module, so doing it here means a new call site cannot
+ * quietly ship without one. An explicit max_completion_tokens already on the params wins, so a
+ * caller with a genuine reason can still override.
+ */
+function withOutputLimit<T extends { max_completion_tokens?: number | null }>(params: T, call: string): T {
+  if (params.max_completion_tokens != null) return params;
+  const limit = maxCompletionTokensFor(call);
+  return limit === undefined ? params : { ...params, max_completion_tokens: limit };
+}
+
 export async function structuredCompletion<TSchema extends z.ZodType>(
   openai: OpenAI,
   params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
@@ -130,7 +146,7 @@ export async function structuredCompletion<TSchema extends z.ZodType>(
   };
 
   const rawText = await withSingleRetry(async () => {
-    const response = await trackedCompletion(openai, params, call, requestOptions);
+    const response = await trackedCompletion(openai, withOutputLimit(params, call), call, requestOptions);
     return response.choices[0]?.message?.content || '{}';
   }, call);
 
@@ -159,7 +175,7 @@ export async function structuredCompletion<TSchema extends z.ZodType>(
   const repairedText = await withSingleRetry(async () => {
     const response = await trackedCompletion(
       openai,
-      {
+      withOutputLimit({
         ...params,
         messages: [
           ...params.messages,
@@ -173,7 +189,7 @@ export async function structuredCompletion<TSchema extends z.ZodType>(
               'Output a single valid JSON object and nothing else — no commentary, no code fences.',
           },
         ],
-      },
+      }, `${call}:repair`),
       `${call}:repair`,
       requestOptions
     );
@@ -250,7 +266,7 @@ export async function resilientStream(
   timeoutMs: number = TIMEOUTS.default
 ): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
   return withSingleRetry(
-    () => trackedStream(openai, params, call, { timeout: timeoutMs, maxRetries: 0 }),
+    () => trackedStream(openai, withOutputLimit(params, call), call, { timeout: timeoutMs, maxRetries: 0 }),
     call
   );
 }

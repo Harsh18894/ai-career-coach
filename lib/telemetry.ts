@@ -386,6 +386,34 @@ async function finish(
     ...(context.reviewPath ? { reviewPath: context.reviewPath } : {}),
   });
 
+  // A response that stopped on the length limit is a defect, not a statistic. Emitted as its
+  // own error-level line, separate from the llm_call record, because the thing an operator
+  // needs to find is "which cap was wrong and by how much" — and because a truncated structured
+  // response goes on to fail schema validation, which surfaces as INVALID_OUTPUT and looks like
+  // a model problem rather than a configuration one.
+  //
+  // The remedy is always to raise the cap in lib/ai/output-limits.ts after checking why the
+  // call grew, never to loosen the schema or swallow the parse failure.
+  if (extra.finishReason === 'length') {
+    console.error(
+      JSON.stringify({
+        event: 'llm_truncated',
+        timestamp: new Date().toISOString(),
+        sessionId: context.sessionId,
+        route: context.route,
+        call,
+        model,
+        maxOutputTokens: extra.maxOutputTokens ?? null,
+        completionTokens,
+        reasoningTokens,
+        outputTokens: Math.max(0, completionTokens - reasoningTokens),
+        errorCode: 'INVALID_OUTPUT',
+        detail:
+          'Response stopped on the length limit. The cap for this call site is too low — raise it in lib/ai/output-limits.ts.',
+      })
+    );
+  }
+
   context.accumulatedCostUsd = (context.accumulatedCostUsd ?? 0) + estimatedCostUsd;
 
   await recordSpend(context.sessionId, estimatedCostUsd, promptTokens + completionTokens);

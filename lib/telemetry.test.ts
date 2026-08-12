@@ -106,6 +106,53 @@ describe('trackedCompletion', () => {
     expect(records[0]).not.toHaveProperty('maxOutputTokens');
   });
 
+  it('emits a separate loud llm_truncated record when a response hits the length limit', async () => {
+    const records = captureLogs();
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((line: unknown) => {
+      errors.push(String(line));
+    });
+
+    await withTelemetryContext(CONTEXT, () =>
+      trackedCompletion(
+        fakeClient(async () => ({ usage: USAGE, choices: [{ finish_reason: 'length' }] })),
+        { model: 'gpt-5-mini', messages: [], max_completion_tokens: 900 } as never,
+        'generateRoadmap'
+      )
+    );
+
+    // Its own error-level line, not just a field on the llm_call record: a truncated structured
+    // response goes on to fail schema validation and surfaces as INVALID_OUTPUT, which looks
+    // like a model problem rather than a cap that is set too low.
+    const truncation = errors.map((e) => JSON.parse(e)).find((r) => r.event === 'llm_truncated');
+    expect(truncation).toMatchObject({
+      call: 'generateRoadmap',
+      maxOutputTokens: 900,
+      completionTokens: 900,
+      errorCode: 'INVALID_OUTPUT',
+    });
+    expect(String(truncation.detail)).toContain('output-limits');
+
+    // And the normal record is still emitted, so the call is not double-counted or lost.
+    expect(records.find((r) => r.event === 'llm_call')).toBeDefined();
+  });
+
+  it('does not emit llm_truncated on a normal stop', async () => {
+    captureLogs();
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((line: unknown) => errors.push(String(line)));
+
+    await withTelemetryContext(CONTEXT, () =>
+      trackedCompletion(
+        fakeClient(async () => ({ usage: USAGE, choices: [{ finish_reason: 'stop' }] })),
+        { model: 'gpt-5-mini', messages: [] } as never,
+        'generateRoadmap'
+      )
+    );
+
+    expect(errors.filter((e) => e.includes('llm_truncated'))).toHaveLength(0);
+  });
+
   it('surfaces a length finish_reason, which is what B4 has to detect', async () => {
     const records = captureLogs();
 
