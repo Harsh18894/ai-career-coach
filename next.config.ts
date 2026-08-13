@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from 'botid/next/config';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -29,6 +30,11 @@ const csp = [
 
   // 'unsafe-inline': see above. challenges.cloudflare.com is Turnstile (lib/turnstile.ts).
   // 'unsafe-eval' in development only — React Fast Refresh needs it, production does not.
+  //
+  // Vercel BotId needs NO entry here. `withBotId` (bottom of this file) rewrites its challenge
+  // script and its telemetry to same-origin paths under /149e9513-…/, so 'self' already covers
+  // both the <script> and the fetches. Adding api.vercel.com would be adding an exfiltration
+  // destination for no reason — the browser never talks to it directly.
   `script-src 'self' 'unsafe-inline' ${isProduction ? '' : "'unsafe-eval' "}https://challenges.cloudflare.com`,
 
   // Tailwind ships as a stylesheet, but Next injects inline <style> for critical CSS and
@@ -151,4 +157,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/*
+ * withBotId does three things, and it is worth knowing which:
+ *   1. rewrites /149e9513-…/a-4-a/c.js  -> Vercel's challenge script
+ *   2. rewrites /149e9513-…/:path*      -> Vercel's proxy
+ *   3. appends a headers rule for those paths setting X-Frame-Options: SAMEORIGIN and
+ *      Content-Security-Policy: frame-ancestors 'self'
+ *
+ * (3) matters here. This app's own rule uses `source: '/:path*'`, which also matches the BotId
+ * paths — and because withBotId appends AFTER it, its narrower rule wins on those paths and
+ * relaxes frame-ancestors from 'none' to 'self' for the challenge iframe. That is exactly what
+ * BotId needs and it does not touch any app route, but it is the one place the security headers
+ * above are not the last word, so it is written down rather than discovered.
+ */
+export default withBotId(nextConfig);

@@ -22,6 +22,7 @@
   "dependencies": {
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
+    "botid": "^1.5.11",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "openai": "^6.44.0",
@@ -46,5 +47,5 @@
     "typescript": "^5",
     "vitest": "^4.1.9"
   },
-  "description": "Hachi \u2014 your career pal. Three traceable career paths and a week-by-week roadmap, from your resume or a short chat."
+  "description": "Hachi — your career pal. Three traceable career paths and a week-by-week roadmap, from your resume or a short chat."
 }

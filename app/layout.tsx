@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { BotIdClient } from 'botid/client';
 import './globals.css';
 import { SiteHeader } from '@/components/shell/SiteHeader';
 import { SiteFooter } from '@/components/shell/SiteFooter';
 import { BRAND } from '@/lib/brand';
+import { BOTID_PROTECTED_ROUTES } from '@/lib/protected-routes';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -41,6 +43,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        {/*
+          Arms Vercel BotId for the routes in lib/protected-routes.ts. Renders nothing and shows
+          nothing — there is no challenge for a visitor to notice, which is what makes it
+          affordable on every expensive route rather than only on session creation.
+
+          In <head> and in the ROOT layout on purpose: the signal has to be collecting before the
+          first protected request, and a visitor can reach one from any page (the header's "Try
+          Hachi" chooser opens everywhere).
+        */}
+        <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
+      </head>
       <body className="min-h-dvh bg-paper text-ink antialiased">
         <a
           href="#main-content"

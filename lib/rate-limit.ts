@@ -5,7 +5,7 @@ import { type ApiErrorBody, type ErrorCode, ERROR_MESSAGES, httpStatusFor } from
 import { BRAND } from './brand';
 import { LIMITS } from './limits';
 import { sessionIdFromRequest, UNATTRIBUTED_SESSION_ID } from './session-id';
-import { TURNSTILE_HEADER, verifyHumanToken } from './bot-protection';
+import { TURNSTILE_HEADER, verifyHumanToken, checkBotSignal } from './bot-protection';
 
 /* =====================================================================================
  * Abuse + spend protection for a public, unauthenticated demo.
@@ -223,6 +223,15 @@ export type GuardOptions = {
   llm?: boolean;
   /** Charge this request against the per-IP outbound-fetch quota. */
   jobFetch?: boolean;
+  /**
+   * Run the Vercel BotId check.
+   *
+   * Defaults to "does this request cost anything" — `llm || jobFetch || sessionStart` — which is
+   * the honest definition of the surface worth protecting, and means a new expensive route is
+   * covered by default rather than by remembering. Set `false` only for a route that reaches no
+   * model and makes no outbound call.
+   */
+  botCheck?: boolean;
 };
 
 /**
@@ -240,13 +249,28 @@ export async function enforceLimits(
   request: NextRequest,
   options: GuardOptions = {}
 ): Promise<NextResponse<ApiErrorBody> | null> {
-  const { sessionStart = false, llm = true, jobFetch = false, requireHumanToken = sessionStart } = options;
+  const {
+    sessionStart = false,
+    llm = true,
+    jobFetch = false,
+    requireHumanToken = sessionStart,
+    botCheck = llm || jobFetch || sessionStart,
+  } = options;
 
   const ip = getClientIp(request);
 
-  // Before the Redis checks, and deliberately outside the `if (!redis)` early return below:
-  // bot protection and rate limiting are configured independently, and an instance with a
-  // Turnstile key but no Upstash key should still turn scripts away.
+  // Both bot checks run before the Redis section, and deliberately outside the `if (!redis)`
+  // early return below: bot protection and rate limiting are configured independently, and an
+  // instance with bot protection but no Upstash key should still turn scripts away.
+  //
+  // BotId first: it is the cheaper of the two for a caller that is going to be refused anyway
+  // (no token round-trip), and it is the one that runs on every costly request rather than only
+  // on session creation.
+  if (botCheck) {
+    const denied = await enforceBotSignal(request);
+    if (denied) return denied;
+  }
+
   if (requireHumanToken) {
     const denied = await enforceHumanToken(request, ip);
     if (denied) return denied;
@@ -303,6 +327,39 @@ export async function enforceLimits(
     console.error('[rate-limit] check failed, allowing request:', error);
     return null;
   }
+}
+
+/**
+ * Vercel BotId gate for every request that costs money.
+ *
+ * Returns a response when the caller should be turned away, or null to continue. The fail-open
+ * / fail-closed split lives in lib/bot-protection.ts — this only translates the verdict into
+ * the app's error envelope, and records it where the funnel can see it.
+ */
+async function enforceBotSignal(
+  request: NextRequest
+): Promise<NextResponse<ApiErrorBody> | null> {
+  const result = await checkBotSignal();
+  if (result.ok) return null;
+
+  console.warn(
+    JSON.stringify({
+      event: 'bot_check_failed',
+      timestamp: new Date().toISOString(),
+      provider: 'botid',
+      reason: result.reason,
+      // The path is worth having: BotId's client-side protection is per-route, so a refusal
+      // concentrated on one endpoint usually means that route is missing from the protect list
+      // rather than that the traffic is hostile.
+      path: new URL(request.url).pathname,
+      ...(result.verifiedBotName ? { verifiedBotName: result.verifiedBotName } : {}),
+    })
+  );
+
+  return NextResponse.json<ApiErrorBody>(
+    { error: { code: 'BOT_CHECK_FAILED', message: ERROR_MESSAGES.BOT_CHECK_FAILED } },
+    { status: httpStatusFor('BOT_CHECK_FAILED') }
+  );
 }
 
 /**

@@ -142,9 +142,12 @@ function PathCard({ path, isOpen, onToggle }: { path: SamplePath; isOpen: boolea
 }
 
 export function PathExplorer() {
-  // The middle path opens by default: a visitor who never clicks anything still sees the
-  // evidence mechanic, which is the whole point of the section.
-  const [openId, setOpenId] = useState<string | null>(SAMPLE_PATHS[1].id);
+  // All three start closed. The middle one used to open on load so the evidence mechanic showed
+  // itself without a click; the cost was a section that arrived already sprawling, pushing the
+  // rest of the page down and deciding for the reader which path was worth their attention.
+  // Closed, the three cards read as three comparable options — which is the actual shape of the
+  // product — and "Why this fits" is there for anyone who wants the reasoning.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:items-start sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0">

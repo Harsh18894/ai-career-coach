@@ -44,6 +44,59 @@ const TIER_LABEL: Record<TrajectoryTier, string> = {
 /** Vertical positions for up to three destinations, as a fraction of the viewBox height. */
 const ROWS = [0.16, 0.5, 0.84];
 
+/* -------------------------------------------------------------------------------------
+ * Geometry
+ *
+ * Two presets, because one does not fit both. The destination labels are SVG <text>, which
+ * does not wrap and does not shrink — so the space they need has to exist in the viewBox.
+ *
+ * The wide preset deliberately lets its labels sit PAST the 520-unit viewBox and relies on
+ * `overflow-visible` to paint them; there is room in the hero's grid column for that. At 375px
+ * there is no room, and the page edge cut "Revenue Operations Manager" to "Revenue Opera…".
+ *
+ * So the compact preset shortens the diagram itself — a shorter trunk and nearer destinations —
+ * to buy the label the width it needs INSIDE the viewBox, where nothing can clip it. Same
+ * drawing, same interaction; only the proportions change.
+ * ----------------------------------------------------------------------------------- */
+export type Geometry = {
+  width: number;
+  height: number;
+  originX: number;
+  branchX: number;
+  destX: number;
+  /** Distance from the destination node to the start of its label. */
+  labelGap: number;
+  fontSize: number;
+  /** Right-hand breathing room the label must not cross. Asserted in Trajectory.test.ts. */
+  padRight: number;
+  /** Dash length for the draw-on animation. Must exceed the longest branch path. */
+  dashLength: number;
+};
+
+export const WIDE: Geometry = {
+  width: 520,
+  height: 340,
+  originX: 54,
+  branchX: 210,
+  destX: 430,
+  labelGap: 20,
+  fontSize: 13,
+  padRight: 0,
+  dashLength: 620,
+};
+
+export const COMPACT: Geometry = {
+  width: 420,
+  height: 320,
+  originX: 30,
+  branchX: 70,
+  destX: 110,
+  labelGap: 16,
+  fontSize: 15,
+  padRight: 8,
+  dashLength: 220,
+};
+
 /**
  * The hero trajectory. Interactive: hovering or focusing a destination raises a small card.
  *
@@ -51,34 +104,48 @@ const ROWS = [0.16, 0.5, 0.84];
  * without a pointer. An SVG that only responds to hover would put the most explanatory element
  * on the page out of reach of anyone tabbing through it.
  */
-export function TrajectoryHero({ destinations }: { destinations: Destination[] }) {
-  const [active, setActive] = useState<string | null>(null);
-  const uid = useId().replace(/:/g, '');
-
-  const width = 520;
-  const height = 340;
-  const originX = 54;
+function TrajectoryDiagram({
+  items,
+  geometry,
+  active,
+  setActive,
+  cardId,
+  className,
+}: {
+  items: Destination[];
+  geometry: Geometry;
+  active: string | null;
+  setActive: React.Dispatch<React.SetStateAction<string | null>>;
+  cardId: string;
+  className: string;
+}) {
+  const { width, height, originX, branchX, destX, labelGap, fontSize } = geometry;
   const originY = height / 2;
-  const branchX = 210;
-  const destX = 430;
-
-  const items = destinations.slice(0, 3);
-  const activeItem = items.find((d) => d.id === active) ?? null;
 
   return (
-    <div className="relative w-full">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto overflow-visible"
-        role="img"
-        aria-label={`A career trajectory branching from where you are today into ${items.length} directions: ${items.map((d) => d.label).join(', ')}.`}
-      >
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className={`w-full h-auto overflow-visible ${className}`}
+      role="img"
+      // Deliberately NOT aria-hidden on the inactive preset: which one that is depends on the
+      // viewport, and this attribute cannot. `display:none` from the Tailwind class already
+      // removes the hidden one from the accessibility tree, and unlike aria-hidden it is
+      // evaluated per viewport — so exactly one diagram and one set of node buttons is ever
+      // announced, whichever that happens to be.
+      aria-label={`A career trajectory branching from where you are today into ${items.length} directions: ${items.map((d) => d.label).join(', ')}.`}
+    >
         {items.map((dest, i) => {
           const y = height * ROWS[i];
           // Trunk out, then a curve into each destination row. One shared trunk keeps the
           // "single origin" reading — three separate lines from the dot would look like three
           // unrelated options rather than three branches of one career.
-          const d = `M ${originX} ${originY} H ${branchX} C ${branchX + 70} ${originY}, ${destX - 90} ${y}, ${destX} ${y}`;
+          //
+          // The control points are fractions of the branch span rather than fixed offsets. As
+          // constants they were tuned to the wide preset, and at compact scale `destX - 90`
+          // lands LEFT of branchX — the curve would double back on itself. These fractions
+          // reproduce the original 70 and 90 exactly when the span is the wide preset's 220.
+          const span = destX - branchX;
+          const d = `M ${originX} ${originY} H ${branchX} C ${branchX + span * (70 / 220)} ${originY}, ${destX - span * (90 / 220)} ${y}, ${destX} ${y}`;
           const isActive = active === dest.id;
           return (
             <path
@@ -90,8 +157,8 @@ export function TrajectoryHero({ destinations }: { destinations: Destination[] }
               strokeLinecap="round"
               className="trajectory-line transition-[stroke,stroke-width] duration-200"
               style={{
-                strokeDasharray: 620,
-                strokeDashoffset: 620,
+                strokeDasharray: geometry.dashLength,
+                strokeDashoffset: geometry.dashLength,
                 animationDelay: `${0.15 + i * 0.13}s`,
               }}
             />
@@ -122,7 +189,7 @@ export function TrajectoryHero({ destinations }: { destinations: Destination[] }
               <foreignObject x={destX - 14} y={y - 14} width="28" height="28" overflow="visible">
                 <button
                   type="button"
-                  aria-describedby={isActive ? `${uid}-card` : undefined}
+                  aria-describedby={isActive ? cardId : undefined}
                   onMouseEnter={() => setActive(dest.id)}
                   onMouseLeave={() => setActive((cur) => (cur === dest.id ? null : cur))}
                   onFocus={() => setActive(dest.id)}
@@ -140,9 +207,10 @@ export function TrajectoryHero({ destinations }: { destinations: Destination[] }
               </foreignObject>
 
               <text
-                x={destX + 20}
+                x={destX + labelGap}
                 y={y + 4}
-                className={`text-[13px] font-semibold transition-colors duration-200 ${
+                fontSize={fontSize}
+                className={`font-semibold transition-colors duration-200 ${
                   isActive ? 'fill-ink' : 'fill-ink-muted'
                 }`}
               >
@@ -151,7 +219,48 @@ export function TrajectoryHero({ destinations }: { destinations: Destination[] }
             </g>
           );
         })}
-      </svg>
+    </svg>
+  );
+}
+
+/**
+ * The hero trajectory. Interactive: hovering or focusing a destination raises a small card.
+ *
+ * Keyboard reachable — each node is a real <button>, so the same information is available
+ * without a pointer. An SVG that only responds to hover would put the most explanatory element
+ * on the page out of reach of anyone tabbing through it.
+ *
+ * Both geometry presets are rendered and swapped with CSS rather than measured in JavaScript:
+ * a media query resolves before first paint, so there is no flash of the wrong one and no
+ * hydration mismatch. They share one `active` state, so the detail card below is written once
+ * and behaves identically on either.
+ */
+export function TrajectoryHero({ destinations }: { destinations: Destination[] }) {
+  const [active, setActive] = useState<string | null>(null);
+  const uid = useId().replace(/:/g, '');
+  const cardId = `${uid}-card`;
+
+  const items = destinations.slice(0, 3);
+  const activeItem = items.find((d) => d.id === active) ?? null;
+
+  return (
+    <div className="relative w-full">
+      <TrajectoryDiagram
+        items={items}
+        geometry={COMPACT}
+        active={active}
+        setActive={setActive}
+        cardId={cardId}
+        className="sm:hidden"
+      />
+      <TrajectoryDiagram
+        items={items}
+        geometry={WIDE}
+        active={active}
+        setActive={setActive}
+        cardId={cardId}
+        className="hidden sm:block"
+      />
 
       {/*
         The detail card is HTML, not SVG text: it wraps, it scales with the reader's font size,

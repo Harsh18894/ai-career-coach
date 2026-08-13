@@ -202,14 +202,23 @@ export default function PrivacyPage() {
             Three, and no others: <strong className="font-semibold text-ink">OpenAI</strong>{' '}
             for the models, <strong className="font-semibold text-ink">Vercel</strong> for
             hosting, and <strong className="font-semibold text-ink">Upstash</strong> for the
-            short-lived storage above. If bot protection is switched on,{' '}
-            <strong className="font-semibold text-ink">Cloudflare Turnstile</strong> also
-            runs an invisible check when you start a session — it sees that a request happened,
-            not what is in it.
+            short-lived storage above.
+          </p>
+          <p>
+            Two invisible bot checks run on top of those, and neither asks you to do anything.{' '}
+            <strong className="font-semibold text-ink">Vercel BotId</strong> checks any request
+            that would cost money to answer — uploading a resume, each reply in the conversation,
+            running a review. It is part of the hosting, so nothing new is contacted: your browser
+            talks only to this site, and the check happens between this site and Vercel. If it is
+            also switched on,{' '}
+            <strong className="font-semibold text-ink">Cloudflare Turnstile</strong> runs a second
+            check when you start a session. Both look at how the request was made — headers,
+            timing, whether there is a real browser here — never at what is in it. Neither one
+            sees your resume.
           </p>
           <p>
             No third-party analytics, no tag managers, no advertising pixels, no social embeds.
-            Nothing on this site talks to anyone except the three services above.
+            Nothing on this site talks to anyone except the services above.
           </p>
           <p>
             There is one first-party counter: which step of the flow you reached — landed,

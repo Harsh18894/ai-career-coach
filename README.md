@@ -119,10 +119,20 @@ controls the size of has a number written next to it.
 - **Rate limiting and a daily USD budget** (`lib/rate-limit.ts`, backed by Upstash Redis):
   5 new sessions/hour/IP, 60 model calls/hour/IP, and a global per-UTC-day spend ceiling. Past it,
   LLM-backed routes return a friendly "demo limit reached for today" rather than an error.
-- **Invisible bot check** (Cloudflare Turnstile, `lib/bot-protection.ts`) on session-creation
-  entry points only. Chat turns are deliberately not gated — a challenge between a person and
-  their next sentence costs more than the abuse it prevents. Fails *closed* on a rejected token,
-  *open* if Cloudflare is unreachable, degrading to the rate limiter and the budget.
+- **Two invisible bot checks**, both in `lib/bot-protection.ts`, both wired through the single
+  `enforceLimits` guard so no route can opt out by forgetting a flag:
+  - **Vercel BotId** on *every request that costs money* — resume parsing, the opener, each chat
+    turn, both review paths, and the job-URL fetch (`lib/protected-routes.ts` is the list, and a
+    test derives the same list from the route files so the two cannot drift). It needs no token
+    and no interaction, which is what makes it affordable on the whole cost surface rather than
+    just the entrances. Needs Vercel + OIDC Federation enabled; anywhere else it fails open.
+  - **Cloudflare Turnstile** on session creation only, kept because it is the layer that still
+    works off-Vercel. A Turnstile token is single-use and slow to mint, so gating every chat turn
+    with it would sit between a person and their next sentence.
+
+  Both fail *closed* on a bot classification and *open* when the provider is unreachable,
+  degrading to the rate limiter and the daily budget — an outage on someone else's service must
+  not take this app down.
 - Per-session ceilings key off a client-supplied session id and are therefore trivially rotated.
   They stop a runaway client, a retry loop, or a tab left open overnight — **not** a determined
   evader. The per-IP limiters and the daily budget are what bound that case, and the code says so
@@ -179,6 +189,7 @@ components/
 lib/
   intake.ts                one parse-resume → generate-opener pipeline, all surfaces
   pending-intake.ts        carries a picked File across one client navigation
+  protected-routes.ts      the cost surface BotId guards; shared by client and test
   ai/                      coach.ts, schemas, output-limits, resilience
   resume-review/           the second surface's pipeline, schemas, persona, registry
   limits.ts rate-limit.ts bot-protection.ts turnstile.ts   the ceilings
